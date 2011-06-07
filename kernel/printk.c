@@ -756,6 +756,7 @@ static void zap_locks(void)
 
 	oops_timestamp = jiffies;
 
+	debug_locks_off();
 	/* If a crash is occurring, make sure we can't deadlock */
 	raw_spin_lock_init(&logbuf_lock);
 	/* And make sure that we print immediately */
@@ -924,7 +925,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 		 * recursion and return - but flag the recursion so that
 		 * it can be printed at the next appropriate moment:
 		 */
-		if (!oops_in_progress) {
+		if (!oops_in_progress && !lockdep_recursing(current)) {
 			recursion_bug = 1;
 			goto out_restore_irqs;
 		}
