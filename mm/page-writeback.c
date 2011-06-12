@@ -54,20 +54,6 @@
  */
 static long ratelimit_pages = 32;
 
-/*
- * When balance_dirty_pages decides that the caller needs to perform some
- * non-background writeback, this is how many pages it will attempt to write.
- * It should be somewhat larger than dirtied pages to ensure that reasonably
- * large amounts of I/O are submitted.
- */
-static inline long sync_writeback_pages(unsigned long dirtied)
-{
-	if (dirtied < ratelimit_pages)
-		dirtied = ratelimit_pages;
-
-	return dirtied + dirtied / 2;
-}
-
 /* The following parameters are exported via /proc/sys/vm */
 
 /*
@@ -353,6 +339,8 @@ static void update_completion_period(void)
 	int shift = calc_period_shift();
 	prop_change_shift(&vm_completions, shift);
 	prop_change_shift(&vm_dirties, shift);
+
+	writeback_set_ratelimit();
 }
 
 int dirty_background_ratio_handler(struct ctl_table *table, int write,
@@ -1107,6 +1095,23 @@ static void bdi_update_bandwidth(struct backing_dev_info *bdi,
 }
 
 /*
+ * After a task dirtied this many pages, balance_dirty_pages_ratelimited_nr()
+ * will look to see if it needs to start dirty throttling.
+ *
+ * If dirty_poll_interval is too low, big NUMA machines will call the expensive
+ * global_page_state() too often. So scale it near-sqrt to the safety margin
+ * (the number of pages we may dirty without exceeding the dirty limits).
+ */
+static unsigned long dirty_poll_interval(unsigned long dirty,
+					 unsigned long thresh)
+{
+	if (thresh > dirty)
+		return 1UL << (ilog2(thresh - dirty) >> 1);
+
+	return 1;
+}
+
+/*
  * balance_dirty_pages() must be called by processes which are generating dirty
  * data.  It looks at the number of dirty pages in the machine and will force
  * the caller to perform writeback if the system is over `vm_dirty_ratio'.
@@ -1240,6 +1245,9 @@ static void balance_dirty_pages(struct address_space *mapping,
 	if (clear_dirty_exceeded && bdi->dirty_exceeded)
 		bdi->dirty_exceeded = 0;
 
+	current->nr_dirtied = 0;
+	current->nr_dirtied_pause = dirty_poll_interval(nr_dirty, dirty_thresh);
+
 	if (writeback_in_progress(bdi))
 		return;
 
@@ -1267,22 +1275,6 @@ void set_page_dirty_balance(struct page *page, int page_mkwrite)
 }
 
 static DEFINE_PER_CPU(int, bdp_ratelimits);
-
-/*
- * Normal tasks are throttled by
- *	loop {
- *		dirty tsk->nr_dirtied_pause pages;
- *		take a snap in balance_dirty_pages();
- *	}
- * However there is a worst case. If every task exit immediately when dirtied
- * (tsk->nr_dirtied_pause - 1) pages, balance_dirty_pages() will never be
- * called to throttle the page dirties. The solution is to save the not yet
- * throttled page dirties in dirty_throttle_leaks on task exit and charge them
- * randomly into the running tasks. This works well for the above worst case,
- * as the new task will pick up and accumulate the old task's leaked dirty
- * count and eventually get throttled.
- */
-DEFINE_PER_CPU(int, dirty_throttle_leaks) = 0;
 
 /**
  * balance_dirty_pages_ratelimited_nr - balance dirty memory state
@@ -1330,17 +1322,6 @@ void balance_dirty_pages_ratelimited_nr(struct address_space *mapping,
 			*p = 0;
 			ratelimit = 0;
 		}
-	}
-	/*
-	 * Pick up the dirtied pages by the exited tasks. This avoids lots of
-	 * short-lived tasks (eg. gcc invocations in a kernel build) escaping
-	 * the dirty throttling and livelock other long-run dirtiers.
-	 */
-	p = &__get_cpu_var(dirty_throttle_leaks);
-	if (*p > 0 && current->nr_dirtied < ratelimit) {
-		nr_pages_dirtied = min(*p, ratelimit - current->nr_dirtied);
-		*p -= nr_pages_dirtied;
-		current->nr_dirtied += nr_pages_dirtied;
 	}
 	preempt_enable();
 
@@ -1441,22 +1422,17 @@ void laptop_sync_completion(void)
  *
  * Here we set ratelimit_pages to a level which ensures that when all CPUs are
  * dirtying in parallel, we cannot go more than 3% (1/32) over the dirty memory
- * thresholds before writeback cuts in.
- *
- * But the limit should not be set too high.  Because it also controls the
- * amount of memory which the balance_dirty_pages() caller has to write back.
- * If this is too large then the caller will block on the IO queue all the
- * time.  So limit it to four megabytes - the balance_dirty_pages() caller
- * will write six megabyte chunks, max.
+ * thresholds.
  */
 
 void writeback_set_ratelimit(void)
 {
-	ratelimit_pages = vm_total_pages / (num_online_cpus() * 32);
+	unsigned long background_thresh;
+	unsigned long dirty_thresh;
+	global_dirty_limits(&background_thresh, &dirty_thresh);
+	ratelimit_pages = dirty_thresh / (num_online_cpus() * 32);
 	if (ratelimit_pages < 16)
 		ratelimit_pages = 16;
-	if (ratelimit_pages * PAGE_CACHE_SIZE > 4096 * 1024)
-		ratelimit_pages = (4096 * 1024) / PAGE_CACHE_SIZE;
 }
 
 static int __cpuinit
