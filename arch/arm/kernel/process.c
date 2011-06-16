@@ -243,6 +243,7 @@ void cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
+		idle_notifier_call_chain(IDLE_START);
 		tick_nohz_idle_enter();
 		rcu_idle_enter();
 		while (!need_resched()) {
@@ -274,6 +275,7 @@ void cpu_idle(void)
 		}
 		rcu_idle_exit();
 		tick_nohz_idle_exit();
+		idle_notifier_call_chain(IDLE_END);
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
