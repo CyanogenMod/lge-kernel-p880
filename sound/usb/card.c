@@ -49,6 +49,7 @@
 #ifdef CONFIG_SWITCH
 #include <linux/switch.h>
 #endif
+#include <linux/module.h>
 
 #include <sound/control.h>
 #include <sound/core.h>
