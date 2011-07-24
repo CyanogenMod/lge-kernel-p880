@@ -7376,8 +7376,6 @@ static int __init isolated_cpu_setup(char *str)
 
 __setup("isolcpus=", isolated_cpu_setup);
 
-#define SD_NODES_PER_DOMAIN 16
-
 #ifdef CONFIG_NUMA
 
 /**
