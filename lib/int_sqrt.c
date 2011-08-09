@@ -6,7 +6,7 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/module.h>
+#include <linux/export.h>
 
 /**
  * int_sqrt - rough approximation to sqrt
