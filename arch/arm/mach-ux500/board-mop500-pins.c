@@ -6,10 +6,11 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/gpio.h>
+#include <linux/bug.h>
 
 #include <asm/mach-types.h>
 #include <plat/pincfg.h>
+#include <plat/gpio-nomadik.h>
 #include <mach/hardware.h>
 
 #include "pins-db8500.h"
