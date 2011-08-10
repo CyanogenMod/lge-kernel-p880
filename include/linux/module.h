@@ -519,9 +519,6 @@ int unregister_module_notifier(struct notifier_block * nb);
 
 extern void print_modules(void);
 
-extern void module_update_tracepoints(void);
-extern int module_get_iter_tracepoints(struct tracepoint_iter *iter);
-
 #else /* !CONFIG_MODULES... */
 
 /* Given an address, look for it in the exception tables. */
@@ -631,15 +628,6 @@ static inline int unregister_module_notifier(struct notifier_block * nb)
 
 static inline void print_modules(void)
 {
-}
-
-static inline void module_update_tracepoints(void)
-{
-}
-
-static inline int module_get_iter_tracepoints(struct tracepoint_iter *iter)
-{
-	return 0;
 }
 #endif /* CONFIG_MODULES */
 
