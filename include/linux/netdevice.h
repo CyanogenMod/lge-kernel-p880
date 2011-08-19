@@ -1515,6 +1515,8 @@ struct packet_type {
 	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
 					       struct sk_buff *skb);
 	int			(*gro_complete)(struct sk_buff *skb);
+	bool			(*id_match)(struct packet_type *ptype,
+					    struct sock *sk);
 	void			*af_packet_priv;
 	struct list_head	list;
 };
@@ -2586,9 +2588,6 @@ static inline int netif_is_bond_slave(struct net_device *dev)
 }
 
 extern struct pernet_operations __net_initdata loopback_net_ops;
-
-int dev_ethtool_get_settings(struct net_device *dev,
-			     struct ethtool_cmd *cmd);
 
 static inline u32 dev_ethtool_get_rx_csum(struct net_device *dev)
 {
