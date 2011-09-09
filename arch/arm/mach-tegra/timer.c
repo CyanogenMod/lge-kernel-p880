@@ -57,9 +57,9 @@ static bool usec_suspended;
 static u32 system_timer;
 
 #define timer_writel(value, reg) \
-	__raw_writel(value, (u32)timer_reg_base + (reg))
+	__raw_writel(value, timer_reg_base + (reg))
 #define timer_readl(reg) \
-	__raw_readl((u32)timer_reg_base + (reg))
+	__raw_readl(timer_reg_base + (reg))
 
 static int tegra_timer_set_next_event(unsigned long cycles,
 					 struct clock_event_device *evt)
