@@ -435,7 +435,6 @@ void tick_nohz_stop_sched_tick(int inidle)
 			ts->idle_tick = hrtimer_get_expires(&ts->sched_timer);
 			ts->tick_stopped = 1;
 			ts->idle_jiffies = last_jiffies;
-			rcu_enter_nohz();
 		}
 
 		ts->idle_sleeps++;
@@ -474,6 +473,8 @@ out:
 	ts->last_jiffies = last_jiffies;
 	ts->sleep_length = ktime_sub(dev->next_event, now);
 end:
+	if (inidle)
+		rcu_idle_enter();
 	local_irq_restore(flags);
 }
 
@@ -530,6 +531,7 @@ void tick_nohz_restart_sched_tick(void)
 	ktime_t now;
 
 	local_irq_disable();
+	rcu_idle_exit();
 	if (ts->idle_active || (ts->inidle && ts->tick_stopped))
 		now = ktime_get();
 
@@ -543,8 +545,6 @@ void tick_nohz_restart_sched_tick(void)
 	}
 
 	ts->inidle = 0;
-
-	rcu_exit_nohz();
 
 	/* Update jiffies first */
 	select_nohz_load_balancer(0);
