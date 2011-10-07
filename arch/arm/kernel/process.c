@@ -34,6 +34,7 @@
 #include <linux/console.h>
 
 #include <asm/cacheflush.h>
+#include <asm/leds.h>
 #include <asm/processor.h>
 #include <asm/system.h>
 #include <asm/thread_notify.h>
@@ -219,8 +220,8 @@ void cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
-		idle_notifier_call_chain(IDLE_START);
-		tick_nohz_stop_sched_tick(1);
+		tick_nohz_idle_enter();
+		leds_event(led_idle_start);
 		while (!need_resched()) {
 #ifdef CONFIG_HOTPLUG_CPU
 			if (cpu_is_offline(smp_processor_id()))
@@ -248,8 +249,8 @@ void cpu_idle(void)
 				local_irq_enable();
 			}
 		}
-		tick_nohz_restart_sched_tick();
-		idle_notifier_call_chain(IDLE_END);
+		leds_event(led_idle_end);
+		tick_nohz_idle_exit();
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
