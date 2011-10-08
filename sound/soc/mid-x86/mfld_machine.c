@@ -236,7 +236,6 @@ static int mfld_init(struct snd_soc_pcm_runtime *runtime)
 	/* always connected */
 	snd_soc_dapm_enable_pin(dapm, "Headphones");
 	snd_soc_dapm_enable_pin(dapm, "Mic");
-	snd_soc_dapm_sync(dapm);
 
 	ret_val = snd_soc_add_codec_controls(codec, mfld_snd_controls,
 				ARRAY_SIZE(mfld_snd_controls));
@@ -254,7 +253,6 @@ static int mfld_init(struct snd_soc_pcm_runtime *runtime)
 	/* we dont use linein in this so set to NC */
 	snd_soc_dapm_disable_pin(dapm, "LINEINL");
 	snd_soc_dapm_disable_pin(dapm, "LINEINR");
-	snd_soc_dapm_sync(dapm);
 
 	/* Headset and button jack detection */
 	ret_val = snd_soc_jack_new(codec, "Intel(R) MID Audio Jack",
