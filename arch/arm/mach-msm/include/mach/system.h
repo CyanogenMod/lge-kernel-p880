@@ -17,11 +17,14 @@
 
 void arch_idle(void);
 
+<<<<<<< HEAD
 static inline void arch_reset(char mode, const char *cmd)
 {
 	for (;;) ;  /* depends on IPC w/ other core */
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 /* low level hardware reset hook -- for example, hitting the
  * PSHOLD line on the PMIC to hard reset the system
  */

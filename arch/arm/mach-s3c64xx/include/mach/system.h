@@ -18,6 +18,7 @@ static void arch_idle(void)
 	/* nothing here yet */
 }
 
+<<<<<<< HEAD
 static void arch_reset(char mode, const char *cmd)
 {
 	if (mode != 's')
@@ -27,4 +28,6 @@ static void arch_reset(char mode, const char *cmd)
 	soft_restart(0);
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif /* __ASM_ARCH_IRQ_H */

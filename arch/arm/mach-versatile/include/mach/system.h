@@ -34,6 +34,7 @@ static inline void arch_idle(void)
 	cpu_do_idle();
 }
 
+<<<<<<< HEAD
 static inline void arch_reset(char mode, const char *cmd)
 {
 	u32 val;
@@ -46,4 +47,6 @@ static inline void arch_reset(char mode, const char *cmd)
 	__raw_writel(0, IO_ADDRESS(VERSATILE_SYS_LOCK));
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif

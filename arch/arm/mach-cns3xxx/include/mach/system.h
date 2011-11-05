@@ -23,6 +23,9 @@ static inline void arch_idle(void)
 	cpu_do_idle();
 }
 
+<<<<<<< HEAD
 void arch_reset(char mode, const char *cmd);
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif

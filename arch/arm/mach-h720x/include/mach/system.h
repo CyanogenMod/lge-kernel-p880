@@ -24,10 +24,13 @@ static void arch_idle(void)
 	nop();
 }
 
+<<<<<<< HEAD
 
 static __inline__ void arch_reset(char mode, const char *cmd)
 {
 	CPU_REG (PMU_BASE, PMU_STAT) |= PMU_WARMRESET;
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif

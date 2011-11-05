@@ -106,7 +106,6 @@ extern void __show_regs(struct pt_regs *);
 extern int cpu_architecture(void);
 extern void cpu_init(void);
 
-void arm_machine_restart(char mode, const char *cmd);
 void soft_restart(unsigned long);
 extern void (*arm_pm_restart)(char str, const char *cmd);
 extern void (*arm_pm_idle)(void);

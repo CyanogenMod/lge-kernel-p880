@@ -47,6 +47,7 @@ static inline void arch_idle(void)
 #endif
 }
 
+<<<<<<< HEAD
 void (*at91_arch_reset)(void);
 
 static inline void arch_reset(char mode, const char *cmd)
@@ -56,4 +57,6 @@ static inline void arch_reset(char mode, const char *cmd)
 		(at91_arch_reset)();
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif

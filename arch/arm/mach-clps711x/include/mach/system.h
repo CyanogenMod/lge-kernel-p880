@@ -32,9 +32,12 @@ static inline void arch_idle(void)
 	mov	r0, r0");
 }
 
+<<<<<<< HEAD
 static inline void arch_reset(char mode, const char *cmd)
 {
 	soft_restart(0);
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif

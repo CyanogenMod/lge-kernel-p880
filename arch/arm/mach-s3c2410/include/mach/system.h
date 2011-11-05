@@ -54,5 +54,3 @@ static void arch_idle(void)
 	else
 		s3c24xx_default_idle();
 }
-
-#include <mach/system-reset.h>

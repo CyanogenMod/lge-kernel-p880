@@ -24,6 +24,7 @@ static void arch_idle(void)
 	cpu_do_idle();
 }
 
+<<<<<<< HEAD
 static inline void arch_reset(char mode, const char *cmd)
 {
 	extern void lpc32xx_watchdog_reset(void);
@@ -49,4 +50,6 @@ static inline void arch_reset(char mode, const char *cmd)
 		;
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif

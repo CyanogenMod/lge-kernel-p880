@@ -34,6 +34,9 @@ static inline void arch_idle(void)
 	asm volatile ("mcr p15, 0, ip, c15, c1, 2" : : : "cc");
 }
 
+<<<<<<< HEAD
 #define arch_reset(mode, cmd)	soft_restart(0x80000000)
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif

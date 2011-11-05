@@ -1,7 +1,5 @@
 /*
- *  Copyright (C) 1999 ARM Limited
- *  Copyright (C) 2000 Deep Blue Solutions Ltd
- *  Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright (c) 2011 Picochip Ltd., Jamie Iles
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,18 +11,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-#ifndef __MACH_MXS_SYSTEM_H__
-#define __MACH_MXS_SYSTEM_H__
+#ifndef __ASM_ARCH_SYSTEM_H
+#define __ASM_ARCH_SYSTEM_H
 
 static inline void arch_idle(void)
 {
+	/*
+	 * This should do all the clock switching and wait for interrupt
+	 * tricks.
+	 */
 	cpu_do_idle();
 }
 
-<<<<<<< HEAD
-void arch_reset(char mode, const char *cmd);
-
-=======
->>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
-#endif /* __MACH_MXS_SYSTEM_H__ */
+#endif /* __ASM_ARCH_SYSTEM_H */

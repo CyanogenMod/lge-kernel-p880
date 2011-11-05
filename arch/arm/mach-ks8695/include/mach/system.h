@@ -27,6 +27,7 @@ static void arch_idle(void)
 
 }
 
+<<<<<<< HEAD
 static void arch_reset(char mode, const char *cmd)
 {
 	unsigned int reg;
@@ -45,4 +46,6 @@ static void arch_reset(char mode, const char *cmd)
 	__raw_writel(reg | TMCON_T0EN, KS8695_TMR_VA + KS8695_TMCON);
 }
 
+=======
+>>>>>>> f88b897... ARM: restart: remove the now empty arch_reset()
 #endif
