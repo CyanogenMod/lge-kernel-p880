@@ -989,20 +989,16 @@ static void rtl8150_disconnect(struct usb_interface *intf)
 	}
 }
 
-static int __init usb_rtl8150_init(void)
-{
-	printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
-	       DRIVER_DESC "\n");
-	return usb_register(&rtl8150_driver);
-}
+static struct usb_driver rtl8150_driver = {
+	.name		= driver_name,
+	.probe		= rtl8150_probe,
+	.disconnect	= rtl8150_disconnect,
+	.id_table	= rtl8150_table,
+	.suspend	= rtl8150_suspend,
+	.resume		= rtl8150_resume
+};
 
-static void __exit usb_rtl8150_exit(void)
-{
-	usb_deregister(&rtl8150_driver);
-}
-
-module_init(usb_rtl8150_init);
-module_exit(usb_rtl8150_exit);
+module_usb_driver(rtl8150_driver);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
