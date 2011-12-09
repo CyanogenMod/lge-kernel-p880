@@ -3214,7 +3214,7 @@ static void end_bio_multi_stripe(struct bio *bio, int err)
 		 */
 		if (atomic_read(&multi->error) > multi->max_errors) {
 			err = -EIO;
-		} else if (err) {
+		} else {
 			/*
 			 * this bio is actually up to date, we didn't
 			 * go over the max number of errors
