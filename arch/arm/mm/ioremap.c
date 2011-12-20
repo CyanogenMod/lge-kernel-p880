@@ -289,30 +289,49 @@ __arm_ioremap(unsigned long phys_addr, size_t size, unsigned int mtype)
 }
 EXPORT_SYMBOL(__arm_ioremap);
 
+/*
+ * Remap an arbitrary physical address space into the kernel virtual
+ * address space as memory. Needed when the kernel wants to execute
+ * code in external memory. This is needed for reprogramming source
+ * clocks that would affect normal memory for example. Please see
+ * CONFIG_GENERIC_ALLOCATOR for allocating external memory.
+ */
+void __iomem *
+__arm_ioremap_exec(unsigned long phys_addr, size_t size, bool cached)
+{
+	unsigned int mtype;
+
+	if (cached)
+		mtype = MT_MEMORY;
+	else
+		mtype = MT_MEMORY_NONCACHED;
+
+	return __arm_ioremap_caller(phys_addr, size, mtype,
+			__builtin_return_address(0));
+}
+
 void __iounmap(volatile void __iomem *io_addr)
 {
 	void *addr = (void *)(PAGE_MASK & (unsigned long)io_addr);
 #ifndef CONFIG_SMP
-	struct vm_struct **p, *tmp;
+	struct vm_struct *vm;
 
 	/*
 	 * If this is a section based mapping we need to handle it
 	 * specially as the VM subsystem does not know how to handle
-	 * such a beast. We need the lock here b/c we need to clear
-	 * all the mappings before the area can be reclaimed
-	 * by someone else.
+	 * such a beast.
 	 */
-	write_lock(&vmlist_lock);
-	for (p = &vmlist ; (tmp = *p) ; p = &tmp->next) {
-		if ((tmp->flags & VM_IOREMAP) && (tmp->addr == addr)) {
-			if (tmp->flags & VM_ARM_SECTION_MAPPING) {
-				unmap_area_sections((unsigned long)tmp->addr,
-						    tmp->size);
+	read_lock(&vmlist_lock);
+	for (vm = vmlist; vm; vm = vm->next) {
+		if ((vm->flags & VM_IOREMAP) && (vm->addr == addr)) {
+			if (vm->flags & VM_ARM_SECTION_MAPPING) {
+				unmap_area_sections((unsigned long)vm->addr,
+						    vm->size);
 			}
 			break;
 		}
 	}
-	write_unlock(&vmlist_lock);
+	read_unlock(&vmlist_lock);
 #endif
 
 	vunmap(addr);

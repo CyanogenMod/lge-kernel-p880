@@ -149,7 +149,7 @@ void __init xen_swiotlb_init(int verbose)
 	int rc;
 	unsigned long nr_tbl;
 
-	nr_tbl = swioltb_nr_tbl();
+	nr_tbl = swiotlb_nr_tbl();
 	if (nr_tbl)
 		xen_io_tlb_nslabs = nr_tbl;
 	else {
