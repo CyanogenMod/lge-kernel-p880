@@ -4842,6 +4842,7 @@ static struct cpufreq_frequency_table freq_table_1p0GHz[] = {
 };
 
 static struct cpufreq_frequency_table freq_table_1p3GHz[] = {
+<<<<<<< HEAD
 	{ 0,   51000 },
 	{ 1,  102000 },
 	{ 2,  204000 },
@@ -4909,6 +4910,70 @@ static struct cpufreq_frequency_table freq_table_1p7GHz[] = {
 	{13, 1600000 },
 	{14, 1700000 },
 	{15, CPUFREQ_TABLE_END },
+=======
+	{ 0,  102000 },
+	{ 1,  204000 },
+	{ 2,  340000 },
+	{ 3,  475000 },
+	{ 4,  640000 },
+	{ 5,  760000 },
+	{ 6,  860000 },
+	{ 7, 1000000 },
+	{ 8, 1100000 },
+	{ 9, 1200000 },
+	{10, 1300000 },
+	{11, CPUFREQ_TABLE_END },
+};
+
+static struct cpufreq_frequency_table freq_table_1p4GHz[] = {
+	{ 0,  102000 },
+	{ 1,  204000 },
+	{ 2,  370000 },
+	{ 3,  475000 },
+	{ 4,  620000 },
+	{ 5,  760000 },
+	{ 6,  860000 },
+	{ 7, 1000000 },
+	{ 8, 1100000 },
+	{ 9, 1200000 },
+	{10, 1300000 },
+	{11, 1400000 },
+	{12, CPUFREQ_TABLE_END },
+};
+
+static struct cpufreq_frequency_table freq_table_1p5GHz[] = {
+	{ 0,  102000 },
+	{ 1,  204000 },
+	{ 2,  340000 },
+	{ 3,  475000 },
+	{ 4,  640000 },
+	{ 5,  760000 },
+	{ 6,  860000 },
+	{ 7, 1000000 },
+	{ 8, 1100000 },
+	{ 9, 1200000 },
+	{10, 1300000 },
+	{11, 1400000 },
+	{12, 1500000 },
+	{13, CPUFREQ_TABLE_END },
+};
+
+static struct cpufreq_frequency_table freq_table_1p7GHz[] = {
+	{ 0,  102000 },
+	{ 1,  204000 },
+	{ 2,  370000 },
+	{ 3,  475000 },
+	{ 4,  620000 },
+	{ 5,  760000 },
+	{ 6,  910000 },
+	{ 7, 1150000 },
+	{ 8, 1300000 },
+	{ 9, 1400000 },
+	{10, 1500000 },
+	{11, 1600000 },
+	{12, 1700000 },
+	{13, CPUFREQ_TABLE_END },
+>>>>>>> dfe9ba3... ARM: tegra: dvfs: Update Tegra3 CPU DVFS tables
 };
 
 static struct tegra_cpufreq_table_data cpufreq_tables[] = {
