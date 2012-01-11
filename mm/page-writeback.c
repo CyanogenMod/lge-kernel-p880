@@ -1072,11 +1072,11 @@ static unsigned long dirty_poll_interval(unsigned long dirty,
 	return 1;
 }
 
-static unsigned long bdi_max_pause(struct backing_dev_info *bdi,
-				   unsigned long bdi_dirty)
+static long bdi_max_pause(struct backing_dev_info *bdi,
+			  unsigned long bdi_dirty)
 {
-	unsigned long bw = bdi->avg_write_bandwidth;
-	unsigned long t;
+	long bw = bdi->avg_write_bandwidth;
+	long t;
 
 	/*
 	 * Limit pause time for small memory systems. If sleeping for too long
@@ -1088,7 +1088,7 @@ static unsigned long bdi_max_pause(struct backing_dev_info *bdi,
 	t = bdi_dirty / (1 + bw / roundup_pow_of_two(1 + HZ / 8));
 	t++;
 
-	return min_t(unsigned long, t, MAX_PAUSE);
+	return min_t(long, t, MAX_PAUSE);
 }
 
 static long bdi_min_pause(struct backing_dev_info *bdi,
@@ -1135,7 +1135,7 @@ static long bdi_min_pause(struct backing_dev_info *bdi,
 	 */
 	t = min(t, 1 + max_pause / 2);
 	pages = dirty_ratelimit * t / roundup_pow_of_two(HZ);
-
+	*nr_dirtied_pause = pages;
 	/*
 	 * Tiny nr_dirtied_pause is found to hurt I/O performance in the test
 	 * case fio-mmap-randwrite-64k, which does 16*{sync read, async write}.
