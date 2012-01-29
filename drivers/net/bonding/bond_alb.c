@@ -164,12 +164,10 @@ static int tlb_initialize(struct bonding *bond)
 	int i;
 
 	new_hashtbl = kzalloc(size, GFP_KERNEL);
-	if (!new_hashtbl) {
-		pr_err("%s: Error: Failed to allocate TLB hash table\n",
-		       bond->dev->name);
+	if (!new_hashtbl)
 		return -1;
-	}
-	_lock_tx_hashtbl(bond);
+
+	_lock_tx_hashtbl_bh(bond);
 
 	bond_info->tx_hashtbl = new_hashtbl;
 
@@ -746,12 +744,10 @@ static int rlb_initialize(struct bonding *bond)
 	int i;
 
 	new_hashtbl = kmalloc(size, GFP_KERNEL);
-	if (!new_hashtbl) {
-		pr_err("%s: Error: Failed to allocate RLB hash table\n",
-		       bond->dev->name);
+	if (!new_hashtbl)
 		return -1;
-	}
-	_lock_rx_hashtbl(bond);
+
+	_lock_rx_hashtbl_bh(bond);
 
 	bond_info->rx_hashtbl = new_hashtbl;
 
