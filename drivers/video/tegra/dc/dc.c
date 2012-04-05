@@ -1167,6 +1167,26 @@ static void tegra_dc_underflow_handler(struct tegra_dc *dc)
 						DC_CMD_STATE_CONTROL);
 			}
 #endif
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+			if (dc->windows[i].underflows > 4) {
+				printk("%s:dc in underflow state."
+					" enable UF_LINE_FLUSH to clear up\n",
+					__func__);
+				tegra_dc_writel(dc, UF_LINE_FLUSH,
+						DC_DISP_DISP_MISC_CONTROL);
+				tegra_dc_writel(dc, GENERAL_UPDATE,
+						DC_CMD_STATE_CONTROL);
+				tegra_dc_writel(dc, GENERAL_ACT_REQ,
+						DC_CMD_STATE_CONTROL);
+
+				tegra_dc_writel(dc, 0,
+						DC_DISP_DISP_MISC_CONTROL);
+				tegra_dc_writel(dc, GENERAL_UPDATE,
+						DC_CMD_STATE_CONTROL);
+				tegra_dc_writel(dc, GENERAL_ACT_REQ,
+						DC_CMD_STATE_CONTROL);
+			}
+#endif
 		} else {
 			dc->windows[i].underflows = 0;
 		}
