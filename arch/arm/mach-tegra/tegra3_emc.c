@@ -46,6 +46,7 @@ static bool emc_enable;
 #endif
 module_param(emc_enable, bool, 0644);
 
+<<<<<<< HEAD
 u8 tegra_emc_bw_efficiency = 35;
 u8 tegra_emc_bw_efficiency_boost = 45;
 //                                   
@@ -55,6 +56,8 @@ unsigned long tegra_emc_bw_min_rate = 204000000;
 unsigned long tegra_emc_bw_min_rate;
 #endif
 
+=======
+>>>>>>> 8d27cae... ARM: tegra: emc: Reduce DDR3 min rate to 25.5MHz. - from NVIDIA
 #define EMC_MIN_RATE_DDR3		25500000
 #define EMC_STATUS_UPDATE_TIMEOUT	100
 #define TEGRA_EMC_TABLE_MAX_SIZE 	16
