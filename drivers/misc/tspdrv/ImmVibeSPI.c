@@ -94,7 +94,8 @@ static int status = 0;
 #define DEBUG_MSG printk	// todo - define to something
 
 #define PWM_PERIOD_DEFAULT              44000 //20.3KHz
-#define PWM_DUTY_DEFAULT              (PWM_PERIOD_DEFAULT >> 1) //50%
+//#define PWM_DUTY_DEFAULT              (PWM_PERIOD_DEFAULT >> 1) //50%
+#define PWM_DUTY_DEFAULT              (PWM_PERIOD_DEFAULT *.75 ) //75%
 
 VibeUInt32 g_nPWM_Freq = PWM_PERIOD_DEFAULT;
 
