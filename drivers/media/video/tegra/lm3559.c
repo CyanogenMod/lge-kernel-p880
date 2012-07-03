@@ -69,8 +69,7 @@ struct lm3559_info {
 };
 
 static struct lm3559_info *info;
-static int lm3559_onoff_state;
-
+static int lm3559_onoff_state = LM3559_POWER_OFF;
 
 #ifndef LGE_X3_LM3559_FLASH_TORCH_CURRENT_FIXED
 static unsigned char lm3559_flash_lvl[16] = {  
@@ -354,8 +353,6 @@ static long lm3559_ioctl(struct file *file,
   
 }
 
-
-
 static int lm3559_open(struct inode *inode, struct file *file)
 {
   pr_info("%s\n", __func__);
@@ -397,12 +394,37 @@ static struct miscdevice lm3559_device = {
 };
 
 
+static ssize_t torch_store(struct device* dev,
+		struct device_attribute* attr, const char* buf, size_t count)
+{
+	int val;
+	sscanf(buf, "%ld", &val );
+
+	if (val <= 0) {
+		lm3559_power_onoff(info, LM3559_POWER_OFF);
+		lm3559_onoff_state = LM3559_POWER_OFF;
+	} else {
+        	struct lm3559_param param;
+		if(lm3559_onoff_state == LM3559_POWER_OFF){    
+			param.param = LM3559_TORCH_LEVEL;
+			param.value = (val == 2 ? 666 : 1);
+			lm3559_power_onoff(info, LM3559_POWER_ON);
+			lm3559_onoff_state = LM3559_POWER_ON;
+			lm3559_enable_torch_mode(info, LM3559_LED_LOW, param);
+		}          
+	}
+
+	return  count;
+}
+static DEVICE_ATTR(torch, 0666, NULL, torch_store);
+
 static int lm3559_remove(struct i2c_client *client)
 {
 	struct lm3559_info *info = i2c_get_clientdata(client);
 
   pr_info("%s\n", __func__);
 
+	device_remove_file(&client->dev, &dev_attr_torch);
 	misc_deregister(&info->miscdev);
 	kfree(info);
 	return 0;
@@ -438,9 +460,14 @@ static int lm3559_probe(
 
 	tegra_gpio_enable(info->pdata->gpio_act);
 	err = gpio_request(info->pdata->gpio_act, "lm3559");
-  if (err < 0)
-    pr_err("%s: gpio_request failed for gpio %s\n",
-      __func__, "lm3559");
+	if (err < 0)
+		pr_err("%s: gpio_request failed for gpio %s\n",
+				__func__, "lm3559");
+
+	err = device_create_file(&client->dev, &dev_attr_torch);
+	if(err){
+		printk("[lm3559_flash_led:] device create file torch fail!\n");
+	}
 
   //gpio_direction_output(info->pdata->gpio_act, 1);	
   //gpio_set_value(info->pdata->gpio_act, 0);	
