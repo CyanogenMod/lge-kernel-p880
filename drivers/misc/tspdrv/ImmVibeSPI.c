@@ -91,7 +91,7 @@ static int status = 0;
 #define SYS_API_VDDP_OFF // todo - define to something
 #define SLEEP(_ms_time) msleep(_ms_time)// todo - define to something
 
-#define DEBUG_MSG printk	// todo - define to something
+#define DEBUG_MSG //printk	// todo - define to something
 
 #define PWM_PERIOD_DEFAULT              44000 //20.3KHz
 //#define PWM_DUTY_DEFAULT              (PWM_PERIOD_DEFAULT >> 1) //50%
@@ -177,9 +177,9 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
 
 		if(fd >= 0) //ELT Test Mode
 		{
-			printk("[ImmVibeSPI_ForceOut_AmpEnable] Case : ELT Test Vibration\n");
+			DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] Case : ELT Test Vibration\n");
 			if(status == 0){
-				printk("[ImmVibeSPI_ForceOut_AmpEnable] ELT : Register Setting \n");
+				DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] ELT : Register Setting \n");
 				I2C_data[0] = LDO_VOLTAGE_30V; // LDO Voltage : 3.0V
 				do
 				{
@@ -196,22 +196,22 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
 				if( VIBE_S_SUCCESS != ret) DEBUG_MSG("[ImmVibeSPI_ForceOut_Initialize] I2C_Write Error,  Slave Address = [%d], ret = [%d]\n", I2C_data[0], ret);
 				      
 				I2C_data[0] = tspdrv_i2c_read_byte_data(SCTRL);
-				printk("[ImmVibeSPI_ForceOut_AmpEnable] ELT HCTRL0 written data : 0x%x\n", I2C_data[0]);
+				DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] ELT HCTRL0 written data : 0x%x\n", I2C_data[0]);
 
 				I2C_data[0] = tspdrv_i2c_read_byte_data(HCTRL4);
-				printk("[ImmVibeSPI_ForceOut_AmpEnable] ELT HCTRL1 written data : 0x%x\n", I2C_data[0]);
+				DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] ELT HCTRL1 written data : 0x%x\n", I2C_data[0]);
 				
 				status = 1;
 			}
 			else{ //Normal Mode
-				printk("[ImmVibeSPI_ForceOut_AmpEnable] ELT : just vibrate \n");
+				DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] ELT : just vibrate \n");
 
 			}
 		}
 		else{
-			printk("[ImmVibeSPI_ForceOut_AmpEnable] Case : Normal Vibration\n");
+			DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] Case : Normal Vibration\n");
             if(status == 1){
-                printk("[ImmVibeSPI_ForceOut_AmpEnable] Normal : Register Setting \n");
+                DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] Normal : Register Setting \n");
                 I2C_data[0] = g_nLDO_Voltage; // LDO Voltage : 2.7V
                 do
                 {
@@ -228,15 +228,15 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
                 if( VIBE_S_SUCCESS != ret) DEBUG_MSG("[ImmVibeSPI_ForceOut_Initialize] I2C_Write Error,  Slave Address = [%d], ret = [%d]\n", I2C_data[0], ret);
 
                 I2C_data[0] = tspdrv_i2c_read_byte_data(SCTRL);
-                printk("[ImmVibeSPI_ForceOut_AmpEnable] Normal HCTRL0 written data : 0x%x\n", I2C_data[0]);
+                DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] Normal HCTRL0 written data : 0x%x\n", I2C_data[0]);
 
                 I2C_data[0] = tspdrv_i2c_read_byte_data(HCTRL4);
-                printk("[ImmVibeSPI_ForceOut_AmpEnable] Normal HCTRL1 written data : 0x%x\n", I2C_data[0]);
+                DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] Normal HCTRL1 written data : 0x%x\n", I2C_data[0]);
 
 				status =0;
             }
             else{
-                printk("[ImmVibeSPI_ForceOut_AmpEnable] Normal : just vibrate \n");
+                DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] Normal : just vibrate \n");
 
             }
 
@@ -255,19 +255,19 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
 	    if( VIBE_S_SUCCESS != ret) DEBUG_MSG("[ImmVibeSPI_ForceOut_AmpEnable] I2C_Write Error,  Slave Address = [%d], ret = [%d]\n", I2C_data[0], ret);	
 #if 0
 		I2C_data[0] = tspdrv_i2c_read_byte_data(HCTRL0);
-		printk("HCTRL0 written data : 0x%x\n", I2C_data[0]);
+		DEBUG_MSG("HCTRL0 written data : 0x%x\n", I2C_data[0]);
 
 		I2C_data[0] = tspdrv_i2c_read_byte_data(HCTRL1);
-		printk("HCTRL1 written data : 0x%x\n", I2C_data[0]);
+		DEBUG_MSG("HCTRL1 written data : 0x%x\n", I2C_data[0]);
 
 		I2C_data[0] = tspdrv_i2c_read_byte_data(HCTRL2);
-		printk("HCTRL2 written data : 0x%x\n", I2C_data[0]);
+		DEBUG_MSG("HCTRL2 written data : 0x%x\n", I2C_data[0]);
 
 		I2C_data[0] = tspdrv_i2c_read_byte_data(HCTRL3);
-		printk("HCTRL3 written data : 0x%x\n", I2C_data[0]);
+		DEBUG_MSG("HCTRL3 written data : 0x%x\n", I2C_data[0]);
 
 		I2C_data[0] = tspdrv_i2c_read_byte_data(HCTRL4);
-		printk("HCTRL4 written data : 0x%x\n", I2C_data[0]);
+		DEBUG_MSG("HCTRL4 written data : 0x%x\n", I2C_data[0]);
 #endif
     }
 
@@ -415,7 +415,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
     {
         duty_ns = ((nForce + 128) * g_nPWM_Freq) >> 8;
     }
-//	printk("****** nForce : %d , duty_ns : %d ****\n", nForce, duty_ns);
+//	DEBUG_MSG("****** nForce : %d , duty_ns : %d ****\n", nForce, duty_ns);
 	tspdrv_control_pwm(1, duty_ns, g_nPWM_Freq);
     return VIBE_S_SUCCESS;
 }
