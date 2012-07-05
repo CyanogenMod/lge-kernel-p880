@@ -29,7 +29,7 @@
 #ifndef _TSPDRV_H
 #define _TSPDRV_H
 
-#define VIBE_DEBUG
+//#define VIBE_DEBUG
 
 /* Constants */
 #define MODULE_NAME                         "tspdrv"

@@ -220,7 +220,7 @@ static int tsc2007_ADC_temp(struct i2c_client *client)
 	//                                                    
 	chip->temp = ((value*TSC_VDEF)/4096); //TSC base MAX Voltage is 4096mV
 	//chip->temp = value / 10;
-	dev_info(&client->dev, "%s : >>>>>>>>>>>>>>>>>>>>> >>> chip->temp = 0x%x\n",__func__,chip->temp);
+	dev_dbg(&client->dev, "%s : >>>>>>>>>>>>>>>>>>>>> >>> chip->temp = 0x%x\n",__func__,chip->temp);
 	
 	return 0;
 }

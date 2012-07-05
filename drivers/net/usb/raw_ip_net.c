@@ -699,15 +699,15 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 		break;
 	case -ESHUTDOWN:
 		/* fall through */
-		pr_info("%s: rx urb %p - link shutdown %d\n",
+		pr_debug("%s: rx urb %p - link shutdown %d\n",
 			__func__, urb, urb->status);
 		goto err_exit;
 	case -EPROTO:
-		pr_info("%s: rx urb %p - link shutdown %d EPROTO\n",
+		pr_debug("%s: rx urb %p - link shutdown %d EPROTO\n",
 			__func__, urb, urb->status);
 		goto err_exit;
 	default:
-		pr_info("%s: rx urb %p - status %d\n",
+		pr_debug("%s: rx urb %p - status %d\n",
 			__func__, urb, urb->status);
 		break;
 	}
@@ -952,7 +952,7 @@ static void usb_net_raw_ip_tx_urb_work(struct work_struct *work)
 
 	/* check if suspended */
 	if (usb->susp_count > 0) {
-		pr_info("%s: usb->susp_count %d > 0 (suspended)\n",
+		pr_debug("%s: usb->susp_count %d > 0 (suspended)\n",
 			__func__, usb->susp_count);
 		return;
 	}
@@ -1024,12 +1024,12 @@ static void usb_net_raw_ip_tx_urb_comp(struct urb *urb)
 	case -ESHUTDOWN:
 		/* fall through */
 	case -EPROTO:
-		pr_info("%s: tx urb %p - link shutdown %d\n",
+		pr_debug("%s: tx urb %p - link shutdown %d\n",
 			__func__, urb, urb->status);
 		usb_autopm_put_ex(usb);
 		goto err_exit;
 	default:
-		pr_info("%s: tx urb %p - status %d\n",
+		pr_debug("%s: tx urb %p - status %d\n",
 			__func__, urb, urb->status);
 		break;
 	}

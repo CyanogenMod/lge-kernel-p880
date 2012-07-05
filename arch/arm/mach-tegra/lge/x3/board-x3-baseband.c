@@ -149,7 +149,7 @@ static struct tegra_ehci_platform_data tegra_ehci_uhsic_pdata = {
 
 static int x3_usb_hsic_postsuspend(void)
 {
-	printk("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 #ifdef CONFIG_TEGRA_BB_XMM_POWER
 	baseband_xmm_set_power_status(BBXMM_PS_L2);
 #endif
@@ -159,7 +159,7 @@ static int x3_usb_hsic_postsuspend(void)
 
 static int x3_usb_hsic_preresume(void)
 {
-	printk("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 #ifdef CONFIG_TEGRA_BB_XMM_POWER
 	baseband_xmm_set_power_status(BBXMM_PS_L2TOL0);
 #endif
@@ -172,7 +172,7 @@ extern int rmc_usb_hsic_phy_ready(void);
 #endif
 static int x3_usb_hsic_phy_ready(void)
 {
-	printk("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 #if defined(CONFIG_TEGRA_BB_XMM_POWER)
 	baseband_xmm_set_power_status(BBXMM_PS_L0);
 #elif defined(CONFIG_TEGRA_BB_MODEM4)
@@ -184,7 +184,7 @@ static int x3_usb_hsic_phy_ready(void)
 
 static int x3_usb_hsic_phy_off(void)
 {
-	printk("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 #ifdef CONFIG_TEGRA_BB_XMM_POWER
 	baseband_xmm_set_power_status(BBXMM_PS_L3);
 #endif

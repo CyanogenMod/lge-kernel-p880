@@ -134,7 +134,7 @@ static void lm3533_set_main_current_level(struct i2c_client *client, int level)
 	int max_current = dev->max_current;
 	int gpio = dev->hwen_gpio;
 
-	printk("lm3533_level[BL]:%d \n", level);
+	pr_debug("lm3533_level[BL]:%d \n", level);
 
 	//dev->cur_main_lcd_level = level;
 	//dev->saved_main_lcd_level = dev->cur_main_lcd_level;
