@@ -722,7 +722,9 @@ if(is_tegra_bootmode())
 #if defined(CONFIG_BCM4330_RFKILL)
 	x3_bt_rfkill();
 #endif
-	//x3_setup_bluesleep();
+#if !defined(CONFIG_BRCM_LPM)
+	x3_setup_bluesleep();
+#endif
 	x3_emc_init();
 	x3_sensors_init();
 	x3_suspend_init();

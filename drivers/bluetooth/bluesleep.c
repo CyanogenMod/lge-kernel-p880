@@ -174,6 +174,7 @@ static void hsuart_power(int on)
 int bluesleep_can_sleep(void)
 {
 	/* check if WAKE_BT_GPIO and BT_WAKE_GPIO are both deasserted */
+	BT_DBG("can_sleep? %d / %d / %d / %d\n",gpio_get_value(bsi->host_wake),bsi->irq_polarity,!test_bit(BT_EXT_WAKE, &flags),bsi->uport!=NULL);
 	return ((gpio_get_value(bsi->host_wake) != bsi->irq_polarity) &&
 		(!test_bit(BT_EXT_WAKE, &flags)) &&
 		(bsi->uport != NULL));
