@@ -640,6 +640,7 @@ static int usb_net_raw_ip_rx_urb_submit(struct baseband_usb *usb)
 	}
 	if (!usb->urb_r || !usb->buff) {
 		pr_err("no reusable rx urb found\n");
+		usb->stats.rx_dropped++;
 		return -ENOMEM;
 	}
 
@@ -659,6 +660,7 @@ static int usb_net_raw_ip_rx_urb_submit(struct baseband_usb *usb)
 	if (err < 0) {
 		pr_err("usb_submit_urb() failed - err %d\n", err);
 		usb->usb.rx_urb = (struct urb *) 0;
+		usb->stats.rx_errors++;
 		return err;
 	}
 
@@ -774,6 +776,7 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 		} else {
 			pr_err("usb_net_raw_ip_rx_urb_comp_work - "
 				"netdev_alloc_skb() failed\n");
+			usb->stats.rx_dropped++;
 		}
 	}
 
@@ -786,6 +789,7 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 
 	/* submit next rx urb */
 	usb_net_raw_ip_rx_urb_submit(usb);
+	pr_debug("usb_net_raw_ip_rx_urb_comp }\n");
 	return;
 
 err_exit:
@@ -793,6 +797,7 @@ err_exit:
 	usb->usb.rx_urb = (struct urb *) 0;
 
 	pr_debug("usb_net_raw_ip_rx_urb_comp }\n");
+	usb->stats.rx_dropped++;
 	return;
 }
 
@@ -872,6 +877,7 @@ static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 	if (!skb) {
 		pr_err("%s: !skb\n", __func__);
 		usb_autopm_put_ex(usb);
+		usb->stats.tx_dropped++;
 		return -EINVAL;
 	}
 
@@ -880,6 +886,7 @@ static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 	if (!urb) {
 		pr_err("usb_alloc_urb() failed\n");
 		usb_autopm_put_ex(usb);
+		usb->stats.tx_dropped++;
 		return -ENOMEM;
 	}
 	buf = kzalloc(skb->len - 14, GFP_ATOMIC);
@@ -887,6 +894,7 @@ static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 		pr_err("usb buffer kzalloc() failed\n");
 		usb_free_urb(urb);
 		usb_autopm_put_ex(usb);
+		usb->stats.tx_dropped++;
 		return -ENOMEM;
 	}
 	err = skb_copy_bits(skb, 14, buf, skb->len - 14);
@@ -895,6 +903,7 @@ static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 		kfree(buf);
 		usb_free_urb(urb);
 		usb_autopm_put_ex(usb);
+		usb->stats.tx_errors++;
 		return err;
 	}
 	usb_fill_bulk_urb(urb, usb->usb.device, usb->usb.pipe.bulk.out,
@@ -1026,6 +1035,7 @@ static void usb_net_raw_ip_tx_urb_comp(struct urb *urb)
 	case -EPROTO:
 		pr_debug("%s: tx urb %p - link shutdown %d\n",
 			__func__, urb, urb->status);
+		usb->stats.tx_dropped++;
 		usb_autopm_put_ex(usb);
 		goto err_exit;
 	default:
