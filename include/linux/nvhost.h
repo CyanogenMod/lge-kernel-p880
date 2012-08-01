@@ -215,4 +215,8 @@ int nvhost_syncpt_wait_timeout_ext(struct nvhost_device *dev, u32 id, u32 thresh
 
 void nvhost_scale3d_set_throughput_hint(int hint);
 
+/* Hacky way to get access to struct nvhost_device tegra_vi01_device. */
+struct nvhost_device *t20_get_tegra_vi01_device(void);
+struct nvhost_device *t30_get_tegra_vi01_device(void);
+
 #endif

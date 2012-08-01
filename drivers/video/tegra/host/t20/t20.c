@@ -286,3 +286,9 @@ int nvhost_init_t20_support(struct nvhost_master *host,
 
 	return 0;
 }
+
+/* Hacky way to get access to struct nvhost_device tegra_vi01_device. */
+struct nvhost_device *t20_get_tegra_vi01_device(void)
+{
+	return &tegra_vi01_device;
+}
