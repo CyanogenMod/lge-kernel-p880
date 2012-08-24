@@ -124,6 +124,8 @@ void nvmap_unpin_handles(struct nvmap_client *client,
 struct nvmap_handle_ref *nvmap_duplicate_handle_id(struct nvmap_client *client,
 						   unsigned long id);
 
+int nvmap_mark_global(struct nvmap_client *client, struct nvmap_handle_ref *r);
+
 struct nvmap_platform_carveout {
 	const char *name;
 	unsigned int usage_mask;

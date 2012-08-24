@@ -611,3 +611,16 @@ void nvmap_free(struct nvmap_client *client, struct nvmap_handle_ref *r)
 
 	nvmap_free_handle_id(client, nvmap_ref_to_id(r));
 }
+
+int nvmap_mark_global(struct nvmap_client *client, struct nvmap_handle_ref *r)
+{
+	struct nvmap_handle *h;
+
+	h = nvmap_get_handle_id(client, (unsigned long)r->handle);
+	if (!h)
+		return -EINVAL;
+	r->handle->global = true;
+	nvmap_handle_put(h);
+
+	return 0;
+}
