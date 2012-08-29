@@ -26,6 +26,8 @@ obj-$(CONFIG_INPUT_MISC)	+= misc/
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 
+obj-$(CONFIG_INPUT_CFBOOST)	+= input-cfboost.o
+
 #+++ BRCM : X3_BT_bringup - kukdong.bae@lge.com [S]
 obj-y	+= bthid/
 #--- BRCM : X3_BT_bringup - kukdong.bae@lge.com [E]
