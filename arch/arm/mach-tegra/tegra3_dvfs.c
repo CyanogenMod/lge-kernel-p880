@@ -58,12 +58,17 @@ static int cpu_below_core = VDD_CPU_BELOW_VDD_CORE;
 
 static struct dvfs_rail tegra3_dvfs_rail_vdd_cpu = {
 	.reg_id = "vdd_cpu",
+<<<<<<< HEAD
 	.max_millivolts = 1300,
 #ifdef CONFIG_MACH_X3
 	.min_millivolts = 700,
 #else
 	.min_millivolts = 725,
 #endif
+=======
+	.max_millivolts = 1250,
+	.min_millivolts = 600,
+>>>>>>> 2d22fcd... tegra3_dvfs.c: reduce minimum voltage allowed for the CPU from 850mV to 600mV
 	.step = VDD_SAFE_STEP,
 	.jmp_to_zero = true,
 };
