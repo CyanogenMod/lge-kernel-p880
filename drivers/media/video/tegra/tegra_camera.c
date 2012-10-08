@@ -94,33 +94,19 @@ static int tegra_camera_enable_clk(struct tegra_camera_dev *dev)
 	clk_enable(dev->vi_clk);
 	clk_enable(dev->vi_sensor_clk);
 	clk_enable(dev->csus_clk);
-
-	tegra_periph_reset_assert(dev->vi_clk);
-	udelay(2);
-	tegra_periph_reset_deassert(dev->vi_clk);
-
 	clk_enable(dev->isp_clk);
-	tegra_periph_reset_assert(dev->isp_clk);
-	udelay(2);
-	tegra_periph_reset_deassert(dev->isp_clk);
-
 	clk_enable(dev->csi_clk);
-	tegra_periph_reset_assert(dev->csi_clk);
-	udelay(2);
-	tegra_periph_reset_deassert(dev->csi_clk);
+
 	return 0;
 }
 
 static int tegra_camera_disable_clk(struct tegra_camera_dev *dev)
 {
 	clk_disable(dev->csi_clk);
-	tegra_periph_reset_assert(dev->csi_clk);
 	clk_disable(dev->isp_clk);
-	tegra_periph_reset_assert(dev->isp_clk);
 	clk_disable(dev->csus_clk);
 	clk_disable(dev->vi_sensor_clk);
 	clk_disable(dev->vi_clk);
-	tegra_periph_reset_assert(dev->vi_clk);
 
 	return 0;
 }
