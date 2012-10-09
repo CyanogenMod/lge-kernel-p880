@@ -37,6 +37,7 @@
 #include "../../arch/arm/mach-tegra/dvfs.h"
 
 static DEFINE_MUTEX(dvfs_lock);
+static DEFINE_MUTEX(cpu_lp_lock);
 
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
 						"cpufreq-core", msg)
@@ -818,6 +819,40 @@ static ssize_t store_gpu_oc(struct cpufreq_policy *policy, const char *buf, size
 	return count;
 }
 
+static ssize_t show_cpu_lp_max(struct cpufreq_policy *policy, char *buf)
+{
+	char *c = buf;
+	struct clk *cpu_lp = tegra_get_clock_by_name("cpu_lp");
+
+	return sprintf(c, "%lu ", cpu_lp->max_rate/1000000);
+}
+
+static ssize_t store_cpu_lp_max(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long max_rate, old_rate;
+	char cur_size[1];
+
+	struct clk *cpu_lp = tegra_get_clock_by_name("cpu_lp");
+
+	ret = sscanf(buf, "%lu", &max_rate);
+	old_rate = cpu_lp->max_rate;
+
+	mutex_lock(&cpu_lp_lock);
+	cpu_lp->max_rate = max_rate*1000000;
+	pr_info("NEW CPU_LP MAX_RATE ALLOWED: OLD:%lu - NEW: %lu\n", old_rate, cpu_lp->max_rate);
+	mutex_unlock(&cpu_lp_lock);
+
+	ret = sscanf(buf, "%s", cur_size);
+
+	if (ret == 0)
+		return -EINVAL;
+
+	buf += (strlen(cur_size) + 1);
+
+	return count;
+}
+
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
 cpufreq_freq_attr_ro(cpuinfo_max_freq);
@@ -841,7 +876,11 @@ cpufreq_freq_attr_rw(UV_mV_table);
 >>>>>>> b37c44b... cpufreq.c: add userspace voltage control. Original implementation from faux123 (which was based on Michael Huang's OMAP4460 work). Interface cleaned up, made more robust and secure
 =======
 cpufreq_freq_attr_rw(gpu_oc);
+<<<<<<< HEAD
 >>>>>>> 4c8f56b... tegra: add GPU clocks interface.
+=======
+cpufreq_freq_attr_rw(cpu_lp_max);
+>>>>>>> 6326072... tegra: add CPU_LP max_rate interface.
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -864,7 +903,11 @@ static struct attribute *default_attrs[] = {
 >>>>>>> b37c44b... cpufreq.c: add userspace voltage control. Original implementation from faux123 (which was based on Michael Huang's OMAP4460 work). Interface cleaned up, made more robust and secure
 =======
 	&gpu_oc.attr,
+<<<<<<< HEAD
 >>>>>>> 4c8f56b... tegra: add GPU clocks interface.
+=======
+	&cpu_lp_max.attr,
+>>>>>>> 6326072... tegra: add CPU_LP max_rate interface.
 	NULL
 };
 
