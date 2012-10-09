@@ -24,6 +24,8 @@
 #define MAX_DVFS_FREQS	40
 #define DVFS_RAIL_STATS_TOP_BIN	42
 
+#include "clock.h"
+
 struct clk;
 struct dvfs_rail;
 

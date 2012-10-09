@@ -35,7 +35,6 @@
 
 /* includes for the undervolt interface */
 #include "../../arch/arm/mach-tegra/dvfs.h"
-#include "../../arch/arm/mach-tegra/clock.h"
 
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
 						"cpufreq-core", msg)
