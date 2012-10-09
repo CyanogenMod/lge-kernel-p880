@@ -3322,6 +3322,7 @@ static struct clk tegra_pll_ref = {
 };
 
 static struct clk_pll_freq_table tegra_pll_c_freq_table[] = {
+<<<<<<< HEAD
 	{ 12000000, 1500000000, 750,  6, 1, 8},
 	{ 13000000, 1500000000, 750, 13, 2, 8},
 	{ 16800000, 1500000000, 625,  7, 1, 8},
@@ -3329,13 +3330,19 @@ static struct clk_pll_freq_table tegra_pll_c_freq_table[] = {
 	{ 26000000, 1500000000, 750, 13, 1, 8},
 
 
+=======
+>>>>>>> efe7ad4... tegra: clocks: add new pll_c entries if we overclock the GPU further.
 	{ 12000000, 1332000000, 666,  6, 1, 8},
 	{ 13000000, 1332000000, 666, 13, 2, 8},		/* actual: 1199.9 MHz */
 	{ 16800000, 1332000000, 555,  7, 1, 8},
 	{ 19200000, 1332000000, 555,  8, 1, 8},
 	{ 26000000, 1332000000, 666, 13, 1, 8},
+<<<<<<< HEAD
 
 
+=======
+	
+>>>>>>> efe7ad4... tegra: clocks: add new pll_c entries if we overclock the GPU further.
 	{ 12000000, 1040000000, 520,  6, 1, 8},
 	{ 13000000, 1040000000, 480,  6, 1, 8},
 	{ 16800000, 1040000000, 495,  8, 1, 8},		/* actual: 1039.5 MHz */
