@@ -64,6 +64,9 @@ static DEFINE_SPINLOCK(cpufreq_driver_lock);
 
 static unsigned int user_mv_table[MAX_DVFS_FREQS] = { 800, 825, 850, 875, 900, 912, 975, 1000, 1025, 1050, 1075, 1100, 1125, 1150, 1175, 1200, 1212, 1237 };
 static unsigned int freq_table[15] = { 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500 };
+unsigned int core_millivolts[MAX_DVFS_FREQS] = { 950, 1000, 1050, 1100, 1150, 1200, 1250, 1300, 1350 };
+unsigned int extended_core_millivolts[MAX_DVFS_FREQS] = { 950, 1000, 1050, 1100, 1150, 1400, 1400, 1400, 1400 };
+unsigned int high_core_millivolts[MAX_DVFS_FREQS] = { 950, 1000, 1050, 1100, 1150, 1500, 1500, 1500, 1500 };
 
 /*
  * cpu_policy_rwsem is a per CPU reader-writer semaphore designed to cure
@@ -782,6 +785,43 @@ static ssize_t store_gpu_oc(struct cpufreq_policy *policy, const char *buf, size
 
 		mutex_lock(&dvfs_lock);
 		if (i == array_size-1) {
+			if (gpu_freq <= 600) {
+				vde->dvfs->millivolts = core_millivolts;
+				mpe->dvfs->millivolts = core_millivolts;
+				two_d->dvfs->millivolts = core_millivolts;
+				epp->dvfs->millivolts = core_millivolts;
+				three_d->dvfs->millivolts = core_millivolts;
+				three_d2->dvfs->millivolts = core_millivolts;
+				se->dvfs->millivolts = core_millivolts;
+				host1x->dvfs->millivolts = core_millivolts;
+				cbus->dvfs->millivolts = core_millivolts;
+				pll_c->dvfs->millivolts = core_millivolts;
+			}
+
+			if (gpu_freq > 600 && gpu_freq < 700) {
+				vde->dvfs->millivolts = extended_core_millivolts;
+				mpe->dvfs->millivolts = extended_core_millivolts;
+				two_d->dvfs->millivolts = extended_core_millivolts;
+				epp->dvfs->millivolts = extended_core_millivolts;
+				three_d->dvfs->millivolts = extended_core_millivolts;
+				three_d2->dvfs->millivolts = extended_core_millivolts;
+				se->dvfs->millivolts = extended_core_millivolts;
+				host1x->dvfs->millivolts = extended_core_millivolts;
+				cbus->dvfs->millivolts = extended_core_millivolts;
+				pll_c->dvfs->millivolts = extended_core_millivolts;
+			}
+			if (gpu_freq >= 700) {
+				vde->dvfs->millivolts = high_core_millivolts;
+				mpe->dvfs->millivolts = high_core_millivolts;
+				two_d->dvfs->millivolts = high_core_millivolts;
+				epp->dvfs->millivolts = high_core_millivolts;
+				three_d->dvfs->millivolts = high_core_millivolts;
+				three_d2->dvfs->millivolts = high_core_millivolts;
+				se->dvfs->millivolts = high_core_millivolts;
+				host1x->dvfs->millivolts = high_core_millivolts;
+				cbus->dvfs->millivolts = high_core_millivolts;
+				pll_c->dvfs->millivolts = high_core_millivolts;
+			}
 			vde->max_rate = gpu_freq*1000000;
 			mpe->max_rate = gpu_freq*1000000;
 			two_d->max_rate = gpu_freq*1000000;
@@ -793,6 +833,7 @@ static ssize_t store_gpu_oc(struct cpufreq_policy *policy, const char *buf, size
 			cbus->max_rate = gpu_freq*1000000;
 			pll_c->max_rate = (gpu_freq*1000000)*2;
 			pr_info("Set clk->max_rate. %d\n", i);
+			pr_info("NEW PLL_C MAX_RATE: %lu\n", pll_c->max_rate);
 		}
 
 		vde->dvfs->freqs[i] = gpu_freq*1000000;
@@ -803,8 +844,10 @@ static ssize_t store_gpu_oc(struct cpufreq_policy *policy, const char *buf, size
 		three_d2->dvfs->freqs[i] = gpu_freq*1000000;
 		se->dvfs->freqs[i] = gpu_freq*1000000;
 		cbus->dvfs->freqs[i] = gpu_freq*1000000;
-		if (i >= 6)
+		if (i >= 5) {
 			pll_c->dvfs->freqs[i] = (gpu_freq*1000000)*2;
+			pr_info("NEW PLL_C FREQS: %lu\n", pll_c->dvfs->freqs[i]);
+		}
 			
 		mutex_unlock(&dvfs_lock);
 
