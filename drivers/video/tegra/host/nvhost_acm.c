@@ -141,6 +141,7 @@ static void to_state_running_locked(struct nvhost_device *dev)
 		if (dev->dev.parent)
 			nvhost_module_busy(to_nvhost_device(dev->dev.parent));
 
+<<<<<<< HEAD
 		for (i = 0; i < dev->num_clks; i++) {
 			int err = clk_enable(dev->clk[i]);
 			if (err) {
@@ -149,6 +150,10 @@ static void to_state_running_locked(struct nvhost_device *dev)
 				return;
 			}
 		}
+=======
+		for (i = 0; i < mod->num_clks; i++) 
+			clk_enable(mod->clk[i]);
+>>>>>>> 7b3c690... tegra: remove some safety mechanisms to facilitate  GPU overclocking from userspace.
 
 		/* Invoke callback after enabling clock. This is used for
 		 * re-enabling host1x interrupts. */

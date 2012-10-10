@@ -351,11 +351,17 @@ __tegra_dvfs_set_rate(struct dvfs *d, unsigned long rate)
 	if (freqs == NULL || d->millivolts == NULL)
 		return -ENODEV;
 
+<<<<<<< HEAD
 	if (rate > freqs[d->num_freqs - 1]) {
+=======
+	/*
+	if (rate > d->freqs[d->num_freqs - 1]) {
+>>>>>>> 7b3c690... tegra: remove some safety mechanisms to facilitate  GPU overclocking from userspace.
 		pr_warn("tegra_dvfs: rate %lu too high for dvfs on %s\n", rate,
 			d->clk_name);
 		return -EINVAL;
 	}
+	*/
 
 	if (rate == 0) {
 		d->cur_millivolts = 0;
