@@ -364,6 +364,16 @@ int tegra_dc_update_windows(struct tegra_dc_win *windows[], int n)
 		else if (tegra_dc_fmt_bpp(win->fmt) < 24)
 			val |= COLOR_EXPAND;
 
+#if  defined(CONFIG_ARCH_TEGRA_3x_SOC) || defined(CONFIG_ARCH_TEGRA_11x_SOC)
+		if (win->global_alpha == 255) {
+			tegra_dc_writel(dc, 0, DC_WIN_GLOBAL_ALPHA);
+		} else {
+			tegra_dc_writel(dc, GLOBAL_ALPHA_ENABLE |
+				win->global_alpha, DC_WIN_GLOBAL_ALPHA);
+			win_options |= CP_ENABLE;
+		}
+#endif
+
 		if (win->ppflags & TEGRA_WIN_PPFLAG_CP_ENABLE)
 			val |= CP_ENABLE;
 
@@ -378,14 +388,6 @@ int tegra_dc_update_windows(struct tegra_dc_win *windows[], int n)
 			val |= V_DIRECTION_DECREMENT;
 
 		tegra_dc_writel(dc, val, DC_WIN_WIN_OPTIONS);
-
-#ifdef CONFIG_ARCH_TEGRA_3x_SOC
-		if (win->global_alpha == 255)
-			tegra_dc_writel(dc, 0, DC_WIN_GLOBAL_ALPHA);
-		else
-			tegra_dc_writel(dc, GLOBAL_ALPHA_ENABLE |
-				win->global_alpha, DC_WIN_GLOBAL_ALPHA);
-#endif
 
 		win->dirty = no_vsync ? 0 : 1;
 
