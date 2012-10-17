@@ -3323,15 +3323,22 @@ static struct clk tegra_pll_ref = {
 
 static struct clk_pll_freq_table tegra_pll_c_freq_table[] = {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e44f19c... tegra: decrease GPU clocks to nearly stock values. Also refactor most code to make it simpler. We get rid of the voltages arrays and update the millivolts table dynamically. For that we had to get rid of the const variable type or the compiler wouldn't let it build for obvious reasons. Also changes how to change the frequency of the GPU as it only outputs one value instead of the whole array of frequencies. Makes it much easier for users to use and much easy on the code complexity. Thanks @morfic for the pll_c tables.
 	{ 12000000, 1500000000, 750,  6, 1, 8},
 	{ 13000000, 1500000000, 750, 13, 2, 8},
 	{ 16800000, 1500000000, 625,  7, 1, 8},
 	{ 19200000, 1500000000, 625,  8, 1, 8},
 	{ 26000000, 1500000000, 750, 13, 1, 8},
+<<<<<<< HEAD
 
 
 =======
 >>>>>>> efe7ad4... tegra: clocks: add new pll_c entries if we overclock the GPU further.
+=======
+	
+>>>>>>> e44f19c... tegra: decrease GPU clocks to nearly stock values. Also refactor most code to make it simpler. We get rid of the voltages arrays and update the millivolts table dynamically. For that we had to get rid of the const variable type or the compiler wouldn't let it build for obvious reasons. Also changes how to change the frequency of the GPU as it only outputs one value instead of the whole array of frequencies. Makes it much easier for users to use and much easy on the code complexity. Thanks @morfic for the pll_c tables.
 	{ 12000000, 1332000000, 666,  6, 1, 8},
 	{ 13000000, 1332000000, 666, 13, 2, 8},		/* actual: 1199.9 MHz */
 	{ 16800000, 1332000000, 555,  7, 1, 8},
