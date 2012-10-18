@@ -33,7 +33,7 @@ struct keypad_led_data {
 static void keypad_led_store(struct led_classdev *led_cdev,
 				enum led_brightness value)
 {
-	printk("%s *** value:%d \n",__func__,value);
+	//printk("%s *** value:%d \n",__func__,value);
 
 	if(led_cdev->br_maintain_trigger == 1){
 		return;
