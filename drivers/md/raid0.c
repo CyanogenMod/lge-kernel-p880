@@ -466,7 +466,7 @@ static inline int is_io_in_chunk_boundary(mddev_t *mddev,
 	}
 }
 
-static void raid0_make_request(mddev_t *mddev, struct bio *bio)
+static int raid0_make_request(mddev_t *mddev, struct bio *bio)
 {
 	unsigned int chunk_sects;
 	sector_t sector_offset;
@@ -475,7 +475,7 @@ static void raid0_make_request(mddev_t *mddev, struct bio *bio)
 
 	if (unlikely(bio->bi_rw & REQ_FLUSH)) {
 		md_flush_request(mddev, bio);
-		return;
+		return 0;
 	}
 
 	chunk_sects = mddev->chunk_sectors;
@@ -495,10 +495,13 @@ static void raid0_make_request(mddev_t *mddev, struct bio *bio)
 		else
 			bp = bio_split(bio, chunk_sects -
 				       sector_div(sector, chunk_sects));
-		raid0_make_request(mddev, &bp->bio1);
-		raid0_make_request(mddev, &bp->bio2);
+		if (raid0_make_request(mddev, &bp->bio1))
+			generic_make_request(&bp->bio1);
+		if (raid0_make_request(mddev, &bp->bio2))
+			generic_make_request(&bp->bio2);
+
 		bio_pair_release(bp);
-		return;
+		return 0;
 	}
 
 	sector_offset = bio->bi_sector;
@@ -508,9 +511,10 @@ static void raid0_make_request(mddev_t *mddev, struct bio *bio)
 	bio->bi_bdev = tmp_dev->bdev;
 	bio->bi_sector = sector_offset + zone->dev_start +
 		tmp_dev->data_offset;
-
-	generic_make_request(bio);
-	return;
+	/*
+	 * Let the main block layer submit the IO and resolve recursion:
+	 */
+	return 1;
 
 bad_map:
 	printk("md/raid0:%s: make_request bug: can't convert block across chunks"
@@ -519,7 +523,7 @@ bad_map:
 	       (unsigned long long)bio->bi_sector, bio->bi_size >> 10);
 
 	bio_io_error(bio);
-	return;
+	return 0;
 }
 
 static void raid0_status(struct seq_file *seq, mddev_t *mddev)

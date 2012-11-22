@@ -768,14 +768,25 @@ static uint64_t blkio_get_stat(struct blkio_group *blkg,
 	return disk_total;
 }
 
+static int blkio_check_dev_num(dev_t dev)
+{
+	int part = 0;
+	struct gendisk *disk;
+
+	disk = get_gendisk(dev, &part);
+	if (!disk || part)
+		return -ENODEV;
+
+	return 0;
+}
+
 static int blkio_policy_parse_and_set(char *buf,
 	struct blkio_policy_node *newpn, enum blkio_policy_id plid, int fileid)
 {
-	struct gendisk *disk = NULL;
 	char *s[4], *p, *major_s = NULL, *minor_s = NULL;
+	int ret;
 	unsigned long major, minor;
-	int i = 0, ret = -EINVAL;
-	int part;
+	int i = 0;
 	dev_t dev;
 	u64 temp;
 
@@ -793,36 +804,37 @@ static int blkio_policy_parse_and_set(char *buf,
 	}
 
 	if (i != 2)
-		goto out;
+		return -EINVAL;
 
 	p = strsep(&s[0], ":");
 	if (p != NULL)
 		major_s = p;
 	else
-		goto out;
+		return -EINVAL;
 
 	minor_s = s[0];
 	if (!minor_s)
-		goto out;
+		return -EINVAL;
 
-	if (strict_strtoul(major_s, 10, &major))
-		goto out;
+	ret = strict_strtoul(major_s, 10, &major);
+	if (ret)
+		return -EINVAL;
 
-	if (strict_strtoul(minor_s, 10, &minor))
-		goto out;
+	ret = strict_strtoul(minor_s, 10, &minor);
+	if (ret)
+		return -EINVAL;
 
 	dev = MKDEV(major, minor);
 
-	if (strict_strtoull(s[1], 10, &temp))
-		goto out;
+	ret = strict_strtoull(s[1], 10, &temp);
+	if (ret)
+		return -EINVAL;
 
 	/* For rule removal, do not check for device presence. */
 	if (temp) {
-		disk = get_gendisk(dev, &part);
-		if (!disk || part) {
-			ret = -ENODEV;
-			goto out;
-		}
+		ret = blkio_check_dev_num(dev);
+		if (ret)
+			return ret;
 	}
 
 	newpn->dev = dev;
@@ -831,7 +843,7 @@ static int blkio_policy_parse_and_set(char *buf,
 	case BLKIO_POLICY_PROP:
 		if ((temp < BLKIO_WEIGHT_MIN && temp > 0) ||
 		     temp > BLKIO_WEIGHT_MAX)
-			goto out;
+			return -EINVAL;
 
 		newpn->plid = plid;
 		newpn->fileid = fileid;
@@ -848,7 +860,7 @@ static int blkio_policy_parse_and_set(char *buf,
 		case BLKIO_THROTL_read_iops_device:
 		case BLKIO_THROTL_write_iops_device:
 			if (temp > THROTL_IOPS_MAX)
-				goto out;
+				return -EINVAL;
 
 			newpn->plid = plid;
 			newpn->fileid = fileid;
@@ -859,10 +871,8 @@ static int blkio_policy_parse_and_set(char *buf,
 	default:
 		BUG();
 	}
-	ret = 0;
-out:
-	put_disk(disk);
-	return ret;
+
+	return 0;
 }
 
 unsigned int blkcg_get_weight(struct blkio_cgroup *blkcg,

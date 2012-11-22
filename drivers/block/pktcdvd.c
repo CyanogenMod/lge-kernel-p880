@@ -2444,7 +2444,7 @@ static void pkt_end_io_read_cloned(struct bio *bio, int err)
 	pkt_bio_finished(pd);
 }
 
-static void pkt_make_request(struct request_queue *q, struct bio *bio)
+static int pkt_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct pktcdvd_device *pd;
 	char b[BDEVNAME_SIZE];
@@ -2473,7 +2473,7 @@ static void pkt_make_request(struct request_queue *q, struct bio *bio)
 		cloned_bio->bi_end_io = pkt_end_io_read_cloned;
 		pd->stats.secs_r += bio->bi_size >> 9;
 		pkt_queue_bio(pd, cloned_bio);
-		return;
+		return 0;
 	}
 
 	if (!test_bit(PACKET_WRITABLE, &pd->flags)) {
@@ -2509,7 +2509,7 @@ static void pkt_make_request(struct request_queue *q, struct bio *bio)
 			pkt_make_request(q, &bp->bio1);
 			pkt_make_request(q, &bp->bio2);
 			bio_pair_release(bp);
-			return;
+			return 0;
 		}
 	}
 
@@ -2533,7 +2533,7 @@ static void pkt_make_request(struct request_queue *q, struct bio *bio)
 				}
 				spin_unlock(&pkt->lock);
 				spin_unlock(&pd->cdrw.active_list_lock);
-				return;
+				return 0;
 			} else {
 				blocked_bio = 1;
 			}
@@ -2584,9 +2584,10 @@ static void pkt_make_request(struct request_queue *q, struct bio *bio)
 		 */
 		wake_up(&pd->wqueue);
 	}
-	return;
+	return 0;
 end_io:
 	bio_io_error(bio);
+	return 0;
 }
 
 

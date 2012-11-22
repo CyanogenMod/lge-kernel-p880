@@ -514,7 +514,7 @@ static struct bio *loop_get_bio(struct loop_device *lo)
 	return bio_list_pop(&lo->lo_bio_list);
 }
 
-static void loop_make_request(struct request_queue *q, struct bio *old_bio)
+static int loop_make_request(struct request_queue *q, struct bio *old_bio)
 {
 	struct loop_device *lo = q->queuedata;
 	int rw = bio_rw(old_bio);
@@ -532,11 +532,12 @@ static void loop_make_request(struct request_queue *q, struct bio *old_bio)
 	loop_add_bio(lo, old_bio);
 	wake_up(&lo->lo_event);
 	spin_unlock_irq(&lo->lo_lock);
-	return;
+	return 0;
 
 out:
 	spin_unlock_irq(&lo->lo_lock);
 	bio_io_error(old_bio);
+	return 0;
 }
 
 struct switch_request {
