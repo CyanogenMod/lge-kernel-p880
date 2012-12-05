@@ -577,33 +577,15 @@ const struct fb_videomode *tegra_fb_find_best_mode(
 	return best;
 }
 
-static int tegra_fb_activate_mode(struct tegra_fb_info *fb_info,
-				struct fb_var_screeninfo *var)
-{
-	int err;
-	struct fb_info *info = fb_info->info;
-
-	var->activate |= FB_ACTIVATE_FORCE;
-	console_lock();
-	info->flags |= FBINFO_MISC_USEREVENT;
-	err = fb_set_var(info, var);
-	info->flags &= ~FBINFO_MISC_USEREVENT;
-	console_unlock();
-	if (err)
-		return err;
-	return 0;
-}
-
 void tegra_fb_update_monspecs(struct tegra_fb_info *fb_info,
 			      struct fb_monspecs *specs,
 			      bool (*mode_filter)(const struct tegra_dc *dc,
 						  struct fb_videomode *mode))
 {
 	int i;
-	int ret = 0;
+	bool first = false;
 	struct fb_event event;
 	struct fb_info *info = fb_info->info;
-	const struct fb_videomode *best_mode = NULL;
 	struct fb_var_screeninfo var = {0,};
 
 	mutex_lock(&fb_info->info->lock);
@@ -642,6 +624,13 @@ void tegra_fb_update_monspecs(struct tegra_fb_info *fb_info,
 				fb_var_to_videomode(&m, &var);
 				fb_add_videomode(&m,
 						 &fb_info->info->modelist);
+				/* EDID stds recommend first detailed mode
+				to be applied as default,but if first mode
+				doesn't pass mode filter, we have to select
+				and apply other mode. So flag on if first
+				mode passes mode filter */
+				if (!i)
+					first = true;
 			}
 		} else {
 			fb_add_videomode(&specs->modedb[i],
@@ -649,36 +638,31 @@ void tegra_fb_update_monspecs(struct tegra_fb_info *fb_info,
 		}
 	}
 
-	/* Get the best mode from modedb and apply on fb */
-	var.xres = 0;
-	var.yres = 0;
-	best_mode = tegra_fb_find_best_mode(&var, &info->modelist);
+	/* We can't apply first detailed mode, so get the best mode
+	based on resolution and apply on fb */
+	if (!first) {
+		var.xres = 0;
+		var.yres = 0;
+		info->mode = (struct fb_videomode *)
+			tegra_fb_find_best_mode(&var, &info->modelist);
+	}
 
-	/* Update framebuffer with best mode */
-	fb_videomode_to_var(&var, best_mode);
-
-	/* TODO: Get proper way of getting rid of a 0 bpp */
-	if (!var.bits_per_pixel)
-		var.bits_per_pixel = 32;
-
-	memcpy(&info->var, &var, sizeof(struct fb_var_screeninfo));
-
-	ret = tegra_fb_activate_mode(fb_info, &var);
-	if (ret)
-		return;
-
+	/* Prepare fb info with new mode details */
+	fb_videomode_to_var(&info->var, info->mode);
 	event.info = fb_info->info;
 
 #ifdef CONFIG_FRAMEBUFFER_CONSOLE
-/* Lock the console before sending the noti. Fbconsole
-  * on HDMI might be using console
-  */
+	/* Send a noti to change fb_display[].mode for all vc's */
 	console_lock();
-#endif
-	fb_notifier_call_chain(FB_EVENT_NEW_MODELIST, &event);
-#ifdef CONFIG_FRAMEBUFFER_CONSOLE
-/* Unlock the console */
+	fb_notifier_call_chain(FB_EVENT_MODE_CHANGE_ALL, &event);
 	console_unlock();
+
+	/* Notify framebuffer console about mode change */
+	console_lock();
+	fb_notifier_call_chain(FB_EVENT_NEW_MODELIST, &event);
+	console_unlock();
+#else
+	fb_notifier_call_chain(FB_EVENT_NEW_MODELIST, &event);
 #endif
 
 	mutex_unlock(&fb_info->info->lock);
