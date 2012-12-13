@@ -137,12 +137,9 @@ static int tegra_fb_set_par(struct fb_info *info)
 			return -EINVAL;
 		}
 		/* if line_length unset, then pad the stride */
-		if (!info->fix.line_length) {
-			info->fix.line_length = var->xres * var->bits_per_pixel
-				/ 8;
-			info->fix.line_length = round_up(info->fix.line_length,
-						TEGRA_LINEAR_PITCH_ALIGNMENT);
-		}
+		info->fix.line_length = var->xres * var->bits_per_pixel / 8;
+		info->fix.line_length = round_up(info->fix.line_length,
+					TEGRA_LINEAR_PITCH_ALIGNMENT);
 		tegra_fb->win->stride = info->fix.line_length;
 		tegra_fb->win->stride_uv = 0;
 		tegra_fb->win->phys_addr_u = 0;
@@ -733,12 +730,8 @@ struct tegra_fb_info *tegra_fb_register(struct nvhost_device *ndev,
 		tegra_fb->valid = true;
 	}
 
-	info->fix.line_length = fb_data->xres * fb_data->bits_per_pixel / 8;
-
-	stride = tegra_dc_get_stride(dc, 0);
-	if (!stride) /* default to pad the stride */
-		stride = round_up(info->fix.line_length,
-			TEGRA_LINEAR_PITCH_ALIGNMENT);
+	stride = fb_data->xres * fb_data->bits_per_pixel / 8;
+	stride = round_up(stride, TEGRA_LINEAR_PITCH_ALIGNMENT);
 
 	info->fbops = &tegra_fb_ops;
 	info->pseudo_palette = pseudo_palette;
