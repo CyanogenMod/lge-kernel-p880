@@ -518,14 +518,13 @@ static void cpufreq_interactive_timer(unsigned long data)
 	if (delta_time < 1000)
 		goto rearm;
 
+	if (!io_is_busy)
+		delta_idle += delta_iowait;
+
 	if (delta_idle > delta_time)
 		cpu_load = 0;
-	else {
-		if (io_is_busy && delta_idle >= delta_iowait)
-			delta_idle -= delta_iowait;
-
+	else
 		cpu_load = 100 * (delta_time - delta_idle) / delta_time;
-	}
 
 	delta_idle = (unsigned int) cputime64_sub(now_idle,
 						pcpu->freq_change_time_in_idle);
@@ -534,23 +533,14 @@ static void cpufreq_interactive_timer(unsigned long data)
 	delta_time = (unsigned int) cputime64_sub(pcpu->timer_run_time,
 						  pcpu->freq_change_time);
 
+	if (!io_is_busy)
+		delta_idle += delta_iowait;
+
 	if ((delta_time == 0) || (delta_idle > delta_time))
 		load_since_change = 0;
-	else {
-		if (io_is_busy && delta_idle >= delta_iowait)
-			delta_idle -= delta_iowait;
-
+	else
 		load_since_change =
 			100 * (delta_time - delta_idle) / delta_time;
-	}
-
-
-	//                                                               
-#ifdef CONFIG_ARCH_TEGRA_3x_SOC
-	pcpu->last_calc_loads = cpu_load>load_since_change ? cpu_load : load_since_change;
-#endif
-	//                                                               
-
 	/*
 	 * Combine short-term load (since last idle timer started or timer
 	 * function re-armed itself) and long-term load (since last frequency
