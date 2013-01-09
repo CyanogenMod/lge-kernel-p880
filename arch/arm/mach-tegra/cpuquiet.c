@@ -40,8 +40,6 @@
 
 #define CPUQUIET_DEBUG 1
 
-extern unsigned int best_core_to_turn_up (void);
-
 #define INITIAL_STATE		TEGRA_CPQ_IDLE
 #define UP_DELAY_MS			70
 #define DOWN_DELAY_MS		500
@@ -87,6 +85,21 @@ enum {
 	TEGRA_CPQ_SWITCH_TO_LP,
 	TEGRA_CPQ_SWITCH_TO_G,
 };
+
+static unsigned int best_core_to_turn_up (void) {
+    /* mitigate high temperature, 0 -> 3 -> 2 -> 1 */
+    if (!cpu_online (3))
+        return 3;
+
+    if (!cpu_online (2))
+        return 2;
+
+    if (!cpu_online (1))
+        return 1;
+
+    /* NOT found, return >= nr_cpu_id */
+    return nr_cpu_ids;
+}
 
 static inline unsigned int num_cpu_check(unsigned int num)
 {

@@ -1057,8 +1057,8 @@ static int tegra3_cpu_cmplx_clk_set_parent(struct clk *c, struct clk *p)
 			return 0;
 
 		if (rate > p->max_rate) {	/* over-clocking - no switch */
-			pr_warn("%s: No %s mode switch to %s at rate %lu\n",
-				 __func__, c->name, p->name, rate);
+			pr_warn("%s: No %s mode switch to %s at rate %lu max rate %lu\n",
+				 __func__, c->name, p->name, rate, p->max_rate);
 			return -ECANCELED;
 		}
 		flags = TEGRA_POWER_CLUSTER_IMMEDIATE;

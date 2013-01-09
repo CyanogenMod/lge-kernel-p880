@@ -137,6 +137,8 @@ bool was_paused = false;
 struct pm_qos_request_list min_cpu_req;
 struct pm_qos_request_list max_cpu_req;
 
+extern unsigned int best_core_to_turn_up (void);
+
 static inline unsigned int num_cpu_check(unsigned int num)
 {
 	if (num > CONFIG_NR_CPUS)
@@ -208,21 +210,6 @@ static bool lp_possible(void)
 		return false;
 
 	return true;
-}
-
-static unsigned int best_core_to_turn_up (void) {
-    /* mitigate high temperature, 0 -> 3 -> 2 -> 1 */
-    if (!cpu_online (3))
-        return 3;
-
-    if (!cpu_online (2))
-        return 2;
-
-    if (!cpu_online (1))
-        return 1;
-
-    /* NOT found, return >= nr_cpu_id */
-    return nr_cpu_ids;
 }
 
 static int mp_decision(void)
