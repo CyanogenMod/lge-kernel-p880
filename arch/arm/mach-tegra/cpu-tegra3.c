@@ -682,7 +682,7 @@ static const struct file_operations hp_stats_fops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
-
+#ifdef CONFIG_TEGRA_RUNNABLE_THREAD
 static int rt_bias_get(void *data, u64 *val)
 {
 	*val = rt_profile_sel;
@@ -701,7 +701,7 @@ static int rt_bias_set(void *data, u64 val)
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(rt_bias_fops, rt_bias_get, rt_bias_set, "%llu\n");
-
+#endif
 static int min_cpus_get(void *data, u64 *val)
 {
 	*val = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
@@ -770,11 +770,11 @@ static int __init tegra_auto_hotplug_debug_init(void)
 	if (!debugfs_create_file(
 		"stats", S_IRUGO, hp_debugfs_root, NULL, &hp_stats_fops))
 		goto err_out;
-
+#ifdef CONFIG_TEGRA_RUNNABLE_THREAD
 	if (!debugfs_create_file(
 		"core_bias", S_IRUGO, hp_debugfs_root, NULL, &rt_bias_fops))
 		goto err_out;
-
+#endif
 	return 0;
 
 err_out:
