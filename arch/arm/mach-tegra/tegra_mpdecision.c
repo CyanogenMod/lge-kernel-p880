@@ -37,21 +37,20 @@
 #include <asm-generic/cputime.h>
 #include <linux/hrtimer.h>
 #include <linux/delay.h>
-#include <linux/pm_qos_params.h>
 
 #include "clock.h"
 #include "cpu-tegra.h"
 #include "pm.h"
-#include "tegra_pmqos.h"
 
 #define DEBUG 0
-
-extern unsigned int best_core_to_turn_up (void);
 
 #define MPDEC_TAG                       "[MPDEC]: "
 #define TEGRA_MPDEC_STARTDELAY            20000
 #define TEGRA_MPDEC_DELAY                 70
 #define TEGRA_MPDEC_PAUSE                 10000
+
+/* will be overwritten later by lpcpu max clock */
+#define TEGRA_MPDEC_IDLE_FREQ             475000
 
 /* This rq value will be used if we only have the lpcpu online */
 #define TEGRA_MPDEC_LPCPU_RQ_DOWN         36
@@ -111,7 +110,7 @@ static struct tegra_mpdec_tuners {
 	.startdelay = TEGRA_MPDEC_STARTDELAY,
 	.delay = TEGRA_MPDEC_DELAY,
 	.pause = TEGRA_MPDEC_PAUSE,
-	.idle_freq = T3_LP_MAX_FREQ_DEFAULT,
+	.idle_freq = TEGRA_MPDEC_IDLE_FREQ,
         .lp_cpu_up_hysteresis = TEGRA_MPDEC_LPCPU_UP_HYS,
         .lp_cpu_down_hysteresis = TEGRA_MPDEC_LPCPU_DOWN_HYS,
         .max_cpus = CONFIG_NR_CPUS,
@@ -123,6 +122,7 @@ static struct clk *cpu_g_clk;
 static struct clk *cpu_lp_clk;
 
 static unsigned int idle_top_freq;
+static unsigned int idle_bottom_freq;
 
 static unsigned int NwNs_Threshold[8] = {16, 10, 24, 12, 30, 16, 0, 18};
 static unsigned int TwTs_Threshold[8] = {140, 0, 140, 190, 140, 190, 0, 190};
@@ -132,80 +132,72 @@ extern unsigned int get_rq_info(void);
 unsigned int state = TEGRA_MPDEC_IDLE;
 bool was_paused = false;
 
-struct pm_qos_request_list min_cpu_req;
-struct pm_qos_request_list max_cpu_req;
-
-static inline unsigned int num_cpu_check(unsigned int num)
+static unsigned long get_rate(int cpu)
 {
-	if (num > CONFIG_NR_CPUS)
-		return CONFIG_NR_CPUS;
-	if (num < 1)
-		return 1;
-	return num;
-}
-
-static inline unsigned int tegra_mpdec_max_cpus(void)
-{
-	unsigned int max_cpus_qos = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS);	
-	unsigned int num = min(max_cpus_qos, tegra_mpdec_tuners_ins.max_cpus);
-	return num_cpu_check(num);
-}
-
-static inline unsigned int tegra_mpdec_min_cpus(void)
-{
-	unsigned int min_cpus_qos = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
-	unsigned int num = max(min_cpus_qos, tegra_mpdec_tuners_ins.min_cpus);
-	return num_cpu_check(num);
-}
-
-static inline unsigned long get_rate(int cpu)
-{
-	return tegra_getspeed(cpu);
+        return tegra_getspeed(cpu);
 }
 
 static int get_slowest_cpu(void)
 {
-	unsigned int cpu = nr_cpu_ids;
-	unsigned long rate = ULONG_MAX, curr_rate;
-	int i;
+        int i, cpu = 0;
+        unsigned long rate, slow_rate = 0;
 
-	for_each_online_cpu(i){
-		if (i > 0){
-			curr_rate = get_rate(i);
-			if (rate > curr_rate) {
-				cpu = i;
-				rate = curr_rate;
-			}
-		}
-	}
-	return cpu;
+        for (i = 0; i < CONFIG_NR_CPUS; i++) {
+
+                if (!cpu_online(i))
+                        continue;
+
+                rate = get_rate(i);
+
+                if (slow_rate == 0) {
+                        slow_rate = rate;
+                }
+
+                if ((rate <= slow_rate) && (slow_rate != 0)) {
+                        if (i == 0)
+                                continue;
+
+                        cpu = i;
+                        slow_rate = rate;
+                }
+        }
+
+        return cpu;
 }
 
 static int get_slowest_cpu_rate(void)
 {
-	unsigned long rate = ULONG_MAX;
-	int i;
-	
-	for_each_online_cpu(i)
-		rate = min(rate, get_rate(i));
-	return rate;
+        int i = 0;
+        unsigned long rate, slow_rate = 0;
+
+        for (i = 0; i < CONFIG_NR_CPUS; i++) {
+                rate = get_rate(i);
+                if ((rate < slow_rate) && (slow_rate != 0)) {
+                        slow_rate = rate;
+                }
+                if (slow_rate == 0) {
+                        slow_rate = rate;
+                }
+        }
+
+        return slow_rate;
 }
 
 static bool lp_possible(void)
 {
-	int i = 0;
-	unsigned int speed;
+        int i = 0;
+        unsigned int speed;
 
-	for_each_online_cpu(i){
-		if (i > 0 && cpu_online(i))
-			return false;
-	}
+        for (i = 1; i < CONFIG_NR_CPUS; i++) {
+                if (cpu_online(i))
+                        return false;
+        }
 
-	speed = get_rate(0);
-	if (speed > idle_top_freq)
-		return false;
+        speed = tegra_getspeed(0);
+        if (speed > idle_top_freq)
+                return false;
 
-	return true;
+        return true;
 }
 
 static int mp_decision(void)
@@ -219,9 +211,7 @@ static int mp_decision(void)
 	static cputime64_t last_time;
 	cputime64_t current_time;
 	cputime64_t this_time = 0;
-	int max_cpus = tegra_mpdec_max_cpus();
-	int min_cpus = tegra_mpdec_min_cpus();
-	
+
 	if (state == TEGRA_MPDEC_DISABLED)
 		return TEGRA_MPDEC_DISABLED;
 
@@ -243,18 +233,18 @@ static int mp_decision(void)
 		index = (nr_cpu_online - 1) * 2;
 		if ((nr_cpu_online < CONFIG_NR_CPUS) && (rq_depth >= NwNs_Threshold[index])) {
 			if (total_time >= TwTs_Threshold[index]) {
-                                if ((!is_lp_cluster()) && (nr_cpu_online < max_cpus))
+                                if ((!is_lp_cluster()) && (nr_cpu_online < tegra_mpdec_tuners_ins.max_cpus))
                                         new_state = TEGRA_MPDEC_UP;
                                 else if (rq_depth > TEGRA_MPDEC_LPCPU_RQ_DOWN)
                                         new_state = TEGRA_MPDEC_LPCPU_DOWN;
 
                                 if ((get_slowest_cpu_rate() <= tegra_mpdec_tuners_ins.idle_freq)
                                      && (new_state != TEGRA_MPDEC_LPCPU_DOWN))
-                                                new_state = TEGRA_MPDEC_IDLE;
+                                                new_state = TEGRA_MPDEC_IDLE;;
 			}
 		} else if (rq_depth <= NwNs_Threshold[index+1]) {
 			if (total_time >= TwTs_Threshold[index+1] ) {
-                                if ((nr_cpu_online > 1) && (nr_cpu_online > min_cpus))
+                                if ((nr_cpu_online > 1) && (nr_cpu_online > tegra_mpdec_tuners_ins.min_cpus))
                                         new_state = TEGRA_MPDEC_DOWN;
                                 else if ((get_rate(0) <= idle_top_freq) && (!is_lp_cluster()))
                                         new_state = TEGRA_MPDEC_LPCPU_UP;
@@ -428,10 +418,10 @@ out:
 static void tegra_mpdec_work_thread(struct work_struct *work)
 {
 	unsigned int cpu = nr_cpu_ids;
-    static int lpup_req = 0;
-    static int lpdown_req = 0;
+        static int lpup_req = 0;
+        static int lpdown_req = 0;
 	cputime64_t on_time = 0;
-    bool suspended = false;
+        bool suspended = false;
 
 	if (ktime_to_ms(ktime_get()) <= tegra_mpdec_tuners_ins.startdelay)
 		goto out;
@@ -491,7 +481,7 @@ static void tegra_mpdec_work_thread(struct work_struct *work)
 	case TEGRA_MPDEC_UP:
                 lpup_req = 0;
                 lpdown_req = 0;
-                cpu = best_core_to_turn_up();
+                cpu = cpumask_next_zero(0, cpu_online_mask);
                 if (cpu < nr_cpu_ids) {
                         if ((per_cpu(tegra_mpdec_cpudata, cpu).online == false) && (!cpu_online(cpu))) {
                                 cpu_up(cpu);
@@ -581,11 +571,8 @@ static void tegra_mpdec_early_suspend(struct early_suspend *h)
 	}
 
         /* main work thread can sleep now */
-        // maxwen: TODO added for debugging purposes
-        pr_info("maxwen: before cancel_delayed_work_sync(&tegra_mpdec_work)");
         cancel_delayed_work_sync(&tegra_mpdec_work);
-        pr_info("maxwen: after cancel_delayed_work_sync(&tegra_mpdec_work)");
-        
+
         if ((lp_possible()) && (!is_lp_cluster())) {
                 if(!tegra_lp_cpu_handler(true, false))
                         pr_err(MPDEC_TAG"CPU[LP] error, cannot power up.\n");
@@ -600,9 +587,7 @@ static void tegra_mpdec_late_resume(struct early_suspend *h)
 {
 	int cpu = nr_cpu_ids;
 	for_each_possible_cpu(cpu) {
-		mutex_lock(&per_cpu(tegra_mpdec_cpudata, cpu).suspend_mutex);
 		per_cpu(tegra_mpdec_cpudata, cpu).device_suspended = false;
-		mutex_unlock(&per_cpu(tegra_mpdec_cpudata, cpu).suspend_mutex);
 	}
         /* always switch back to g mode on resume */
         if (is_lp_cluster())
@@ -775,7 +760,7 @@ static ssize_t store_max_cpus(struct kobject *a, struct attribute *b,
 	unsigned int input;
 	int ret;
 	ret = sscanf(buf, "%u", &input);
-	if ((ret != 1) || input < 1 || input > CONFIG_NR_CPUS)
+	if ((ret != 1) || input > CONFIG_NR_CPUS)
 		return -EINVAL;
 
 	tegra_mpdec_tuners_ins.max_cpus = input;
@@ -789,7 +774,7 @@ static ssize_t store_min_cpus(struct kobject *a, struct attribute *b,
 	unsigned int input;
 	int ret;
 	ret = sscanf(buf, "%u", &input);
-	if ((ret != 1) || input < 1 || input > CONFIG_NR_CPUS)
+	if ((ret != 1) || input < 1)
 		return -EINVAL;
 
 	tegra_mpdec_tuners_ins.min_cpus = input;
@@ -959,36 +944,6 @@ static struct attribute_group tegra_mpdec_attr_group = {
 };
 /**************************** SYSFS END ****************************/
 
-static int max_cpus_notify(struct notifier_block *nb, unsigned long n, void *p)
-{
-	pr_info("PM QoS PM_QOS_MAX_ONLINE_CPUS %lu\n", n);
-
-	return NOTIFY_OK;
-}
-
-static int min_cpus_notify(struct notifier_block *nb, unsigned long n, void *p)
-{
-	pr_info("PM QoS PM_QOS_MIN_ONLINE_CPUS %lu\n", n);
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block min_cpus_notifier = {
-	.notifier_call = min_cpus_notify,
-};
-
-static struct notifier_block max_cpus_notifier = {
-	.notifier_call = max_cpus_notify,
-};
-
-void tegra_lpmode_freq_max_changed(void)
-{
-	idle_top_freq = tegra_lpmode_freq_max();
-    /* overwrite idle frequency with lpcpu max clock */
-	tegra_mpdec_tuners_ins.idle_freq = idle_top_freq;
-	pr_info(MPDEC_TAG "%s: idle_top_freq = %d\n", __func__, idle_top_freq);
-}
-
 static int __init tegra_mpdec_init(void)
 {
 	int cpu, rc, err = 0;
@@ -1000,9 +955,11 @@ static int __init tegra_mpdec_init(void)
 	if (IS_ERR(cpu_clk) || IS_ERR(cpu_g_clk) || IS_ERR(cpu_lp_clk))
 		return -ENOENT;
 
-	idle_top_freq = tegra_lpmode_freq_max();
-    /* overwrite idle frequency with lpcpu max clock */
-    tegra_mpdec_tuners_ins.idle_freq = idle_top_freq;
+	idle_top_freq = clk_get_max_rate(cpu_lp_clk) / 1000;
+	idle_bottom_freq = clk_get_min_rate(cpu_g_clk) / 1000;
+
+        /* overwrite idle frequency with lpcpu max clock */
+        tegra_mpdec_tuners_ins.idle_freq = idle_top_freq;
 
 	for_each_possible_cpu(cpu) {
 		mutex_init(&(per_cpu(tegra_mpdec_cpudata, cpu).suspend_mutex));
@@ -1010,7 +967,7 @@ static int __init tegra_mpdec_init(void)
 		per_cpu(tegra_mpdec_cpudata, cpu).online = true;
 	}
 
-	was_paused = true;
+        was_paused = true;
 
 	tegra_mpdec_workq = alloc_workqueue(
 		"mpdec", WQ_UNBOUND | WQ_RESCUER | WQ_FREEZABLE, 1);
@@ -1041,14 +998,6 @@ static int __init tegra_mpdec_init(void)
 	} else
 		pr_warn(MPDEC_TAG"sysfs: ERROR, could not create sysfs kobj");
 
-	if (pm_qos_add_notifier(PM_QOS_MIN_ONLINE_CPUS, &min_cpus_notifier))
-		pr_err("%s: Failed to register min cpus PM QoS notifier\n",
-			__func__);
-
-	if (pm_qos_add_notifier(PM_QOS_MAX_ONLINE_CPUS, &max_cpus_notifier))
-		pr_err("%s: Failed to register max cpus PM QoS notifier\n",
-			__func__);
-
 	pr_info(MPDEC_TAG"%s init complete.", __func__);
 
 	return err;
@@ -1060,6 +1009,4 @@ void tegra_mpdec_exit(void)
 {
 	destroy_workqueue(tegra_mpdec_workq);
 	destroy_workqueue(tegra_mpdec_suspended_workq);
-	pm_qos_remove_request(&min_cpu_req);
-	pm_qos_remove_request(&max_cpu_req);
 }
