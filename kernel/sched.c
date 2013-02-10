@@ -1947,20 +1947,14 @@ static inline unsigned int do_avg_nr_running(struct rq *rq)
 
 static void inc_nr_running(struct rq *rq)
 {
-	write_seqcount_begin(&rq->ave_seqcnt);
-	rq->ave_nr_running = do_avg_nr_running(rq);
-	rq->nr_last_stamp = rq->clock_task;
+	sched_update_nr_prod(cpu_of(rq), rq->nr_running, true);
 	rq->nr_running++;
-	write_seqcount_end(&rq->ave_seqcnt);
 }
 
 static void dec_nr_running(struct rq *rq)
 {
-	write_seqcount_begin(&rq->ave_seqcnt);
-	rq->ave_nr_running = do_avg_nr_running(rq);
-	rq->nr_last_stamp = rq->clock_task;
+	sched_update_nr_prod(cpu_of(rq), rq->nr_running, false);
 	rq->nr_running--;
-	write_seqcount_end(&rq->ave_seqcnt);
 }
 
 static void set_load_weight(struct task_struct *p)
