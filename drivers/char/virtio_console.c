@@ -127,7 +127,7 @@ struct ports_device {
 	spinlock_t ports_lock;
 
 	/* To protect the vq operations for the control channel */
-	spinlock_t cvq_lock;
+	spinlock_t c_ivq_lock;
 
 	/* The current config space is stored here */
 	struct virtio_console_config config;
@@ -1450,23 +1450,23 @@ static void control_work_handler(struct work_struct *work)
 	portdev = container_of(work, struct ports_device, control_work);
 	vq = portdev->c_ivq;
 
-	spin_lock(&portdev->cvq_lock);
+	spin_lock(&portdev->c_ivq_lock);
 	while ((buf = virtqueue_get_buf(vq, &len))) {
-		spin_unlock(&portdev->cvq_lock);
+		spin_unlock(&portdev->c_ivq_lock);
 
 		buf->len = len;
 		buf->offset = 0;
 
 		handle_control_message(portdev, buf);
 
-		spin_lock(&portdev->cvq_lock);
+		spin_lock(&portdev->c_ivq_lock);
 		if (add_inbuf(portdev->c_ivq, buf) < 0) {
 			dev_warn(&portdev->vdev->dev,
 				 "Error adding buffer to queue\n");
 			free_buf(buf);
 		}
 	}
-	spin_unlock(&portdev->cvq_lock);
+	spin_unlock(&portdev->c_ivq_lock);
 }
 
 static void out_intr(struct virtqueue *vq)
@@ -1704,10 +1704,11 @@ static int __devinit virtcons_probe(struct virtio_device *vdev)
 	if (multiport) {
 		unsigned int nr_added_bufs;
 
-		spin_lock_init(&portdev->cvq_lock);
+		spin_lock_init(&portdev->c_ivq_lock);
 		INIT_WORK(&portdev->control_work, &control_work_handler);
 
-		nr_added_bufs = fill_queue(portdev->c_ivq, &portdev->cvq_lock);
+		nr_added_bufs = fill_queue(portdev->c_ivq,
+					   &portdev->c_ivq_lock);
 		if (!nr_added_bufs) {
 			dev_err(&vdev->dev,
 				"Error allocating buffers for control queue\n");
@@ -1801,6 +1802,75 @@ static unsigned int features[] = {
 	VIRTIO_CONSOLE_F_SIZE,
 	VIRTIO_CONSOLE_F_MULTIPORT,
 };
+
+#ifdef CONFIG_PM
+static int virtcons_freeze(struct virtio_device *vdev)
+{
+	struct ports_device *portdev;
+	struct port *port;
+
+	portdev = vdev->priv;
+
+	vdev->config->reset(vdev);
+
+	virtqueue_disable_cb(portdev->c_ivq);
+	cancel_work_sync(&portdev->control_work);
+	/*
+	 * Once more: if control_work_handler() was running, it would
+	 * enable the cb as the last step.
+	 */
+	virtqueue_disable_cb(portdev->c_ivq);
+	remove_controlq_data(portdev);
+
+	list_for_each_entry(port, &portdev->ports, list) {
+		virtqueue_disable_cb(port->in_vq);
+		virtqueue_disable_cb(port->out_vq);
+		/*
+		 * We'll ask the host later if the new invocation has
+		 * the port opened or closed.
+		 */
+		port->host_connected = false;
+		remove_port_data(port);
+	}
+	remove_vqs(portdev);
+
+	return 0;
+}
+
+static int virtcons_restore(struct virtio_device *vdev)
+{
+	struct ports_device *portdev;
+	struct port *port;
+	int ret;
+
+	portdev = vdev->priv;
+
+	ret = init_vqs(portdev);
+	if (ret)
+		return ret;
+
+	if (use_multiport(portdev))
+		fill_queue(portdev->c_ivq, &portdev->c_ivq_lock);
+
+	list_for_each_entry(port, &portdev->ports, list) {
+		port->in_vq = portdev->in_vqs[port->id];
+		port->out_vq = portdev->out_vqs[port->id];
+
+		fill_queue(port->in_vq, &port->inbuf_lock);
+
+		/* Get port open/close status on the host */
+		send_control_msg(port, VIRTIO_CONSOLE_PORT_READY, 1);
+
+		/*
+		 * If a port was open at the time of suspending, we
+		 * have to let the host know that it's still open.
+		 */
+		if (port->guest_connected)
+			send_control_msg(port, VIRTIO_CONSOLE_PORT_OPEN, 1);
+	}
+	return 0;
+}
+#endif
 
 static struct virtio_driver virtio_console = {
 	.feature_table = features,
