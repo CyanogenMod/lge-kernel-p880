@@ -87,7 +87,7 @@ static void update_runnables_state(void)
 	}
 	nr_run_last = nr_run;
 
-	if ((nr_cpus > max_cpus || nr_run < nr_cpus) && nr_cpus >= min_cpus) {
+	if (nr_run > 1 && (nr_cpus > max_cpus || nr_run < nr_cpus) && nr_cpus > min_cpus) {
 		runnables_state = DOWN;
 	} else if ((nr_cpus < min_cpus || nr_run > nr_cpus) && curr_freq >= MIN_UP_FREQ) {
 		runnables_state =  UP;
