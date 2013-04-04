@@ -88,16 +88,27 @@ enum {
 	TEGRA_CPQ_SWITCH_TO_G,
 };
 
+static inline unsigned int num_cpu_check(unsigned int num)
+{
+	if (num > CONFIG_NR_CPUS)
+		return CONFIG_NR_CPUS;
+	if (num < 1)
+		return 1;
+	return num;
+}
+
 unsigned int tegra_cpq_max_cpus(void)
 {
 	unsigned int max_cpus_qos = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS);	
-	return min(max_cpus_qos, max_cpus);
+	unsigned int num = min(max_cpus_qos, max_cpus);
+	return num_cpu_check(num);
 }
 
 unsigned int tegra_cpq_min_cpus(void)
 {
 	unsigned int min_cpus_qos = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
-	return max(min_cpus_qos, min_cpus);
+	unsigned int num = max(min_cpus_qos, min_cpus);
+	return num_cpu_check(num);
 }
 
 static inline void show_status(const char* extra, cputime64_t on_time, int cpu)

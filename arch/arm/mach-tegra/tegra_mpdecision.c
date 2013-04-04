@@ -139,16 +139,27 @@ bool was_paused = false;
 struct pm_qos_request_list min_cpu_req;
 struct pm_qos_request_list max_cpu_req;
 
+static inline unsigned int num_cpu_check(unsigned int num)
+{
+	if (num > CONFIG_NR_CPUS)
+		return CONFIG_NR_CPUS;
+	if (num < 1)
+		return 1;
+	return num;
+}
+
 static unsigned int tegra_mpdec_max_cpus(void)
 {
 	unsigned int max_cpus_qos = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS);	
-	return min(max_cpus_qos, tegra_mpdec_tuners_ins.max_cpus);
+	unsigned int num = min(max_cpus_qos, tegra_mpdec_tuners_ins.max_cpus);
+	return num_cpu_check(num);
 }
 
 static unsigned int tegra_mpdec_min_cpus(void)
 {
 	unsigned int min_cpus_qos = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
-	return max(min_cpus_qos, tegra_mpdec_tuners_ins.min_cpus);
+	unsigned int num = max(min_cpus_qos, tegra_mpdec_tuners_ins.min_cpus);
+	return num_cpu_check(num);
 }
 
 static inline unsigned long get_rate(int cpu)
