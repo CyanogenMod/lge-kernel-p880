@@ -46,8 +46,6 @@
 
 #define DEBUG 0
 
-extern unsigned int best_core_to_turn_up (void);
-
 #define MPDEC_TAG                       "[MPDEC]: "
 #define TEGRA_MPDEC_STARTDELAY            20000
 #define TEGRA_MPDEC_DELAY                 70
@@ -210,6 +208,21 @@ static bool lp_possible(void)
 		return false;
 
 	return true;
+}
+
+static unsigned int best_core_to_turn_up (void) {
+    /* mitigate high temperature, 0 -> 3 -> 2 -> 1 */
+    if (!cpu_online (3))
+        return 3;
+
+    if (!cpu_online (2))
+        return 2;
+
+    if (!cpu_online (1))
+        return 1;
+
+    /* NOT found, return >= nr_cpu_id */
+    return nr_cpu_ids;
 }
 
 static int mp_decision(void)
