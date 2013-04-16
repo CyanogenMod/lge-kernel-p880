@@ -353,7 +353,6 @@ static int __devinit tegra_nvec_probe(struct platform_device *pdev)
 	if(err < 0)
 		dev_err(nvec->dev, "couldn't request gpio\n");
 
-	tegra_gpio_enable(nvec->gpio);
 	gpio_direction_output(nvec->gpio, 1);
 	gpio_set_value(nvec->gpio, 1);
 

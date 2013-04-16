@@ -27,6 +27,12 @@
 
 #include "power.h"
 
+//                                                              
+#include <linux/rtc.h>
+
+static int sleepEnter = 0;
+//                                                            
+
 const char *const pm_states[PM_SUSPEND_MAX] = {
 #ifdef CONFIG_EARLYSUSPEND
 	[PM_SUSPEND_ON]		= "on",
@@ -177,6 +183,9 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 			events_check_enabled = false;
 		}
 		syscore_resume();
+        //                                                              
+        sleepEnter = 1;
+        //                                                            
 	}
 
 	arch_suspend_enable_irqs();
@@ -236,6 +245,20 @@ int suspend_devices_and_enter(suspend_state_t state)
  Resume_devices:
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
+
+    //                                                              
+    if(sleepEnter == 1){
+        struct timespec ts;
+        struct rtc_time tm;
+        getnstimeofday(&ts);
+        rtc_time_to_tm(ts.tv_sec, &tm);
+        printk(KERN_UTC_WAKEUP "%d-%02d-%02d %02d:%02d:%02d.%06lu\n",
+            tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+            tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec/1000);
+        sleepEnter = 0;
+    }
+    //                                                            
+
 	suspend_test_finish("resume devices");
 	resume_console();
  Close:

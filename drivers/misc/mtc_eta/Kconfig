@@ -1,0 +1,6 @@
+config LGE_MTC_ETA
+      bool "Support LGE MTC_ETA Event (Key, Touch) Logging"
+      default n
+      depends on I2C
+      help
+         LGE MTC/ETA

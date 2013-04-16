@@ -22,6 +22,7 @@ obj-$(CONFIG_SENSORS_BH1770)	+= bh1770glc.o
 obj-$(CONFIG_SENSORS_APDS990X)	+= apds990x.o
 obj-$(CONFIG_SGI_IOC4)		+= ioc4.o
 obj-$(CONFIG_ENCLOSURE_SERVICES) += enclosure.o
+obj-$(CONFIG_KERNEL_DEBUGGER_CORE)	+= kernel_debugger.o
 obj-$(CONFIG_KGDB_TESTS)	+= kgdbts.o
 obj-$(CONFIG_SGI_XP)		+= sgi-xp/
 obj-$(CONFIG_SGI_GRU)		+= sgi-gru/
@@ -38,6 +39,7 @@ obj-$(CONFIG_UID_STAT)		+= uid_stat.o
 obj-$(CONFIG_C2PORT)		+= c2port/
 obj-$(CONFIG_IWMC3200TOP)      += iwmc3200top/
 obj-$(CONFIG_HMC6352)		+= hmc6352.o
+obj-$(CONFIG_ADC_TSC2007)			+= tsc2007_adc.o
 obj-y				+= eeprom/
 obj-y				+= cb710/
 obj-$(CONFIG_SPEAR13XX_PCIE_GADGET)	+= spear13xx_pcie_gadget.o
@@ -53,8 +55,28 @@ obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_APANIC)		+= apanic.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-$(CONFIG_SENSORS_NCT1008)	+= nct1008.o
+# LG_BTUI : X3_BT_bringup - kukdong.bae@lge.com [S]
+obj-$(CONFIG_BCM4330_RFKILL)	+= lbee9qmb-rfkill.o
+obj-$(CONFIG_BD_ADDRESS)	+= bd_address.o
+# LG_BTUI : X3_BT_bringup - kukdong.bae@lge.com [E]
 obj-$(CONFIG_BCM4329_RFKILL)	+= bcm4329_rfkill.o
 obj-$(CONFIG_INV_SENSORS)      += inv_mpu/
+CFLAGS_tegra-cryptodev.o	 = -Werror
 obj-$(CONFIG_TEGRA_CRYPTO_DEV)	+= tegra-cryptodev.o
 obj-$(CONFIG_TEGRA_BB_SUPPORT)	+= tegra-baseband/
+obj-$(CONFIG_TEGRA_CEC_SUPPORT)	+= tegra-cec/
 obj-$(CONFIG_MAX1749_VIBRATOR)	+= max1749.o
+obj-$(CONFIG_THERM_EST)		+= therm_est.o
+obj-$(CONFIG_LGE_ERS)		+= lge_ers.o
+obj-$(CONFIG_SENSORS_APDS990X)	+= apds990x.o
+#LGE_CHANGE_S
+obj-y +=muic/
+#LGE_CHANGE_E
+obj-$(CONFIG_TSPDRV)		+= tspdrv/
+#LGE_IMC_RIL
+obj-y				+= ts0710mux/
+obj-y				+= cpwatcher.o
+#LGE_IMC_RIL
+obj-y   += mtc_eta/
+obj-$(CONFIG_TEGRA_THROUGHPUT)	+= tegra-throughput.o
+

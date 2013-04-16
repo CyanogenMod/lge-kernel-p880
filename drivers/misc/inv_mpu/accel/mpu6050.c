@@ -256,6 +256,9 @@ static int mpu6050_set_irq(void *mlsl_handle,
 	int result;
 	unsigned char reg_int_cfg;
 
+	/* HACK, no need for interrupts for MPU6050 accel
+		- use of soft interrupt is required */
+#if 0 //dongho70.kim  sync MPU Unit with X3
 	switch (irq_type) {
 	case MPU_SLAVE_IRQ_TYPE_DATA_READY:
 		config->irq_type = irq_type;
@@ -281,6 +284,7 @@ static int mpu6050_set_irq(void *mlsl_handle,
 		}
 		MPL_LOGV("irq_type: %d\n", config->irq_type);
 	}
+#endif
 
 	return 0;
 }

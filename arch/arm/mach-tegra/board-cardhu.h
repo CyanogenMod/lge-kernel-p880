@@ -76,10 +76,15 @@
 #define BOARD_FAB_A03			0x3
 #define BOARD_FAB_A04			0x4
 #define BOARD_FAB_A05			0x5
+#define BOARD_FAB_A06			0x6
+#define BOARD_FAB_A07			0x7
 
 /* Display Board ID */
 #define BOARD_DISPLAY_PM313		0x030D
+#define BOARD_DISPLAY_E1213		0x0C0D
 #define BOARD_DISPLAY_E1247		0x0C2F
+#define BOARD_DISPLAY_E1253		0x0C35
+#define BOARD_DISPLAY_E1506		0x0F06
 
 /* External peripheral act as gpio */
 /* TPS6591x GPIOs */
@@ -216,6 +221,8 @@ int cardhu_pm298_regulator_init(void);
 int cardhu_pm299_gpio_switch_regulator_init(void);
 int cardhu_pm299_regulator_init(void);
 
+extern struct tegra_uart_platform_data cardhu_irda_pdata;
+
 #define MPU_TYPE_MPU3050	1
 #define MPU_TYPE_MPU6050	2
 #define MPU_GYRO_TYPE		MPU_TYPE_MPU3050
@@ -224,7 +231,7 @@ int cardhu_pm299_regulator_init(void);
 #define MPU_GYRO_BUS_NUM	2
 #define MPU_GYRO_ORIENTATION	{ 0, -1, 0, -1, 0, 0, 0, 0, -1 }
 #define MPU_ACCEL_NAME		"kxtf9"
-#define MPU_ACCEL_IRQ_GPIO	TEGRA_GPIO_PL1
+#define MPU_ACCEL_IRQ_GPIO	0 /* DISABLE ACCELIRQ:  TEGRA_GPIO_PL1 */
 #define MPU_ACCEL_ADDR		0x0F
 #define MPU_ACCEL_BUS_NUM	2
 #define MPU_ACCEL_ORIENTATION	{ 0, -1, 0, -1, 0, 0, 0, 0, -1 }

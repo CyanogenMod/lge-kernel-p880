@@ -562,14 +562,31 @@ config MAX1749_VIBRATOR
 	---help---
 	Adds a timed output vibrator device node for MAX1749 vibrator motor
 
+config THERM_EST
+	bool "Thermal estimator driver"
+	default n
+	---help---
+	Thermal driver which estimates temperature based of other sensors.
+
+config TEGRA_THROUGHPUT
+	bool "Device node to set throughput target"
+	depends on TEGRA_DC && TEGRA_DC_EXTENSIONS
+	default y
+	---help---
+	Dev node /dev/tegra-throughput used to set a throughput target.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
 source "drivers/misc/iwmc3200top/Kconfig"
 source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
+# LGE_CHANGE_S [suchul.lee] 2011-07-03
+source "drivers/misc/ts0710mux/Kconfig"
+# LGE_CHANGE_E [suchul.lee] 2011-07-03
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/inv_mpu/Kconfig"
 source "drivers/misc/tegra-baseband/Kconfig"
+source "drivers/misc/tegra-cec/Kconfig"
 
 endif # MISC_DEVICES

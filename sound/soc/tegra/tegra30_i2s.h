@@ -176,7 +176,7 @@
 /* Number of slots in frame, minus 1 */
 #define TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOTS_SHIFT		16
 #define TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOTS_MASK_US	7
-#define TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOTS_MASK		(TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOT_MASK_US << TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOT_SHIFT)
+#define TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOTS_MASK		(TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOTS_MASK_US << TEGRA30_I2S_SLOT_CTRL_TOTAL_SLOTS_SHIFT)
 
 /* TDM mode slot enable bitmask */
 #define TEGRA30_I2S_SLOT_CTRL_RX_SLOT_ENABLES_SHIFT	8
@@ -231,6 +231,16 @@
 /* Number of i2s controllers*/
 #define TEGRA30_NR_I2S_IFC				5
 
+struct dsp_config_t {
+	int num_slots;
+	int rx_mask;
+	int tx_mask;
+	int slot_width;
+	int rx_data_offset;
+	int tx_data_offset;
+};
+
+
 struct tegra30_i2s {
 	int id;
 	struct clk *clk_i2s;
@@ -254,6 +264,8 @@ struct tegra30_i2s {
 #endif
 	int call_record_dam_ifc;
 	int is_call_mode_rec;
+
+	struct dsp_config_t dsp_config;
 };
 
 struct codec_config {
@@ -262,8 +274,21 @@ struct codec_config {
 	int channels;
 	int bitsize;
 	int is_i2smaster;
-	int is_format_dsp;
+	int i2s_mode;
+	int bit_clk;
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	unsigned int dam_gain[2];
+#endif
+//                                         
 };
+
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+void tegra30_set_dam_ifc_gain(struct codec_config *codec_info);
+void tegra30_set_dam_ifc_gain_of_call_record(struct codec_config *codec_info, int rx_gain, int tx_gain);
+#endif
+//                                         
 
 int tegra30_make_voice_call_connections(struct codec_config *codec_info,
 			struct codec_config *bb_info);

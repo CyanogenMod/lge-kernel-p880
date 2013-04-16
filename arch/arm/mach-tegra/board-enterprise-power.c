@@ -44,7 +44,6 @@
 #include "board.h"
 #include "board-enterprise.h"
 #include "pm.h"
-#include "wakeups-t3.h"
 #include "tegra3_tsensor.h"
 
 #define PMC_CTRL		0x0
@@ -141,12 +140,21 @@ static struct regulator_consumer_supply tps80031_smps4_supply_a03[] = {
 	REGULATOR_SUPPLY("vddf_core_emmc", NULL),
 };
 
-static struct regulator_consumer_supply tps80031_vana_supply_common[] = {
+static struct regulator_consumer_supply tps80031_smps4_supply_tai[] = {
+	REGULATOR_SUPPLY("vddio_sdmmc_2v85", NULL),
+	REGULATOR_SUPPLY("pwrdet_sdmmc3", NULL),
+	REGULATOR_SUPPLY("vdd_ddr_rx", NULL),
+	REGULATOR_SUPPLY("vddf_core_emmc", NULL),
+};
+
+static struct regulator_consumer_supply tps80031_vana_supply_a02[] = {
 	REGULATOR_SUPPLY("unused_vana", NULL),
 };
+#define tps80031_vana_supply_a03 tps80031_vana_supply_a02
 
 static struct regulator_consumer_supply tps80031_ldo1_supply_a02[] = {
 	REGULATOR_SUPPLY("avdd_dsi_csi", NULL),
+	REGULATOR_SUPPLY("avdd_hsic", NULL),
 	REGULATOR_SUPPLY("pwrdet_mipi", NULL),
 };
 
@@ -232,28 +240,30 @@ static struct regulator_consumer_supply tps80031_battery_charge_supply[] = {
 	REGULATOR_SUPPLY("usb_bat_chg", NULL),
 };
 
-#define TPS_PDATA_INIT(_id, _sname, _minmv, _maxmv, _supply_reg, _always_on,		\
+#define TPS_PDATA_INIT(_reg_id, _id, _sname, _minmv, _maxmv, _supply_reg, _always_on,	\
 	_boot_on, _apply_uv, _init_uV, _init_enable, _init_apply,			\
 	_flags, _ectrl, _delay)								\
-	static struct tps80031_regulator_platform_data pdata_##_id##_##_sname = {	\
-		.regulator = {								\
-			.constraints = {						\
-				.min_uV = (_minmv)*1000,				\
-				.max_uV = (_maxmv)*1000,				\
-				.valid_modes_mask = (REGULATOR_MODE_NORMAL |		\
-						REGULATOR_MODE_STANDBY),		\
-				.valid_ops_mask = (REGULATOR_CHANGE_MODE |		\
-						REGULATOR_CHANGE_STATUS |		\
-						REGULATOR_CHANGE_VOLTAGE),		\
-				.always_on = _always_on,				\
-				.boot_on = _boot_on,					\
-				.apply_uV = _apply_uv,					\
-			},								\
-			.num_consumer_supplies =					\
-				ARRAY_SIZE(tps80031_##_id##_supply_##_sname),		\
-			.consumer_supplies = tps80031_##_id##_supply_##_sname,		\
-			.supply_regulator = _supply_reg,				\
+	static struct regulator_init_data reg_idata_##_id##_##_sname = {		\
+		.constraints = {							\
+			.name = tps80031_rails(_id),					\
+			.min_uV = (_minmv)*1000,					\
+			.max_uV = (_maxmv)*1000,					\
+			.valid_modes_mask = (REGULATOR_MODE_NORMAL |			\
+					REGULATOR_MODE_STANDBY),			\
+			.valid_ops_mask = (REGULATOR_CHANGE_MODE |			\
+					REGULATOR_CHANGE_STATUS |			\
+					REGULATOR_CHANGE_VOLTAGE),			\
+			.always_on = _always_on,					\
+			.boot_on = _boot_on,						\
+			.apply_uV = _apply_uv,						\
 		},									\
+		.num_consumer_supplies =						\
+			ARRAY_SIZE(tps80031_##_id##_supply_##_sname),			\
+		.consumer_supplies = tps80031_##_id##_supply_##_sname,			\
+	};										\
+	static struct tps80031_regulator_platform_data pdata_##_id##_##_sname = {	\
+		.reg_init_data = &reg_idata_##_id##_##_sname,				\
+		.regulator_id = TPS80031_REGULATOR_##_reg_id,				\
 		.init_uV =  _init_uV * 1000,						\
 		.init_enable = _init_enable,						\
 		.init_apply = _init_apply,						\
@@ -262,30 +272,32 @@ static struct regulator_consumer_supply tps80031_battery_charge_supply[] = {
 		.delay_us = _delay,							\
 	}
 
-TPS_PDATA_INIT(vio, a02,   600, 2100, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(vio, a03,   600, 2100, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(smps1, common, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ2 | PWR_OFF_ON_SLEEP, 0);
-TPS_PDATA_INIT(smps2, common, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(smps3, common, 600, 2100, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(smps4, a02, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(smps4, a03, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(ldo1, a02, 1000, 3300, tps80031_rails(VIO), 0, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(ldo1, a03, 1000, 3300, tps80031_rails(VIO), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(ldo2, common, 1000, 3300, 0, 1, 1, 1, 1000, 1, 1, 0, 0, 0);
-TPS_PDATA_INIT(ldo3, common, 1000, 3300, tps80031_rails(VIO), 0, 0, 0, -1, 0, 0, 0, PWR_OFF_ON_SLEEP, 0);
-TPS_PDATA_INIT(ldo4, a02, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(ldo4, a03, 1000, 3300, tps80031_rails(VIO), 0, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(ldo5, common, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(ldo6, a02, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(ldo6, a03, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(ldo7, a02, 1000, 3300, tps80031_rails(VIO), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(ldo7, a03, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(ldoln, a02, 1000, 3300, tps80031_rails(SMPS3), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(ldoln, a03, 1000, 3300, tps80031_rails(VIO), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
-TPS_PDATA_INIT(ldousb, a02, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, USBLDO_INPUT_VSYS, PWR_OFF_ON_SLEEP, 0);
-TPS_PDATA_INIT(ldousb, a03, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, USBLDO_INPUT_VSYS, PWR_OFF_ON_SLEEP, 0);
-TPS_PDATA_INIT(vana, common,  1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
-TPS_PDATA_INIT(vbus, common,  0, 5000, 0, 0, 0, 0, -1, 0, 0, (VBUS_SW_ONLY | VBUS_DISCHRG_EN_PDN), 0, 100000);
+TPS_PDATA_INIT(VIO, vio, a02,   600, 2100, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(VIO, vio, a03,   600, 2100, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(SMPS1, smps1, common, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ2 | PWR_OFF_ON_SLEEP, 0);
+TPS_PDATA_INIT(SMPS2, smps2, common, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(SMPS3, smps3, common, 600, 2100, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(SMPS4, smps4, a02, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(SMPS4, smps4, a03, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(SMPS4, smps4, tai, 600, 2100, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(LDO1, ldo1, a02, 1000, 3300, tps80031_rails(vio), 0, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(LDO1, ldo1, a03, 1000, 3300, tps80031_rails(vio), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDO2, ldo2, common, 1000, 1000, 0, 1, 1, 1, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(LDO3, ldo3, common, 1000, 3300, tps80031_rails(vio), 0, 0, 0, -1, 0, 0, 0, PWR_OFF_ON_SLEEP, 0);
+TPS_PDATA_INIT(LDO4, ldo4, a02, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(LDO4, ldo4, a03, 1000, 3300, tps80031_rails(vio), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDO5, ldo5, common, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(LDO6, ldo6, a02, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDO6, ldo6, a03, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDO7, ldo7, a02, 1000, 3300, tps80031_rails(vio), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDO7, ldo7, a03, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDOLN, ldoln, a02, 1000, 3300, tps80031_rails(smps3), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDOLN, ldoln, a03, 1000, 3300, tps80031_rails(vio), 0, 0, 0, -1, 0, 0, 0, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(LDOUSB, ldousb, a02, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, USBLDO_INPUT_VSYS, PWR_OFF_ON_SLEEP, 0);
+TPS_PDATA_INIT(LDOUSB, ldousb, a03, 1000, 3300, 0, 0, 0, 0, -1, 0, 0, USBLDO_INPUT_VSYS, PWR_REQ_INPUT_PREQ1, 0);
+TPS_PDATA_INIT(VANA, vana, a02,  1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0);
+TPS_PDATA_INIT(VANA, vana, a03,  1000, 3300, 0, 0, 0, 0, -1, 0, 0, 0, PWR_OFF_ON_SLEEP, 0);
+TPS_PDATA_INIT(VBUS, vbus, common,  0, 5000, 0, 0, 0, 0, -1, 0, 0, (VBUS_SW_ONLY | VBUS_DISCHRG_EN_PDN), 0, 100000);
 
 static struct tps80031_rtc_platform_data rtc_data = {
 	.irq = ENT_TPS80031_IRQ_BASE + TPS80031_INT_RTC_ALARM,
@@ -297,6 +309,7 @@ static struct tps80031_rtc_platform_data rtc_data = {
 		.tm_min = 2,
 		.tm_sec = 3,
 	},
+	.msecure_gpio = TEGRA_GPIO_PF7,
 };
 
 int battery_charger_init(void *board_data)
@@ -308,7 +321,6 @@ int battery_charger_init(void *board_data)
 				" charger fails\n", __func__);
 	}
 	gpio_direction_output(TEGRA_GPIO_PF6, 1);
-	tegra_gpio_enable(TEGRA_GPIO_PF6);
 	return 0;
 }
 
@@ -329,76 +341,65 @@ static struct tps80031_bg_platform_data battery_gauge_data = {
 	.battery_present = 1,
 };
 
-#define TPS_RTC()				\
-	{						\
-		.id	= 0,		\
-		.name	= "rtc_tps80031",	\
-		.platform_data = &rtc_data,	\
-	}
-
-#define TPS_REG(_id, _data, _sname)				\
-	{							\
-		.id	 = TPS80031_ID_##_id,			\
-		.name   = "tps80031-regulator",			\
-		.platform_data  = &pdata_##_data##_##_sname,	\
-	}
-#define TPS_BATTERY()					\
-	{						\
-		.name   = "tps80031-charger",		\
-		.platform_data = &bcharger_pdata,	\
-	}
-#define TPS_BATTERY_GAUGE()				\
-	{						\
-		.name   = "tps80031-battery-gauge",	\
-		.platform_data = &battery_gauge_data,	\
-	}
-#define TPS_GPADC()					\
-	{						\
-		.name	= "tps80031-gpadc",		\
-	}
-
-#define TPS80031_DEVS_COMMON		\
-	TPS_REG(SMPS1, smps1, common),	\
-	TPS_REG(SMPS2, smps2, common),	\
-	TPS_REG(SMPS3, smps3, common),	\
-	TPS_REG(VANA, vana, common),	\
-	TPS_REG(LDO2, ldo2, common),	\
-	TPS_REG(LDO3, ldo3, common),	\
-	TPS_REG(LDO5, ldo5, common),	\
-	TPS_REG(VBUS, vbus, common),	\
-	TPS_RTC(),			\
-	TPS_BATTERY(),			\
-	TPS_BATTERY_GAUGE(),		\
-	TPS_GPADC()
-
-
-static struct tps80031_subdev_info tps80031_devs_a02[] = {
-	TPS80031_DEVS_COMMON,
-	TPS_REG(VIO, vio, a02),
-	TPS_REG(SMPS4, smps4, a02),
-	TPS_REG(LDO1, ldo1, a02),
-	TPS_REG(LDO4, ldo4, a02),
-	TPS_REG(LDO6, ldo6, a02),
-	TPS_REG(LDO7, ldo7, a02),
-	TPS_REG(LDOLN, ldoln, a02),
-	TPS_REG(LDOUSB, ldousb, a02),
-
+#define TPS_REG_PDATA(_id, _sname) &pdata_##_id##_##_sname
+static struct tps80031_regulator_platform_data *tps80031_reg_pdata_a02[] = {
+	TPS_REG_PDATA(vio, a02),
+	TPS_REG_PDATA(smps1, common),
+	TPS_REG_PDATA(smps2, common),
+	TPS_REG_PDATA(smps3, common),
+	TPS_REG_PDATA(ldo2, common),
+	TPS_REG_PDATA(ldo3, common),
+	TPS_REG_PDATA(ldo5, common),
+	TPS_REG_PDATA(vbus, common),
+	TPS_REG_PDATA(smps4, a02),
+	TPS_REG_PDATA(ldo1, a02),
+	TPS_REG_PDATA(ldo4, a02),
+	TPS_REG_PDATA(ldo6, a02),
+	TPS_REG_PDATA(ldo7, a02),
+	TPS_REG_PDATA(ldoln, a02),
+	TPS_REG_PDATA(ldousb, a02),
+	TPS_REG_PDATA(vana, a02),
 };
 
-static struct tps80031_subdev_info tps80031_devs_a03[] = {
-	TPS80031_DEVS_COMMON,
-	TPS_REG(VIO, vio, a03),
-	TPS_REG(SMPS4, smps4, a03),
-	TPS_REG(LDO1, ldo1, a03),
-	TPS_REG(LDO4, ldo4, a03),
-	TPS_REG(LDO6, ldo6, a03),
-	TPS_REG(LDO7, ldo7, a03),
-	TPS_REG(LDOLN, ldoln, a03),
-	TPS_REG(LDOUSB, ldousb, a03),
-
+static struct tps80031_regulator_platform_data *tps80031_reg_pdata_a03[] = {
+	TPS_REG_PDATA(vio, a03),
+	TPS_REG_PDATA(smps1, common),
+	TPS_REG_PDATA(smps2, common),
+	TPS_REG_PDATA(smps3, common),
+	TPS_REG_PDATA(ldo2, common),
+	TPS_REG_PDATA(ldo3, common),
+	TPS_REG_PDATA(ldo5, common),
+	TPS_REG_PDATA(vbus, common),
+	TPS_REG_PDATA(smps4, a03),
+	TPS_REG_PDATA(ldo1, a03),
+	TPS_REG_PDATA(ldo4, a03),
+	TPS_REG_PDATA(ldo6, a03),
+	TPS_REG_PDATA(ldo7, a03),
+	TPS_REG_PDATA(ldoln, a03),
+	TPS_REG_PDATA(ldousb, a03),
+	TPS_REG_PDATA(vana, a03),
 };
 
-struct tps80031_clk32k_init_data clk32k_idata[] = {
+static struct tps80031_regulator_platform_data *tps80031_reg_pdata_tai[] = {
+	TPS_REG_PDATA(vio, a03),
+	TPS_REG_PDATA(smps1, common),
+	TPS_REG_PDATA(smps2, common),
+	TPS_REG_PDATA(smps3, common),
+	TPS_REG_PDATA(ldo2, common),
+	TPS_REG_PDATA(ldo3, common),
+	TPS_REG_PDATA(ldo5, common),
+	TPS_REG_PDATA(vbus, common),
+	TPS_REG_PDATA(smps4, tai),
+	TPS_REG_PDATA(ldo1, a03),
+	TPS_REG_PDATA(ldo4, a03),
+	TPS_REG_PDATA(ldo6, a03),
+	TPS_REG_PDATA(ldo7, a03),
+	TPS_REG_PDATA(ldoln, a03),
+	TPS_REG_PDATA(ldousb, a03),
+	TPS_REG_PDATA(vana, a03),
+};
+
+static struct tps80031_clk32k_init_data clk32k_idata[] = {
 	{
 		.clk32k_nr = TPS80031_CLOCK32K_G,
 		.enable = true,
@@ -409,6 +410,30 @@ struct tps80031_clk32k_init_data clk32k_idata[] = {
 		.enable = true,
 		.ext_ctrl_flag = 0,
 	},
+
+
+};
+
+static struct tps80031_gpio_init_data gpio_idata_a03[] = {
+	{
+		.gpio_nr = TPS80031_GPIO_REGEN1,
+		.ext_ctrl_flag = PWR_REQ_INPUT_PREQ1,
+	},
+	{
+		.gpio_nr = TPS80031_GPIO_REGEN2,
+		.ext_ctrl_flag = PWR_REQ_INPUT_PREQ1,
+	},
+	{
+		.gpio_nr = TPS80031_GPIO_SYSEN,
+		.ext_ctrl_flag = PWR_REQ_INPUT_PREQ1,
+	},
+};
+
+static struct tps80031_pupd_init_data pupd_idata[] = {
+	{
+		.input_pin = TPS80031_PREQ1,
+		.setting = TPS80031_PUPD_PULLUP,
+	},
 };
 
 static struct tps80031_platform_data tps_platform = {
@@ -417,6 +442,9 @@ static struct tps80031_platform_data tps_platform = {
 	.clk32k_init_data	= clk32k_idata,
 	.clk32k_init_data_size	= ARRAY_SIZE(clk32k_idata),
 	.use_power_off	= true,
+	.rtc_pdata = &rtc_data,
+	.bg_pdata = &battery_gauge_data,
+	.battery_charger_pdata = &bcharger_pdata,
 };
 
 static struct i2c_board_info __initdata enterprise_regulators[] = {
@@ -445,6 +473,10 @@ static struct regulator_consumer_supply fixed_reg_pmu_3v3_en_supply[] = {
 static struct regulator_consumer_supply fixed_reg_pmu_hdmi_5v0_en_supply[] = {
 	REGULATOR_SUPPLY("hdmi_5v0", NULL),
 };
+static struct regulator_consumer_supply
+fixed_reg_pmu_hdmi_5v0_en_tai_supply[] = {
+	REGULATOR_SUPPLY("hdmi_5v0", NULL),
+};
 
 /* LCD-D16 (GPIO M0) from T30*/
 static struct regulator_consumer_supply fixed_reg_vdd_fuse_en_supply[] = {
@@ -455,7 +487,7 @@ static struct regulator_consumer_supply fixed_reg_vdd_fuse_en_supply[] = {
 static struct regulator_consumer_supply gpio_reg_sdmmc3_vdd_sel_supply[] = {
 	REGULATOR_SUPPLY("vddio_sdmmc3_2v85_1v8", NULL),
 	REGULATOR_SUPPLY("sdmmc3_compu_pu", NULL),
-	REGULATOR_SUPPLY("vddio_sdmmc3", NULL),
+	REGULATOR_SUPPLY("vddio_sdmmc", "sdhci-tegra.2"),
 	REGULATOR_SUPPLY("vsys_3v7", NULL),
 };
 
@@ -567,12 +599,12 @@ static struct gpio gpio_reg_sdmmc3_vdd_sel_gpios[] = {
 		},							\
 	}
 
-GPIO_REG(4, sdmmc3_vdd_sel,  tps80031_rails(SMPS4),
+GPIO_REG(4, sdmmc3_vdd_sel,  tps80031_rails(smps4),
 		true, false, 0, 1000, 3300);
 
 /* Macro for defining fixed regulator sub device data */
 #define FIXED_REG(_id, _name, _input_supply, _gpio_nr, _active_high,	\
-			_millivolts, _boot_state)			\
+			_millivolts, _boot_state, _sdelay)		\
 	static struct regulator_init_data ri_data_##_name =		\
 	{								\
 		.supply_regulator = _input_supply,			\
@@ -595,6 +627,7 @@ GPIO_REG(4, sdmmc3_vdd_sel,  tps80031_rails(SMPS4),
 		.enable_high = _active_high,				\
 		.enabled_at_boot = _boot_state,				\
 		.init_data = &ri_data_##_name,				\
+		.startup_delay = _sdelay,				\
 	};								\
 	static struct platform_device fixed_reg_##_name##_dev = {	\
 		.name	= "reg-fixed-voltage",				\
@@ -605,42 +638,53 @@ GPIO_REG(4, sdmmc3_vdd_sel,  tps80031_rails(SMPS4),
 	}
 
 FIXED_REG(0, pmu_5v15_en,     NULL,
-		ENT_TPS80031_GPIO_REGEN1, true, 5000, 0 );
+		ENT_TPS80031_GPIO_REGEN1, true, 5000, 0 , 0);
 FIXED_REG(2, pmu_hdmi_5v0_en, "fixed_reg_pmu_5v15_en",
-		ENT_TPS80031_GPIO_SYSEN, true, 5000, 0);
+		ENT_TPS80031_GPIO_SYSEN, true, 5000, 0, 0);
 FIXED_REG(3, vdd_fuse_en,     "fixed_reg_pmu_3v3_en",
-		TEGRA_GPIO_PM0, true, 3300, 0);
+		TEGRA_GPIO_PM0, true, 3300, 0, 0);
 FIXED_REG(5, cam_ldo_2v8_en,  NULL,
-		TEGRA_GPIO_PM7, true, 2800, 0);
+		TEGRA_GPIO_PM7, true, 2800, 0, 0);
 FIXED_REG(6, cam_ldo_1v8_en,  NULL,
-		TEGRA_GPIO_PF1, true, 1800, 0);
+		TEGRA_GPIO_PF1, true, 1800, 0, 0);
 
 /* Enterprise A02- specific */
 FIXED_REG(1, pmu_3v3_en,      "fixed_reg_pmu_5v15_en",
-		ENT_TPS80031_GPIO_REGEN2, true, 3300, 0);
+		ENT_TPS80031_GPIO_REGEN2, true, 3300, 0, 500);
 
 /* Enterprise A03+ specific */
 FIXED_REG(7, vdd_sdmmc3_2v85_en,  NULL,
-		TEGRA_GPIO_PF2, true, 2850, 0);
+		TEGRA_GPIO_PF2, true, 2850, 0, 0);
 FIXED_REG(8, lcd_1v8_en,  NULL,
-		TEGRA_GPIO_PB2, true, 1800, 0);
+		TEGRA_GPIO_PB2, true, 1800, 0, 0);
+
+FIXED_REG(9, pmu_hdmi_5v0_en_tai, NULL,
+		ENT_TPS80031_GPIO_SYSEN, true, 5000, 0, 0);
 
 #define ADD_FIXED_REG(_name)	(&fixed_reg_##_name##_dev)
-
-#define FIXED_REGS_COMMON		\
-	ADD_FIXED_REG(pmu_5v15_en),	\
-	ADD_FIXED_REG(pmu_hdmi_5v0_en),	\
-	ADD_FIXED_REG(vdd_fuse_en),	\
-	ADD_FIXED_REG(cam_ldo_2v8_en),	\
-	ADD_FIXED_REG(cam_ldo_1v8_en)
-
 static struct platform_device *fixed_regs_devices_a02[] = {
-	FIXED_REGS_COMMON,
+	ADD_FIXED_REG(pmu_5v15_en),
 	ADD_FIXED_REG(pmu_3v3_en),
+	ADD_FIXED_REG(pmu_hdmi_5v0_en),
+	ADD_FIXED_REG(vdd_fuse_en),
+	ADD_FIXED_REG(cam_ldo_2v8_en),
+	ADD_FIXED_REG(cam_ldo_1v8_en)
 };
 
 static struct platform_device *fixed_regs_devices_a03[] = {
-	FIXED_REGS_COMMON,
+	ADD_FIXED_REG(pmu_5v15_en),
+	ADD_FIXED_REG(pmu_hdmi_5v0_en),
+	ADD_FIXED_REG(vdd_fuse_en),
+	ADD_FIXED_REG(cam_ldo_2v8_en),
+	ADD_FIXED_REG(cam_ldo_1v8_en),
+	ADD_FIXED_REG(vdd_sdmmc3_2v85_en),
+	ADD_FIXED_REG(lcd_1v8_en),
+};
+
+static struct platform_device *fixed_regs_devices_tai[] = {
+	ADD_FIXED_REG(pmu_hdmi_5v0_en_tai),
+	ADD_FIXED_REG(cam_ldo_2v8_en),
+	ADD_FIXED_REG(cam_ldo_1v8_en),
 	ADD_FIXED_REG(vdd_sdmmc3_2v85_en),
 	ADD_FIXED_REG(lcd_1v8_en),
 };
@@ -652,42 +696,29 @@ static struct platform_device *gpio_regs_devices[] = {
 
 static int __init enterprise_fixed_regulator_init(void)
 {
-	int i;
 	struct board_info board_info;
 	struct platform_device **fixed_regs_devices;
 	int nfixreg_devs;
 
 	tegra_get_board_info(&board_info);
 
-	if (board_info.fab < BOARD_FAB_A03) {
-		fixed_regs_devices = fixed_regs_devices_a02;
-		nfixreg_devs = ARRAY_SIZE(fixed_regs_devices_a02);
+	if (board_info.board_id == BOARD_E1239) {
+		fixed_regs_devices = fixed_regs_devices_tai;
+		nfixreg_devs = ARRAY_SIZE(fixed_regs_devices_tai);
 	} else {
-		fixed_regs_devices = fixed_regs_devices_a03;
-		nfixreg_devs = ARRAY_SIZE(fixed_regs_devices_a03);
-	}
-
-	for (i = 0; i < nfixreg_devs; ++i) {
-		struct fixed_voltage_config *fixed_reg_pdata =
-				fixed_regs_devices[i]->dev.platform_data;
-		if (fixed_reg_pdata->gpio < TEGRA_NR_GPIOS)
-			tegra_gpio_enable(fixed_reg_pdata->gpio);
+		if (board_info.fab < BOARD_FAB_A03) {
+			fixed_regs_devices = fixed_regs_devices_a02;
+			nfixreg_devs = ARRAY_SIZE(fixed_regs_devices_a02);
+		} else {
+			fixed_regs_devices = fixed_regs_devices_a03;
+			nfixreg_devs = ARRAY_SIZE(fixed_regs_devices_a03);
+		}
 	}
 	return platform_add_devices(fixed_regs_devices, nfixreg_devs);
 }
 
 static int __init enterprise_gpio_regulator_init(void)
 {
-	int i, j;
-
-	for (i = 0; i < ARRAY_SIZE(gpio_regs_devices); ++i) {
-		struct gpio_regulator_config *gpio_reg_pdata =
-			gpio_regs_devices[i]->dev.platform_data;
-		for (j = 0; j < gpio_reg_pdata->nr_gpios; ++j) {
-			if (gpio_reg_pdata->gpios[j].gpio < TEGRA_NR_GPIOS)
-				tegra_gpio_enable(gpio_reg_pdata->gpios[j].gpio);
-		}
-	}
 	return platform_add_devices(gpio_regs_devices,
 				    ARRAY_SIZE(gpio_regs_devices));
 }
@@ -696,7 +727,7 @@ static int __init enterprise_regulators_fixed_gpio_init(void)
 {
 	int ret;
 
-	if (!machine_is_tegra_enterprise())
+	if ((!machine_is_tegra_enterprise()) && (!machine_is_tai()))
 		return 0;
 
 	ret = enterprise_fixed_regulator_init();
@@ -726,6 +757,9 @@ int __init enterprise_regulator_init(void)
 	pmc_dpd_pads = readl(pmc + PMC_DPD_PADS_ORIDE);
 	writel(pmc_dpd_pads & ~PMC_DPD_PADS_ORIDE_BLINK , pmc + PMC_DPD_PADS_ORIDE);
 
+	/* Setting CPU voltage tolerance in lower side for 3000uV */
+	pdata_smps1_common.tolerance_uv = 3000;
+
 	/* Disable battery charging if power adapter is connected. */
 	if (get_power_supply_type() == POWER_SUPPLY_TYPE_MAINS) {
 		bcharger_pdata.num_consumer_supplies = 0;
@@ -733,12 +767,25 @@ int __init enterprise_regulator_init(void)
 		battery_gauge_data.battery_present = 0;
 	}
 
-	if (board_info.fab < BOARD_FAB_A03) {
-		tps_platform.num_subdevs = ARRAY_SIZE(tps80031_devs_a02);
-		tps_platform.subdevs = tps80031_devs_a02;
+	if ((board_info.fab < BOARD_FAB_A03) &&
+			(board_info.board_id != BOARD_E1239)) {
+		tps_platform.num_regulator_pdata = ARRAY_SIZE(tps80031_reg_pdata_a02);
+		tps_platform.regulator_pdata = tps80031_reg_pdata_a02;
 	} else {
-		tps_platform.num_subdevs = ARRAY_SIZE(tps80031_devs_a03);
-		tps_platform.subdevs = tps80031_devs_a03;
+		if (machine_is_tai()) {
+			tps_platform.num_regulator_pdata =
+					ARRAY_SIZE(tps80031_reg_pdata_tai);
+			tps_platform.regulator_pdata =
+						tps80031_reg_pdata_tai;
+		} else {
+			tps_platform.num_regulator_pdata =
+					ARRAY_SIZE(tps80031_reg_pdata_a03);
+			tps_platform.regulator_pdata = tps80031_reg_pdata_a03;
+		}
+		tps_platform.pupd_init_data = pupd_idata;
+		tps_platform.pupd_init_data_size = ARRAY_SIZE(pupd_idata);
+		tps_platform.gpio_init_data = gpio_idata_a03;
+		tps_platform.gpio_init_data_size = ARRAY_SIZE(gpio_idata_a03);
 	}
 
 	i2c_register_board_info(4, enterprise_regulators, 1);
@@ -767,6 +814,15 @@ static struct tegra_suspend_platform_data enterprise_suspend_data = {
 	.sysclkreq_high	= true,
 	.board_suspend = enterprise_board_suspend,
 	.board_resume = enterprise_board_resume,
+#ifdef CONFIG_TEGRA_LP1_950
+	.lp1_lowvolt_support = true,
+	.i2c_base_addr = TEGRA_I2C5_BASE,
+	.pmuslave_addr = 0x24,
+	.core_reg_addr = 0x5B,
+	.lp1_core_volt_low = 0x1D,
+	.lp1_core_volt_high = 0x33,
+#endif
+	.cpu_wake_freq = CPU_WAKE_FREQ_LOW,
 };
 
 static void enterprise_init_deep_sleep_mode(void)
@@ -778,6 +834,7 @@ static void enterprise_init_deep_sleep_mode(void)
 		enterprise_suspend_data.suspend_mode = TEGRA_SUSPEND_LP1;
 
 	if ((bi.board_id == BOARD_E1205 && (bi.sku & BOARD_SKU_VF_BIT) == 0) ||
+	    (bi.board_id == BOARD_E1239 && (bi.sku & BOARD_SKU_VF_BIT) == 0) ||
 	    (bi.board_id == BOARD_E1197 && (bi.sku & BOARD_SKU_VF_BIT)))
 		enterprise_suspend_data.cpu_timer = 8000;
 }
@@ -822,11 +879,9 @@ static struct platform_device enterprise_bpc_mgmt_device = {
 
 void __init enterprise_bpc_mgmt_init(void)
 {
+#ifdef CONFIG_SMP
 	int int_gpio = TEGRA_GPIO_TO_IRQ(TEGRA_BPC_TRIGGER);
 
-	tegra_gpio_enable(TEGRA_BPC_TRIGGER);
-
-#ifdef CONFIG_SMP
 	cpumask_setall(&(bpc_mgmt_platform_data.affinity_mask));
 	irq_set_affinity_hint(int_gpio,
 				&(bpc_mgmt_platform_data.affinity_mask));

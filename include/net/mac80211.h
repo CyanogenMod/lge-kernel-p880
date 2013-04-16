@@ -111,6 +111,10 @@ enum ieee80211_ac_numbers {
 	IEEE80211_AC_BK		= 3,
 };
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define IEEE80211_NUM_ACS	4
+#endif
+
 /**
  * struct ieee80211_tx_queue_params - transmit queue configuration
  *
@@ -182,7 +186,10 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_ARP_FILTER		= 1<<12,
 	BSS_CHANGED_QOS			= 1<<13,
 	BSS_CHANGED_IDLE		= 1<<14,
-
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	BSS_CHANGED_SSID		= 1<<15,
+	BSS_CHANGED_AP_PROBE_RESP = 1<<16,
+#endif
 	/* when adding here, make sure to change ieee80211_reconfig */
 };
 
@@ -269,7 +276,11 @@ struct ieee80211_bss_conf {
 	u8 dtim_period;
 	u16 beacon_int;
 	u16 assoc_capability;
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	u64 last_tsf;
+#else
 	u64 timestamp;
+#endif	
 	u32 basic_rates;
 	int mcast_rate[IEEE80211_NUM_BANDS];
 	u16 ht_operation_mode;
@@ -281,6 +292,11 @@ struct ieee80211_bss_conf {
 	bool arp_filter_enabled;
 	bool qos;
 	bool idle;
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	u8 ssid[IEEE80211_MAX_SSID_LEN];
+	size_t ssid_len;
+	bool hidden_ssid;
+#endif	
 };
 
 /**
@@ -377,15 +393,27 @@ enum mac80211_tx_control_flags {
 	IEEE80211_TX_INTFL_NEED_TXPROCESSING	= BIT(14),
 	IEEE80211_TX_INTFL_RETRIED		= BIT(15),
 	IEEE80211_TX_INTFL_DONT_ENCRYPT		= BIT(16),
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	IEEE80211_TX_CTL_NO_PS_BUFFER		= BIT(17),	
+#else
 	IEEE80211_TX_CTL_PSPOLL_RESPONSE	= BIT(17),
+#endif
 	IEEE80211_TX_CTL_MORE_FRAMES		= BIT(18),
 	IEEE80211_TX_INTFL_RETRANSMISSION	= BIT(19),
+#ifdef CONFIG_WIFI_KERNEL_3_4_DISABLE	/* hole at 20, use later */
 	IEEE80211_TX_INTFL_HAS_RADIOTAP		= BIT(20),
+#endif	
 	IEEE80211_TX_INTFL_NL80211_FRAME_TX	= BIT(21),
 	IEEE80211_TX_CTL_LDPC			= BIT(22),
 	IEEE80211_TX_CTL_STBC			= BIT(23) | BIT(24),
 	IEEE80211_TX_CTL_TX_OFFCHAN		= BIT(25),
 	IEEE80211_TX_INTFL_TKIP_MIC_FAILURE	= BIT(26),
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	IEEE80211_TX_CTL_NO_CCK_RATE		= BIT(27),
+	IEEE80211_TX_STATUS_EOSP		= BIT(28),
+	IEEE80211_TX_CTL_USE_MINRATE		= BIT(29),
+	IEEE80211_TX_CTL_DONTFRAG		= BIT(30),
+#endif	
 };
 
 #define IEEE80211_TX_CTL_STBC_SHIFT		23
@@ -394,6 +422,16 @@ enum mac80211_tx_control_flags {
  * This definition is used as a mask to clear all temporary flags, which are
  * set by the tx handlers for each transmission attempt by the mac80211 stack.
  */
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define IEEE80211_TX_TEMPORARY_FLAGS (IEEE80211_TX_CTL_NO_ACK |		      \
+	IEEE80211_TX_CTL_CLEAR_PS_FILT | IEEE80211_TX_CTL_FIRST_FRAGMENT |    \
+	IEEE80211_TX_CTL_SEND_AFTER_DTIM | IEEE80211_TX_CTL_AMPDU |	      \
+	IEEE80211_TX_STAT_TX_FILTERED |	IEEE80211_TX_STAT_ACK |		      \
+	IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_STAT_AMPDU_NO_BACK |	      \
+	IEEE80211_TX_CTL_RATE_CTRL_PROBE | IEEE80211_TX_CTL_NO_PS_BUFFER |    \
+	IEEE80211_TX_CTL_MORE_FRAMES | IEEE80211_TX_CTL_LDPC |		      \
+	IEEE80211_TX_CTL_STBC | IEEE80211_TX_STATUS_EOSP)
+#else
 #define IEEE80211_TX_TEMPORARY_FLAGS (IEEE80211_TX_CTL_NO_ACK |		      \
 	IEEE80211_TX_CTL_CLEAR_PS_FILT | IEEE80211_TX_CTL_FIRST_FRAGMENT |    \
 	IEEE80211_TX_CTL_SEND_AFTER_DTIM | IEEE80211_TX_CTL_AMPDU |	      \
@@ -402,7 +440,7 @@ enum mac80211_tx_control_flags {
 	IEEE80211_TX_CTL_RATE_CTRL_PROBE | IEEE80211_TX_CTL_PSPOLL_RESPONSE | \
 	IEEE80211_TX_CTL_MORE_FRAMES | IEEE80211_TX_CTL_LDPC |		      \
 	IEEE80211_TX_CTL_STBC)
-
+#endif
 /**
  * enum mac80211_rate_control_flags - per-rate flags set by the
  *	Rate Control algorithm.
@@ -510,10 +548,12 @@ struct ieee80211_tx_info {
 	u8 band;
 
 	u8 antenna_sel_tx;
-
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	u16 ack_frame_id;
+#else
 	/* 2 byte hole */
 	u8 pad[2];
-
+#endif
 	union {
 		struct {
 			union {
@@ -647,6 +687,9 @@ enum mac80211_rx_flags {
 	RX_FLAG_HT		= 1<<9,
 	RX_FLAG_40MHZ		= 1<<10,
 	RX_FLAG_SHORT_GI	= 1<<11,
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	RX_FLAG_NO_SIGNAL_VAL	= 1<<12,	
+#endif	
 };
 
 /**
@@ -826,6 +869,23 @@ struct ieee80211_channel_switch {
 	u8 count;
 };
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+/**
+ * enum ieee80211_vif_flags - virtual interface flags
+ *
+ * @IEEE80211_VIF_BEACON_FILTER: the device performs beacon filtering
+ *	on this virtual interface to avoid unnecessary CPU wakeups
+ * @IEEE80211_VIF_SUPPORTS_CQM_RSSI: the device can do connection quality
+ *	monitoring on this virtual interface -- i.e. it can monitor
+ *	connection quality related parameters, such as the RSSI level and
+ *	provide notifications if configured trigger levels are reached.
+ */
+enum ieee80211_vif_flags {
+	IEEE80211_VIF_BEACON_FILTER		= BIT(0),
+	IEEE80211_VIF_SUPPORTS_CQM_RSSI		= BIT(1),
+};
+#endif
+
 /**
  * struct ieee80211_vif - per-interface data
  *
@@ -846,6 +906,9 @@ struct ieee80211_vif {
 	struct ieee80211_bss_conf bss_conf;
 	u8 addr[ETH_ALEN];
 	bool p2p;
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	u32 driver_flags;	
+#endif
 	/* must be last */
 	u8 drv_priv[0] __attribute__((__aligned__(sizeof(void *))));
 };
@@ -884,6 +947,9 @@ enum ieee80211_key_flags {
 	IEEE80211_KEY_FLAG_GENERATE_MMIC= 1<<2,
 	IEEE80211_KEY_FLAG_PAIRWISE	= 1<<3,
 	IEEE80211_KEY_FLAG_SW_MGMT	= 1<<4,
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	IEEE80211_KEY_FLAG_PUT_IV_SPACE = 1<<5,
+#endif	
 };
 
 /**
@@ -931,6 +997,27 @@ enum set_key_cmd {
 	SET_KEY, DISABLE_KEY,
 };
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+/**
+ * enum ieee80211_sta_state - station state
+ *
+ * @IEEE80211_STA_NOTEXIST: station doesn't exist at all,
+ *	this is a special state for add/remove transitions
+ * @IEEE80211_STA_NONE: station exists without special state
+ * @IEEE80211_STA_AUTH: station is authenticated
+ * @IEEE80211_STA_ASSOC: station is associated
+ * @IEEE80211_STA_AUTHORIZED: station is authorized (802.1X)
+ */
+enum ieee80211_sta_state {
+	/* NOTE: These need to be ordered correctly! */
+	IEEE80211_STA_NOTEXIST,
+	IEEE80211_STA_NONE,
+	IEEE80211_STA_AUTH,
+	IEEE80211_STA_ASSOC,
+	IEEE80211_STA_AUTHORIZED,
+};
+#endif
+
 /**
  * struct ieee80211_sta - station table entry
  *
@@ -955,7 +1042,10 @@ struct ieee80211_sta {
 	u16 aid;
 	struct ieee80211_sta_ht_cap ht_cap;
 	bool wme;
-
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	u8 uapsd_queues;
+	u8 max_sp;
+#endif
 	/* must be last */
 	u8 drv_priv[0] __attribute__((__aligned__(sizeof(void *))));
 };
@@ -1111,15 +1201,23 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_PS_NULLFUNC_STACK			= 1<<11,
 	IEEE80211_HW_SUPPORTS_DYNAMIC_PS		= 1<<12,
 	IEEE80211_HW_MFP_CAPABLE			= 1<<13,
+#ifdef CONFIG_WIFI_KERNEL_3_4_DISABLE		/* reuse bit 14 */
 	IEEE80211_HW_BEACON_FILTER			= 1<<14,
+#endif	
 	IEEE80211_HW_SUPPORTS_STATIC_SMPS		= 1<<15,
 	IEEE80211_HW_SUPPORTS_DYNAMIC_SMPS		= 1<<16,
 	IEEE80211_HW_SUPPORTS_UAPSD			= 1<<17,
 	IEEE80211_HW_REPORTS_TX_ACK_STATUS		= 1<<18,
 	IEEE80211_HW_CONNECTION_MONITOR			= 1<<19,
+#ifdef CONFIG_WIFI_KERNEL_3_4_DISABLE		/* reuse bit 20 */
 	IEEE80211_HW_SUPPORTS_CQM_RSSI			= 1<<20,
+#endif
 	IEEE80211_HW_SUPPORTS_PER_STA_GTK		= 1<<21,
 	IEEE80211_HW_AP_LINK_PS				= 1<<22,
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	IEEE80211_HW_TX_AMPDU_SETUP_IN_HW 	= 1<<23,
+	IEEE80211_HW_SCAN_WHILE_IDLE			= 1<<24,
+#endif
 };
 
 /**
@@ -1585,6 +1683,19 @@ enum ieee80211_ampdu_mlme_action {
 	IEEE80211_AMPDU_TX_OPERATIONAL,
 };
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+/**
+ * enum ieee80211_frame_release_type - frame release reason
+ * @IEEE80211_FRAME_RELEASE_PSPOLL: frame released for PS-Poll
+ * @IEEE80211_FRAME_RELEASE_UAPSD: frame(s) released due to
+ *	frame received on trigger-enabled AC
+ */
+enum ieee80211_frame_release_type {
+	IEEE80211_FRAME_RELEASE_PSPOLL,
+	IEEE80211_FRAME_RELEASE_UAPSD,
+};
+#endif
+
 /**
  * enum ieee80211_tx_sync_type - TX sync type
  * @IEEE80211_TX_SYNC_AUTH: sync TX for authentication
@@ -1917,6 +2028,10 @@ enum ieee80211_tx_sync_type {
  */
 struct ieee80211_ops {
 	void (*tx)(struct ieee80211_hw *hw, struct sk_buff *skb);
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	void (*tx_frags)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			 struct ieee80211_sta *sta, struct sk_buff_head *skbs);
+#endif
 	int (*start)(struct ieee80211_hw *hw);
 	void (*stop)(struct ieee80211_hw *hw);
 #ifdef CONFIG_PM
@@ -1986,11 +2101,25 @@ struct ieee80211_ops {
 			  struct ieee80211_sta *sta);
 	void (*sta_notify)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			enum sta_notify_cmd, struct ieee80211_sta *sta);
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	int (*sta_state)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			 struct ieee80211_sta *sta,
+			 enum ieee80211_sta_state old_state,
+			 enum ieee80211_sta_state new_state);
+	int (*conf_tx)(struct ieee80211_hw *hw,
+			 struct ieee80211_vif *vif, u16 queue,
+			 const struct ieee80211_tx_queue_params *params);
+	u64 (*get_tsf)(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
+	void (*set_tsf)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			u64 tsf);
+	void (*reset_tsf)(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
+#else
 	int (*conf_tx)(struct ieee80211_hw *hw, u16 queue,
-		       const struct ieee80211_tx_queue_params *params);
+	       const struct ieee80211_tx_queue_params *params);
 	u64 (*get_tsf)(struct ieee80211_hw *hw);
 	void (*set_tsf)(struct ieee80211_hw *hw, u64 tsf);
 	void (*reset_tsf)(struct ieee80211_hw *hw);
+#endif
 	int (*tx_last_beacon)(struct ieee80211_hw *hw);
 	int (*ampdu_action)(struct ieee80211_hw *hw,
 			    struct ieee80211_vif *vif,
@@ -2032,6 +2161,18 @@ struct ieee80211_ops {
 				const struct cfg80211_bitrate_mask *mask);
 	void (*rssi_callback)(struct ieee80211_hw *hw,
 			      enum ieee80211_rssi_event rssi_event);
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	void (*allow_buffered_frames)(struct ieee80211_hw *hw,
+				      struct ieee80211_sta *sta,
+				      u16 tids, int num_frames,
+				      enum ieee80211_frame_release_type reason,
+				      bool more_data);
+	void (*release_buffered_frames)(struct ieee80211_hw *hw,
+					struct ieee80211_sta *sta,
+					u16 tids, int num_frames,
+					enum ieee80211_frame_release_type reason,
+					bool more_data);
+#endif
 };
 
 /**
@@ -3229,6 +3370,21 @@ void ieee80211_remain_on_channel_expired(struct ieee80211_hw *hw);
 void ieee80211_stop_rx_ba_session(struct ieee80211_vif *vif, u16 ba_rx_bitmap,
 				  const u8 *addr);
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+/**
+ * ieee80211_send_bar - send a BlockAckReq frame
+ *
+ * can be used to flush pending frames from the peer's aggregation reorder
+ * buffer.
+ *
+ * @vif: &struct ieee80211_vif pointer from the add_interface callback.
+ * @ra: the peer's destination address
+ * @tid: the TID of the aggregation session
+ * @ssn: the new starting sequence number for the receiver
+ */
+void ieee80211_send_bar(struct ieee80211_vif *vif, u8 *ra, u16 tid, u16 ssn);
+#endif
+
 /* Rate control API */
 
 /**
@@ -3238,7 +3394,10 @@ void ieee80211_stop_rx_ba_session(struct ieee80211_vif *vif, u16 ba_rx_bitmap,
  *	changed, rate control algorithm can update its internal state if needed.
  */
 enum rate_control_changed {
-	IEEE80211_RC_HT_CHANGED = BIT(0)
+	IEEE80211_RC_HT_CHANGED = BIT(0),
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	IEEE80211_RC_SMPS_CHANGED	= BIT(1),
+#endif	
 };
 
 /**
@@ -3271,6 +3430,9 @@ struct ieee80211_tx_rate_control {
 	bool rts, short_preamble;
 	u8 max_rate_idx;
 	u32 rate_idx_mask;
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	u8 rate_idx_mcs_mask[IEEE80211_HT_MCS_MASK_LEN];
+#endif
 	bool bss;
 };
 
@@ -3419,4 +3581,11 @@ void ieee80211_enable_rssi_reports(struct ieee80211_vif *vif,
 				   int rssi_max_thold);
 
 void ieee80211_disable_rssi_reports(struct ieee80211_vif *vif);
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+int ieee80211_add_srates_ie(struct ieee80211_vif *vif, struct sk_buff *skb);
+int ieee80211_add_ext_srates_ie(struct ieee80211_vif *vif,
+				struct sk_buff *skb);
+#endif
+
 #endif /* MAC80211_H */

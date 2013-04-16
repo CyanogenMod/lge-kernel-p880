@@ -126,7 +126,17 @@ struct tc_multiq_qopt {
 	__u16	bands;			/* Number of bands */
 	__u16	max_bands;		/* Maximum number of queues */
 };
+//                                              
+#if defined(CONFIG_MACH_PEGASUS) && defined(CONFIG_MHI_NETDEV)
+/* MHI-MHDP section */
 
+struct tc_mhdp_qopt {
+	__u32	limit;			/* Queue length limit */
+	__u32	lowmark;		/* Low notification level */
+	__u32	highmark;		/* High notification level */
+};
+#endif
+//                                              
 /* TBF section */
 
 struct tc_tbf_qopt {

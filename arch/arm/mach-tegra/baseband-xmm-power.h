@@ -23,9 +23,17 @@
 #define VENDOR_ID         0x1519
 #define PRODUCT_ID        0x0020
 #define TEGRA_EHCI_DEVICE "/sys/devices/platform/tegra-ehci.1/ehci_power"
+#define XMM_ONOFF_PATH "/sys/devices/platform/baseband_xmm_power/xmm_onoff"
 
 #define XMM_MODEM_VER_1121	0x1121
 #define XMM_MODEM_VER_1130	0x1130
+#define XMM_MODEM_VER_1145	0x1145
+
+#define ENUM_REPEAT_TRY_CNT 3
+#define MODEM_ENUM_TIMEOUT_500MS 16 /* 8 sec */
+#define MODEM_ENUM_TIMEOUT_200MS 25 /* 5 sec */
+#define SHORT_AUTOSUSPEND_DELAY 100
+#define DEFAULT_AUTOSUSPEND_DELAY 2000
 
 /* shared between baseband-xmm-* modules so they can agree on same
  * modem configuration
@@ -82,6 +90,9 @@ enum baseband_xmm_power_work_state_t {
 	BBXMM_WORK_INIT_FLASHLESS_PM_VER_GE_1130_STEP2,
 	BBXMM_WORK_INIT_FLASHLESS_PM_VER_GE_1130_STEP3,
 	BBXMM_WORK_INIT_FLASHLESS_PM_VER_GE_1130_STEP4,
+    /* To_Ril-recovery Nvidia_Patch_20111226 [Start] */
+	BBXMM_WORK_INIT_FLASH_PM_VER_GE_1145_RECOVERY,
+    /* //To_Ril-recovery Nvidia_Patch_20111226 [END] */
 };
 
 struct baseband_xmm_power_work_t {
@@ -106,6 +117,7 @@ enum baseband_xmm_powerstate_t {
 
 irqreturn_t baseband_xmm_power_ipc_ap_wake_irq(int irq, void *dev_id);
 
+void baseband_xmm_power_switch(bool power_on); //To_Ril-recovery Nvidia_Patch_20111226
 void baseband_xmm_set_power_status(unsigned int status);
 
-#endif  /* BASREBAND_XMM_POWER_H */
+#endif	//__BASEBAND_XMM_POWER_H__

@@ -1,0 +1,6 @@
+config GATOR_DRIVER
+	bool "DS-5"
+	default n
+	help
+	  Enable DS-5.
+

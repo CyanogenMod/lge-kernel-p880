@@ -27,6 +27,13 @@
 #include <linux/rslib.h>
 #endif
 
+#if defined (CONFIG_REBOOT_MONITOR)
+#define RAM_RESERVED_SIZE 100*1024
+void *reserved_buffer;
+#else
+#define RAM_RESERVED_SIZE 0
+#endif
+
 struct ram_console_buffer {
 	uint32_t    sig;
 	uint32_t    start;
@@ -355,7 +362,11 @@ static int ram_console_driver_probe(struct platform_device *pdev)
 	start = res->start;
 	printk(KERN_INFO "ram_console: got buffer at %zx, size %zx\n",
 	       start, buffer_size);
+#if defined (CONFIG_REBOOT_MONITOR)
+	buffer = ioremap(res->start, (buffer_size+RAM_RESERVED_SIZE));
+#else
 	buffer = ioremap(res->start, buffer_size);
+#endif
 	if (buffer == NULL) {
 		printk(KERN_ERR "ram_console: failed to map memory\n");
 		return -ENOMEM;
@@ -364,8 +375,35 @@ static int ram_console_driver_probe(struct platform_device *pdev)
 	if (pdata)
 		bootinfo = pdata->bootinfo;
 
+#if defined (CONFIG_REBOOT_MONITOR)
+    reserved_buffer = buffer + buffer_size;
+    printk ("ram console: ram_console virtual addr = 0x%x \n", buffer);
+    printk ("ram console: reserved_buffer virtual = 0x%x \n", reserved_buffer);
+    printk ("ram console: reserved_buffer physical= 0x%x \n", start+buffer_size);
+#endif
 	return ram_console_init(buffer, buffer_size, bootinfo, NULL/* allocate */);
 }
+
+#if defined (CONFIG_REBOOT_MONITOR)
+void write_cmd_reserved_buffer(unsigned char *buf, size_t len)
+{
+    memcpy(reserved_buffer, buf, len);
+     
+}
+
+void read_cmd_reserved_buffer(unsigned char *buf, size_t len)
+{
+	memcpy(buf, reserved_buffer, len);
+}
+#else
+void write_cmd_reserved_buffer(unsigned char *buf, size_t len)
+{
+}
+ 
+void read_cmd_reserved_buffer(unsigned char *buf, size_t len)
+{
+}
+#endif
 
 static struct platform_driver ram_console_driver = {
 	.probe = ram_console_driver_probe,

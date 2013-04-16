@@ -42,10 +42,10 @@ struct evdev {
 struct evdev_client {
 	unsigned int head;
 	unsigned int tail;
-	unsigned int packet_head; /* [future] position of the first element of next packet */
+	//-unsigned int packet_head; /* [future] position of the first element of next packet */
 	spinlock_t buffer_lock; /* protects access to buffer, head and tail */
 	struct wake_lock wake_lock;
-	bool use_wake_lock;
+	//-bool use_wake_lock;
 	char name[28];
 	struct fasync_struct *fasync;
 	struct evdev *evdev;
@@ -63,6 +63,7 @@ static void evdev_pass_event(struct evdev_client *client,
 	/* Interrupts are disabled, just acquire the lock. */
 	spin_lock(&client->buffer_lock);
 
+	wake_lock_timeout(&client->wake_lock, 5 * HZ); //ICS
 	client->buffer[client->head++] = *event;
 	client->head &= client->bufsize - 1;
 
@@ -78,19 +79,21 @@ static void evdev_pass_event(struct evdev_client *client,
 		client->buffer[client->tail].code = SYN_DROPPED;
 		client->buffer[client->tail].value = 0;
 
-		client->packet_head = client->tail;
-		if (client->use_wake_lock)
-			wake_unlock(&client->wake_lock);
+		//-client->packet_head = client->tail;
+		//-if (client->use_wake_lock)
+		//-	wake_unlock(&client->wake_lock);
 	}
 
-	if (event->type == EV_SYN && event->code == SYN_REPORT) {
-		client->packet_head = client->head;
-		if (client->use_wake_lock)
-			wake_lock(&client->wake_lock);
-		kill_fasync(&client->fasync, SIGIO, POLL_IN);
-	}
+	//-if (event->type == EV_SYN && event->code == SYN_REPORT) {
+	//-	client->packet_head = client->head;
+	//-	if (client->use_wake_lock)
+	//-		wake_lock(&client->wake_lock);
+	//-	kill_fasync(&client->fasync, SIGIO, POLL_IN);
+	//-}
 
 	spin_unlock(&client->buffer_lock);
+	if (event->type == EV_SYN) //ICS
+		kill_fasync(&client->fasync, SIGIO, POLL_IN);
 }
 
 /*
@@ -122,7 +125,7 @@ static void evdev_event(struct input_handle *handle,
 
 	rcu_read_unlock();
 
-	if (type == EV_SYN && code == SYN_REPORT)
+	//-if (type == EV_SYN && code == SYN_REPORT)
 		wake_up_interruptible(&evdev->wait);
 }
 
@@ -176,6 +179,7 @@ static int evdev_grab(struct evdev *evdev, struct evdev_client *client)
 		return error;
 
 	rcu_assign_pointer(evdev->grab, client);
+	synchronize_rcu();//ICS
 
 	return 0;
 }
@@ -198,6 +202,7 @@ static void evdev_attach_client(struct evdev *evdev,
 	spin_lock(&evdev->client_lock);
 	list_add_tail_rcu(&client->node, &evdev->client_list);
 	spin_unlock(&evdev->client_lock);
+	synchronize_rcu(); //ICS 
 }
 
 static void evdev_detach_client(struct evdev *evdev,
@@ -266,7 +271,7 @@ static int evdev_release(struct inode *inode, struct file *file)
 	mutex_unlock(&evdev->mutex);
 
 	evdev_detach_client(evdev, client);
-	if (client->use_wake_lock)
+	//-if (client->use_wake_lock)
 		wake_lock_destroy(&client->wake_lock);
 	kfree(client);
 
@@ -321,6 +326,7 @@ static int evdev_open(struct inode *inode, struct file *file)
 	spin_lock_init(&client->buffer_lock);
 	snprintf(client->name, sizeof(client->name), "%s-%d",
 			dev_name(&evdev->dev), task_tgid_vnr(current));
+	wake_lock_init(&client->wake_lock, WAKE_LOCK_SUSPEND, client->name);//ICS
 	client->evdev = evdev;
 	evdev_attach_client(evdev, client);
 
@@ -335,6 +341,7 @@ static int evdev_open(struct inode *inode, struct file *file)
 
  err_free_client:
 	evdev_detach_client(evdev, client);
+	wake_lock_destroy(&client->wake_lock); //ICS 
 	kfree(client);
  err_put_evdev:
 	put_device(&evdev->dev);
@@ -384,12 +391,14 @@ static int evdev_fetch_next_event(struct evdev_client *client,
 
 	spin_lock_irq(&client->buffer_lock);
 
-	have_event = client->packet_head != client->tail;
+	//-have_event = client->packet_head != client->tail;
+	have_event = client->head != client->tail;
 	if (have_event) {
 		*event = client->buffer[client->tail++];
 		client->tail &= client->bufsize - 1;
-		if (client->use_wake_lock &&
-		    client->packet_head == client->tail)
+		//-if (client->use_wake_lock &&  
+		//-    client->packet_head == client->tail)  
+		if (client->head == client->tail)
 			wake_unlock(&client->wake_lock);
 	}
 
@@ -408,13 +417,23 @@ static ssize_t evdev_read(struct file *file, char __user *buffer,
 
 	if (count < input_event_size())
 		return -EINVAL;
+#if 1 //ICS 
+	if (client->head == client->tail && evdev->exist &&
+	    (file->f_flags & O_NONBLOCK))
+		return -EAGAIN;
 
+	retval = wait_event_interruptible(evdev->wait,
+		client->head != client->tail || !evdev->exist);
+	if (retval)
+		return retval;
+#else  //JB
 	if (!(file->f_flags & O_NONBLOCK)) {
 		retval = wait_event_interruptible(evdev->wait,
 			 client->packet_head != client->tail || !evdev->exist);
 		if (retval)
 			return retval;
 	}
+#endif 
 
 	if (!evdev->exist)
 		return -ENODEV;
@@ -428,8 +447,8 @@ static ssize_t evdev_read(struct file *file, char __user *buffer,
 		retval += input_event_size();
 	}
 
-	if (retval == 0 && file->f_flags & O_NONBLOCK)
-		retval = -EAGAIN;
+	//if (retval == 0 && file->f_flags & O_NONBLOCK)
+	//	retval = -EAGAIN;
 	return retval;
 }
 
@@ -443,7 +462,8 @@ static unsigned int evdev_poll(struct file *file, poll_table *wait)
 	poll_wait(file, &evdev->wait, wait);
 
 	mask = evdev->exist ? POLLOUT | POLLWRNORM : POLLHUP | POLLERR;
-	if (client->packet_head != client->tail)
+	//if (client->packet_head != client->tail)
+	if (client->head != client->tail)
 		mask |= POLLIN | POLLRDNORM;
 
 	return mask;
@@ -638,7 +658,7 @@ static int evdev_handle_set_keycode_v2(struct input_dev *dev, void __user *p)
 
 	return input_set_keycode(dev, &ke);
 }
-
+/* JB codes 
 static int evdev_enable_suspend_block(struct evdev *evdev,
 				      struct evdev_client *client)
 {
@@ -667,7 +687,7 @@ static int evdev_disable_suspend_block(struct evdev *evdev,
 
 	return 0;
 }
-
+JB codes */
 static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 			   void __user *p, int compat_mode)
 {
@@ -742,6 +762,7 @@ static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 	case EVIOCSKEYCODE_V2:
 		return evdev_handle_set_keycode_v2(dev, p);
 
+/* JB codes 
 	case EVIOCGSUSPENDBLOCK:
 		return put_user(client->use_wake_lock, ip);
 
@@ -750,6 +771,7 @@ static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 			return evdev_enable_suspend_block(evdev, client);
 		else
 			return evdev_disable_suspend_block(evdev, client);
+JB codes */
 	}
 
 	size = _IOC_SIZE(cmd);

@@ -1,0 +1,24 @@
+config LGE_MUIC
+	bool "AP30 MUIC"
+	depends on  ( MACH_LX || MACH_X3 || MACH_VU10)
+	help
+	  Support for MUIC Driver
+
+config LGE_MUIC_DP3T
+	bool "AP30 DP3T & USIF"
+	depends on  ( MACH_LX || MACH_X3 || MACH_VU10)
+	help
+	  Support for MUIC Driver
+
+config LGE_TA_UNWAKELOCK
+	bool "MUIC LG TA & TA 1A Wake Unlock"
+	depends on ( MACH_LX || MACH_X3 || MACH_VU10)
+	help
+	  Support for MUIC Driver
+
+
+config LG_FW_MUIC_CONTROL_E920
+	bool "MUIC - P350,C550 MUIC CONTROL"
+	depends on LG_FW_MUIC_MAX14526
+	help
+	  support to control muic

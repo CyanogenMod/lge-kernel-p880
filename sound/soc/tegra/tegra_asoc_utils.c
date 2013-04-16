@@ -2,8 +2,7 @@
  * tegra_asoc_utils.c - Harmony machine ASoC driver
  *
  * Author: Stephen Warren <swarren@nvidia.com>
- * Copyright (C) 2010 - NVIDIA, Inc.
- *
+ * Copyright (c) 2010-12, NVIDIA CORPORATION. All rights reserved.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -27,11 +26,14 @@
 
 #include <mach/clk.h>
 
+#include <sound/soc.h>
+
+#include "tegra_pcm.h"
 #include "tegra_asoc_utils.h"
 
 int g_is_call_mode;
 
-bool tegra_is_voice_call_active()
+bool tegra_is_voice_call_active(void)
 {
 	if (g_is_call_mode)
 		return true;
@@ -39,6 +41,150 @@ bool tegra_is_voice_call_active()
 		return false;
 }
 EXPORT_SYMBOL_GPL(tegra_is_voice_call_active);
+
+static int tegra_get_avp_device(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct  tegra_asoc_utils_data *data = snd_kcontrol_chip(kcontrol);
+
+	ucontrol->value.integer.value[0] = data->avp_device_id;
+	return 0;
+}
+
+static int tegra_set_avp_device(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct  tegra_asoc_utils_data *data = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_card *card = data->card;
+	struct snd_soc_pcm_runtime *rtd;
+	struct snd_pcm_substream *substream;
+	struct tegra_runtime_data *prtd;
+	int id, old_id = data->avp_device_id;
+
+	id = ucontrol->value.integer.value[0];
+	if ((id >= card->num_rtd) || (id < 0))
+		id = -1;
+
+	if (old_id >= 0) {
+		rtd = &card->rtd[old_id];
+		substream =
+			rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+		if (substream && substream->runtime) {
+			prtd = substream->runtime->private_data;
+			if (prtd->running)
+				return -EBUSY;
+			if (prtd)
+				prtd->disable_intr = false;
+		}
+	}
+
+	if (id >= 0) {
+		rtd = &card->rtd[id];
+		substream =
+			rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+		if (substream && substream->runtime) {
+			prtd = substream->runtime->private_data;
+			if (prtd->running)
+				return -EBUSY;
+			if (prtd) {
+				prtd->disable_intr = true;
+				if (data->avp_dma_addr || prtd->avp_dma_addr)
+					prtd->avp_dma_addr = data->avp_dma_addr;
+			}
+		}
+	}
+	data->avp_device_id = id;
+	return 1;
+}
+
+static int tegra_get_dma_ch_id(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct  tegra_asoc_utils_data *data = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_card *card = data->card;
+	struct snd_soc_pcm_runtime *rtd;
+	struct snd_pcm_substream *substream;
+	struct tegra_runtime_data *prtd;
+
+	ucontrol->value.integer.value[0] = -1;
+	if (data->avp_device_id < 0)
+		return 0;
+
+	rtd = &card->rtd[data->avp_device_id];
+	substream = rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream || !substream->runtime)
+		return 0;
+
+	prtd = substream->runtime->private_data;
+	if (!prtd || !prtd->dma_chan)
+		return 0;
+
+	ucontrol->value.integer.value[0] =
+		tegra_dma_get_channel_id(prtd->dma_chan);
+	return 0;
+}
+
+static int tegra_set_dma_addr(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct tegra_asoc_utils_data *data = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_card *card = data->card;
+	struct snd_soc_pcm_runtime *rtd;
+	struct snd_pcm_substream *substream;
+	struct tegra_runtime_data *prtd;
+
+	data->avp_dma_addr = ucontrol->value.integer.value[0];
+
+	rtd = &card->rtd[data->avp_device_id];
+	substream = rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream || !substream->runtime)
+		return 0;
+
+	prtd = substream->runtime->private_data;
+	if (!prtd)
+		return 0;
+
+	prtd->avp_dma_addr = data->avp_dma_addr;
+	return 1;
+}
+
+static int tegra_get_dma_addr(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct  tegra_asoc_utils_data *data = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_card *card = data->card;
+	struct snd_soc_pcm_runtime *rtd;
+	struct snd_pcm_substream *substream;
+	struct tegra_runtime_data *prtd;
+
+	ucontrol->value.integer.value[0] = 0;
+	if (data->avp_device_id < 0)
+		return 0;
+
+	rtd = &card->rtd[data->avp_device_id];
+	substream = rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream || !substream->runtime)
+		return 0;
+
+	prtd = substream->runtime->private_data;
+	if (!prtd || !prtd->dma_chan)
+		return 0;
+
+	ucontrol->value.integer.value[0] = prtd->avp_dma_addr ?
+					   prtd->avp_dma_addr :
+					   substream->runtime->dma_addr;
+
+	return 0;
+}
+
+struct snd_kcontrol_new tegra_avp_controls[] = {
+	SOC_SINGLE_EXT("AVP alsa device select", 0, 0, TEGRA_ALSA_MAX_DEVICES, \
+			0, tegra_get_avp_device, tegra_set_avp_device),
+	SOC_SINGLE_EXT("AVP DMA channel id", 0, 0, TEGRA_DMA_MAX_CHANNELS, \
+			0, tegra_get_dma_ch_id, NULL),
+	SOC_SINGLE_EXT("AVP DMA address", 0, 0, 0xFFFFFFFF, \
+			0, tegra_get_dma_addr, tegra_set_dma_addr),
+};
 
 int tegra_asoc_utils_set_rate(struct tegra_asoc_utils_data *data, int srate,
 			      int mclk)
@@ -152,13 +298,33 @@ int tegra_asoc_utils_clk_disable(struct tegra_asoc_utils_data *data)
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_clk_disable);
 
+int tegra_asoc_utils_register_ctls(struct tegra_asoc_utils_data *data)
+{
+	int i;
+	int ret = 0;
+
+	/* Add AVP related alsa controls */
+	data->avp_device_id = -1;
+	for (i = 0; i < ARRAY_SIZE(tegra_avp_controls); i++) {
+		ret = snd_ctl_add(data->card->snd_card,
+				snd_ctl_new1(&tegra_avp_controls[i], data));
+		if (ret < 0) {
+			dev_err(data->dev, "Can't add avp alsa controls");
+			return ret;
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(tegra_asoc_utils_register_ctls);
+
 int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
-			  struct device *dev)
+			  struct device *dev, struct snd_soc_card *card)
 {
 	int ret;
-	int rate;
 
 	data->dev = dev;
+	data->card = card;
 
 	data->clk_pll_p_out1 = clk_get_sys(NULL, "pll_p_out1");
 	if (IS_ERR(data->clk_pll_p_out1)) {
@@ -210,28 +376,6 @@ int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
 	}
 #endif
 
-#if !defined(CONFIG_ARCH_TEGRA_2x_SOC)
-#if TEGRA30_I2S_MASTER_PLAYBACK
-	ret = clk_set_parent(data->clk_cdev1, data->clk_pll_a_out0);
-	if (ret) {
-		dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
-		goto err_put_out1;
-	}
-#else
-	rate = clk_get_rate(data->clk_m);
-
-	if(rate == 26000000)
-		clk_set_rate(data->clk_cdev1, 13000000);
-
-	ret = clk_set_parent(data->clk_cdev1, data->clk_m);
-	if (ret) {
-		dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
-		goto err_put_out1;
-	}
-#endif
-
-#endif
-
 	ret = clk_enable(data->clk_cdev1);
 	if (ret) {
 		dev_err(data->dev, "Can't enable clk cdev1/extern1");
@@ -270,12 +414,44 @@ err:
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_init);
 
+#if !defined(CONFIG_ARCH_TEGRA_2x_SOC)
+int tegra_asoc_utils_set_parent (struct tegra_asoc_utils_data *data,
+				int is_i2s_master)
+{
+	int ret = -ENODEV;
+
+	if (is_i2s_master) {
+		ret = clk_set_parent(data->clk_cdev1, data->clk_pll_a_out0);
+		if (ret) {
+			dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
+			return ret;
+		}
+	} else {
+		if(clk_get_rate(data->clk_m) == 26000000)
+			clk_set_rate(data->clk_cdev1, 13000000);
+
+		ret = clk_set_parent(data->clk_cdev1, data->clk_m);
+		if (ret) {
+			dev_err(data->dev, "Can't set clk cdev1/extern1 parent");
+			return ret;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(tegra_asoc_utils_set_parent);
+#endif
+
 void tegra_asoc_utils_fini(struct tegra_asoc_utils_data *data)
 {
 	if (!IS_ERR(data->clk_out1))
 		clk_put(data->clk_out1);
 
 	clk_put(data->clk_cdev1);
+	/* Just to make sure that clk_cdev1 should turn off in case if it is
+	 * switched on by some codec whose hw switch is not registered.*/
+	if (tegra_is_clk_enabled(data->clk_cdev1))
+		clk_disable(data->clk_cdev1);
 
 	if (!IS_ERR(data->clk_pll_a_out0))
 		clk_put(data->clk_pll_a_out0);

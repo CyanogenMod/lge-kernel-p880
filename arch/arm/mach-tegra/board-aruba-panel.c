@@ -26,7 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/pwm_backlight.h>
 #include <linux/nvhost.h>
-#include <mach/nvmap.h>
+#include <linux/nvmap.h>
 #include <mach/irqs.h>
 #include <mach/iomap.h>
 #include <mach/dc.h>
@@ -35,6 +35,7 @@
 #include "board.h"
 #include "devices.h"
 #include "gpio-names.h"
+#include "tegra2_host1x_devices.h"
 
 #define aruba_lvds_shutdown	TEGRA_GPIO_PB2
 #define aruba_bl_enb		TEGRA_GPIO_PW1
@@ -49,8 +50,6 @@ static int aruba_backlight_init(struct device *dev) {
 	ret = gpio_direction_output(aruba_bl_enb, 1);
 	if (ret < 0)
 		gpio_free(aruba_bl_enb);
-	else
-		tegra_gpio_enable(aruba_bl_enb);
 
 	return ret;
 };
@@ -58,7 +57,6 @@ static int aruba_backlight_init(struct device *dev) {
 static void aruba_backlight_exit(struct device *dev) {
 	gpio_set_value(aruba_bl_enb, 0);
 	gpio_free(aruba_bl_enb);
-	tegra_gpio_disable(aruba_bl_enb);
 }
 
 static int aruba_backlight_notify(struct device *unused, int brightness)
@@ -228,7 +226,7 @@ int __init aruba_panel_init(void)
 #endif
 
 #ifdef CONFIG_TEGRA_GRHOST
-	err = nvhost_device_register(&tegra_grhost_device);
+	err = tegra2_register_host1x_devices();
 	if (err)
 		return err;
 #endif

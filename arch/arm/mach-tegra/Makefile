@@ -1,5 +1,7 @@
 GCOV_PROFILE := y
 
+#subdir-ccflags-y := -Werror
+
 obj-y                                   += ahb.o
 obj-y                                   += apbio.o
 obj-y                                   += common.o
@@ -8,7 +10,6 @@ obj-$(CONFIG_ARCH_TEGRA_2x_SOC)         += common-t2.o
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += common-t3.o
 obj-y                                   += io.o
 obj-y                                   += irq.o
-obj-$(CONFIG_TEGRA_GRHOST)              += syncpt.o
 obj-y                                   += clock.o
 obj-y                                   += clock-common.o
 obj-y                                   += timer.o
@@ -18,6 +19,7 @@ obj-y                                   += tegra2_clocks.o
 obj-y                                   += timer-t2.o
 else
 obj-y                                   += tegra3_clocks.o
+obj-$(CONFIG_DEBUG_FS)                  += clocks_stats.o
 obj-y                                   += timer-t3.o
 endif
 obj-y                                   += pinmux.o
@@ -28,7 +30,13 @@ obj-y                                   += pm.o
 obj-$(CONFIG_TEGRA_WDT_RECOVERY)        += wdt-recovery.o
 obj-$(CONFIG_PM_SLEEP)                  += pm-irq.o
 obj-y                                   += gic.o
+
+
 obj-y                                   += sleep.o
+
+plus_sec := $(call as-instr,.arch_extension sec,+sec)
+AFLAGS_sleep.o :=-Wa,-march=armv7-a$(plus_sec)
+
 obj-$(CONFIG_ARCH_TEGRA_2x_SOC)         += sleep-t2.o
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += sleep-t3.o
 obj-y                                   += fuse.o
@@ -39,6 +47,8 @@ obj-y                                   += i2c_error_recovery.o
 obj-y                                   += mc.o
 obj-$(CONFIG_TEGRA_STAT_MON)            += tegra2_statmon.o
 obj-$(CONFIG_USB_SUPPORT)               += usb_phy.o
+obj-$(CONFIG_USB_SUPPORT)               += tegra3_usb_phy.o
+obj-$(CONFIG_USB_SUPPORT)               += tegra2_usb_phy.o
 obj-$(CONFIG_FIQ)                       += fiq.o
 obj-$(CONFIG_TEGRA_FIQ_DEBUGGER)        += tegra_fiq_debugger.o
 obj-$(CONFIG_TEGRA_PWM)                 += pwm.o
@@ -60,6 +70,7 @@ obj-$(CONFIG_ARCH_TEGRA_2x_SOC)         += tegra2_emc.o
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += tegra3_emc.o
 obj-$(CONFIG_ARCH_TEGRA_2x_SOC)         += wakeups-t2.o
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += wakeups-t3.o
+obj-y                                   += wakeups.o
 obj-$(CONFIG_ARCH_TEGRA_2x_SOC)         += pm-t2.o
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += pm-t3.o
 
@@ -73,7 +84,11 @@ obj-y                                   += reset.o
 obj-$(CONFIG_TEGRA_SYSTEM_DMA)          += dma.o
 obj-$(CONFIG_CPU_FREQ)                  += cpu-tegra.o
 ifeq ($(CONFIG_TEGRA_AUTO_HOTPLUG),y)
+ifeq ($(CONFIG_CPUQUIET_FRAMEWORK),y)
+obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += cpuquiet.o
+else
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += cpu-tegra3.o
+endif
 endif
 obj-$(CONFIG_TEGRA_PCI)                 += pcie.o
 obj-$(CONFIG_USB_SUPPORT)               += usb_phy.o
@@ -89,6 +104,7 @@ obj-$(CONFIG_ARCH_TEGRA_2x_SOC)         += tegra2_throttle.o
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += tegra3_throttle.o
 endif
 obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += tegra3_thermal.o
+#obj-$(CONFIG_ARCH_TEGRA_3x_SOC)         += tegra3_skin.o
 obj-$(CONFIG_TEGRA_IOVMM)               += iovmm.o
 obj-$(CONFIG_TEGRA_IOVMM_GART)          += iovmm-gart.o
 obj-$(CONFIG_TEGRA_IOVMM_SMMU)          += iovmm-smmu.o
@@ -149,6 +165,7 @@ obj-${CONFIG_MACH_WHISTLER}             += board-whistler-memory.o
 
 obj-${CONFIG_MACH_CARDHU}               += board-cardhu.o
 obj-${CONFIG_MACH_CARDHU}               += board-cardhu-kbc.o
+obj-${CONFIG_MACH_CARDHU}               += board-cardhu-irda.o
 obj-${CONFIG_MACH_CARDHU}               += board-cardhu-panel.o
 obj-${CONFIG_MACH_CARDHU}               += board-cardhu-pinmux.o
 obj-${CONFIG_MACH_CARDHU}               += board-cardhu-power.o
@@ -166,6 +183,11 @@ obj-${CONFIG_MACH_P1852}               += board-p1852.o
 obj-${CONFIG_MACH_P1852}               += board-p1852-panel.o
 obj-${CONFIG_MACH_P1852}               += board-p1852-pinmux.o
 obj-${CONFIG_MACH_P1852}               += board-p1852-sdhci.o
+
+obj-${CONFIG_MACH_E1853}               += board-e1853.o
+obj-${CONFIG_MACH_E1853}               += board-e1853-panel.o
+obj-${CONFIG_MACH_E1853}               += board-e1853-pinmux.o
+obj-${CONFIG_MACH_E1853}               += board-e1853-sdhci.o
 
 obj-${CONFIG_MACH_TEGRA_ENTERPRISE}     += board-enterprise.o
 obj-${CONFIG_MACH_TEGRA_ENTERPRISE}     += board-enterprise-panel.o
@@ -190,3 +212,13 @@ obj-y                                   += eeprom-wifi-mac.o
 obj-${CONFIG_TEGRA_BB_XMM_POWER}        += baseband-xmm-power.o
 obj-${CONFIG_TEGRA_BB_XMM_POWER2}       += baseband-xmm-power2.o
 
+#===============#
+#  For the LGE  #
+#===============#
+
+obj-$(CONFIG_MACH_X3)			+= lge/x3/
+obj-$(CONFIG_MACH_LX)			+= lge/lx/
+obj-$(CONFIG_MACH_VU10)			+= lge/vu10/
+subdir-ccflags-$(CONFIG_MACH_X3)	+= -Iarch/arm/mach-tegra/lge/x3/include
+subdir-ccflags-$(CONFIG_MACH_LX)	+= -Iarch/arm/mach-tegra/lge/lx/include
+subdir-ccflags-$(CONFIG_MACH_VU10)	+= -Iarch/arm/mach-tegra/lge/vu10/include

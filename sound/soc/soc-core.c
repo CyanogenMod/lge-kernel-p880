@@ -576,9 +576,21 @@ int snd_soc_suspend(struct device *dev)
 			switch (codec->dapm.bias_level) {
 			case SND_SOC_BIAS_STANDBY:
 			case SND_SOC_BIAS_OFF:
-				codec->driver->suspend(codec, PMSG_SUSPEND);
-				codec->suspended = 1;
-				codec->cache_sync = 1;
+                //                                                            
+                if( !card->rtd[0].dai_link->ignore_suspend )
+                {     
+                    //printk("(soc-core) %s() [%s] SSP Go codec suspend codec->dapm.bias_level?(%d).###\n",
+                    //      __func__,codec->name, codec->dapm.bias_level );  
+				    codec->driver->suspend(codec, PMSG_SUSPEND);
+				    codec->suspended = 1;
+				    codec->cache_sync = 1;
+                }   
+                else
+                {
+                    printk("(soc-core) %s() [%s] SSP (ignore) Don't let go codec suspend @@@@###\n",
+                         __func__);                
+                }//                                      
+
 				break;
 			default:
 				dev_dbg(codec->dev, "CODEC is on over suspend\n");
@@ -2897,6 +2909,7 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	INIT_LIST_HEAD(&card->list);
 	card->instantiated = 0;
 	mutex_init(&card->mutex);
+	mutex_init(&card->dapm_mutex);
 
 	mutex_lock(&client_mutex);
 	list_add(&card->list, &card_list);

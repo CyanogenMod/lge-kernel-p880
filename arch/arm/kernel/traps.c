@@ -4,6 +4,8 @@
  *  Copyright (C) 1995-2009 Russell King
  *  Fragments that appear the same as linux/arch/i386/kernel/traps.c (C) Linus Torvalds
  *
+ * Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -21,6 +23,7 @@
 #include <linux/kdebug.h>
 #include <linux/module.h>
 #include <linux/kexec.h>
+#include <linux/bug.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/sched.h>
@@ -34,6 +37,16 @@
 #include <asm/tls.h>
 
 #include "signal.h"
+
+//                               
+#include "../arch/arm/mach-tegra/gpio-names.h"
+#include "../arch/arm/mach-tegra/lge/x3/include/lge/board-x3-nv.h"
+#include "../arch/arm/mach-tegra/lge/x3/include/lge/board-x3.h"
+//                               
+
+#if defined(CONFIG_MFD_MAX77663)
+#include <linux/mfd/max77663-core.h>
+#endif
 
 static const char *handler[]= { "prefetch abort", "data abort", "address exception", "interrupt" };
 
@@ -270,6 +283,8 @@ void die(const char *str, struct pt_regs *regs, int err)
 	spin_lock_irq(&die_lock);
 	console_verbose();
 	bust_spinlocks(1);
+	if (!user_mode(regs))
+		report_bug(regs->ARM_pc, regs);
 	ret = __die(str, err, thread, regs);
 
 	if (regs && kexec_should_crash(thread->task))
@@ -278,6 +293,22 @@ void die(const char *str, struct pt_regs *regs, int err)
 	bust_spinlocks(0);
 	add_taint(TAINT_DIE);
 	spin_unlock_irq(&die_lock);
+
+#if defined(CONFIG_MFD_MAX77663_FOR_USED_SCRATCH_REGISTER)
+	max77663_set_ScratchRegister(MAX77663_SCRATCH_REG_RESET);
+#else
+	//                               
+	unsigned char bootcause[1] = {LGE_NVDATA_RESET_CAUSE_VAL_USER_RESET};
+	lge_nvdata_write(LGE_NVDATA_RESET_CAUSE_OFFSET, bootcause,1);
+	//                               
+#endif
+	gpio_set_value(TEGRA_GPIO_PN6, 0);   //backlight
+	//                     
+	gpio_set_value(MODEM_PWR_ON, 0);
+	udelay(200);
+	gpio_set_value(MODEM_RESET, 0);
+	//            
+
 	oops_exit();
 
 	if (in_interrupt())
@@ -300,6 +331,24 @@ void arm_notify_die(const char *str, struct pt_regs *regs,
 		die(str, regs, err);
 	}
 }
+
+#ifdef CONFIG_GENERIC_BUG
+
+int is_valid_bugaddr(unsigned long pc)
+{
+#ifdef CONFIG_THUMB2_KERNEL
+	unsigned short bkpt;
+#else
+	unsigned long bkpt;
+#endif
+
+	if (probe_kernel_address((unsigned *)pc, bkpt))
+		return 0;
+
+	return bkpt == BUG_INSTR_VALUE;
+}
+
+#endif
 
 static LIST_HEAD(undef_hook);
 static DEFINE_SPINLOCK(undef_lock);
@@ -707,16 +756,6 @@ baddataabort(int code, unsigned long instr, struct pt_regs *regs)
 
 	arm_notify_die("unknown data abort code", regs, &info, instr, 0);
 }
-
-void __attribute__((noreturn)) __bug(const char *file, int line)
-{
-	printk(KERN_CRIT"kernel BUG at %s:%d!\n", file, line);
-	*(int *)0 = 0;
-
-	/* Avoid "noreturn function does return" */
-	for (;;);
-}
-EXPORT_SYMBOL(__bug);
 
 void __readwrite_bug(const char *fn)
 {

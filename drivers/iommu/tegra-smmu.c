@@ -38,6 +38,9 @@
 #include <mach/smmu.h>
 #include <mach/tegra_smmu.h>
 
+/* REVISIT: With new configurations for t114/124/148 passed from DT */
+#define SKIP_SWGRP_CHECK
+
 /* bitmap of the page sizes currently supported */
 #define SMMU_IOMMU_PGSIZES	(SZ_4K)
 
@@ -316,11 +319,22 @@ static int __smmu_client_set_hwgrp(struct smmu_client *c,
 		offs = HWGRP_ASID_REG(i);
 		val = smmu_read(smmu, offs);
 		if (on) {
-			if (WARN_ON(val & mask))
-				goto err_hw_busy;
+#if !defined(SKIP_SWGRP_CHECK)
+			if (WARN_ON(val & mask)) {
+				for_each_set_bit(i, &map, HWGRP_COUNT) {
+					offs = HWGRP_ASID_REG(i);
+					val = smmu_read(smmu, offs);
+					val &= ~mask;
+					smmu_write(smmu, val, offs);
+				}
+				return -EBUSY;
+			}
+#endif
 			val |= mask;
 		} else {
+#if !defined(SKIP_SWGRP_CHECK)
 			WARN_ON((val & mask) == mask);
+#endif
 			val &= ~mask;
 		}
 		smmu_write(smmu, val, offs);
@@ -329,14 +343,6 @@ static int __smmu_client_set_hwgrp(struct smmu_client *c,
 	c->hwgrp = map;
 	return 0;
 
-err_hw_busy:
-	for_each_set_bit(i, &map, HWGRP_COUNT) {
-		offs = HWGRP_ASID_REG(i);
-		val = smmu_read(smmu, offs);
-		val &= ~mask;
-		smmu_write(smmu, val, offs);
-	}
-	return -EBUSY;
 }
 
 static int smmu_client_set_hwgrp(struct smmu_client *c, u32 map, int on)
@@ -701,9 +707,15 @@ static int smmu_iommu_attach_dev(struct iommu_domain *domain,
 		return -ENOMEM;
 	client->dev = dev;
 	client->as = as;
+
+#ifdef SKIP_SWGRP_CHECK
+	/* Enable all SWGRP blindly by default */
+	map = (1 << HWGRP_COUNT) - 1;
+#else
 	map = (unsigned long)dev->platform_data;
 	if (!map)
 		return -EINVAL;
+#endif
 
 	err = smmu_client_enable_hwgrp(client, map);
 	if (err)
@@ -734,7 +746,7 @@ static int smmu_iommu_attach_dev(struct iommu_domain *domain,
 		pr_info("Reserve \"page zero\" for AVP vectors using a common dummy\n");
 	}
 
-	dev_dbg(smmu->dev, "%s is attached\n", dev_name(c->dev));
+	dev_dbg(smmu->dev, "%s is attached\n", dev_name(dev));
 	return 0;
 
 err_client:
@@ -1028,5 +1040,5 @@ static void __exit tegra_smmu_exit(void)
 	platform_driver_unregister(&tegra_smmu_driver);
 }
 
-subsys_initcall(tegra_smmu_init);
+core_initcall(tegra_smmu_init);
 module_exit(tegra_smmu_exit);

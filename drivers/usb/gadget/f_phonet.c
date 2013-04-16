@@ -29,12 +29,20 @@
 #include <linux/if_ether.h>
 #include <linux/if_phonet.h>
 #include <linux/if_arp.h>
-
+#if defined(CONFIG_MACH_PEGASUS)
+#include <linux/phonet.h>
+#include <linux/rtnetlink.h>
+#include <net/phonet/pn_dev.h>
+#endif
 #include <linux/usb/ch9.h>
 #include <linux/usb/cdc.h>
 #include <linux/usb/composite.h>
 
 #include "u_phonet.h"
+
+#if defined(CONFIG_MACH_PEGASUS)
+#define PN_NETDEV_AUTOCONF
+#endif
 
 #define PN_MEDIA_USB	0x1B
 #define MAXPACKET	512
@@ -241,6 +249,24 @@ static int pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (skb->protocol != htons(ETH_P_PHONET))
 		goto out;
 
+#if defined(DATA_DEBUG)
+	{
+		u8 *ptr = (u8 *)skb->data;
+		int len = skb_headlen(skb);
+		int i;
+
+		printk(KERN_DEBUG "f_phonet: TX length:%d\n", len);
+		
+		for (i=0;i<len;i++) 
+		{
+			if (i%8 == 0)
+				printk(KERN_DEBUG "f_phonet: TX [%04X] ",i);
+			printk(" 0x%02X", ptr[i]);
+			if (i%8 == 7 || i == len-1)
+				printk("\n");
+		}
+	}
+#endif
 	spin_lock_irqsave(&port->lock, flags);
 	fp = port->usb;
 	if (unlikely(!fp)) /* race with carrier loss */
@@ -277,10 +303,41 @@ static int pn_net_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
+#if defined(CONFIG_MACH_PEGASUS)
+static int
+pn_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	/* struct if_phonet_req *req = (struct if_phonet_req *)ifr; */
+	int ret;
+
+	switch (cmd) 
+	{
+	    case SIOCPNGAUTOCONF:
+#ifdef PN_NETDEV_AUTOCONF
+		ret = phonet_address_add(dev, PN_MEDIA_USB);
+		if (ret) 
+			return ret;
+		
+		phonet_address_notify(RTM_NEWADDR, dev, PN_MEDIA_USB);
+		phonet_route_add(dev, PN_DEV_PC);
+		
+		dev_open(dev);
+#endif
+		/* Return NOIOCTLCMD so Phonet won't do it again */
+		return -ENOIOCTLCMD;
+	}
+
+	return -ENOIOCTLCMD;
+}
+#endif
+
 static const struct net_device_ops pn_netdev_ops = {
 	.ndo_open	= pn_net_open,
 	.ndo_stop	= pn_net_close,
 	.ndo_start_xmit	= pn_net_xmit,
+#if defined(CONFIG_MACH_PEGASUS)	
+	.ndo_do_ioctl   = pn_net_ioctl,
+#endif	
 	.ndo_change_mtu	= pn_net_mtu,
 };
 
@@ -293,8 +350,11 @@ static void pn_net_setup(struct net_device *dev)
 	dev->hard_header_len	= 1;
 	dev->dev_addr[0]	= PN_MEDIA_USB;
 	dev->addr_len		= 1;
+#if defined(CONFIG_MACH_PEGASUS)
+	dev->tx_queue_len	= 5;
+#else	
 	dev->tx_queue_len	= 1;
-
+#endif
 	dev->netdev_ops		= &pn_netdev_ops;
 	dev->destructor		= free_netdev;
 	dev->header_ops		= &phonet_header_ops;
@@ -333,6 +393,95 @@ static void pn_rx_complete(struct usb_ep *ep, struct usb_request *req)
 	struct page *page = req->context;
 	struct sk_buff *skb;
 	unsigned long flags;
+	
+#if defined(DATA_DEBUG)
+	{
+		u8 *ptr = (u8 *)req->buf;
+		int len = req->actual;
+		int i;
+
+		printk(KERN_DEBUG "f_phonet: RX length:%d\n", len);
+		
+		for (i=0;i<len;i++) 
+		{
+			if (i%8 == 0)
+				printk(KERN_DEBUG "f_phonet: RX [%04X] ",i);
+			printk(" 0x%02X", ptr[i]);
+			if (i%8 == 7 || i == len-1)
+				printk("\n");
+		}
+	}
+#endif
+
+#if defined(CONFIG_MACH_PEGASUS)
+	if (likely(req->status == 0)) 
+	{
+		spin_lock_irqsave(&fp->rx.lock, flags);
+		{
+		skb = fp->rx.skb;
+		if (!skb)
+				skb = netdev_alloc_skb(dev, 12);
+		if (req->actual < req->length) /* Last fragment */
+			fp->rx.skb = NULL;
+			else
+				fp->rx.skb = skb;
+		}
+		spin_unlock_irqrestore(&fp->rx.lock, flags);
+
+		if (unlikely(!skb))
+			goto cont;
+
+		if (skb->len == 0) { /* First fragment */
+			skb->dev = dev;
+			skb->protocol = htons(ETH_P_PHONET);
+			skb_reset_mac_header(skb);
+			/* Can't use pskb_pull() on page in IRQ */
+			memcpy(skb_put(skb, 1), page_address(page), 1);
+			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+					1, req->actual-1);
+		}
+		else {
+		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+					0, req->actual);
+		}
+		page = NULL;
+
+		if (req->actual < req->length) 
+		{
+			dev->stats.rx_packets++;
+			dev->stats.rx_bytes += skb->len;
+			__skb_pull(skb, 1);
+			netif_rx(skb);
+		}
+cont:		
+		pn_rx_submit(fp, req, GFP_ATOMIC);
+	}
+	else 
+	{
+		switch (req->status) {
+
+	/* Do not resubmit in these cases: */
+		case 0:
+	case -ESHUTDOWN: /* disconnect */
+	case -ECONNABORTED: /* hw reset */
+	case -ECONNRESET: /* dequeued (unlink or netif down) */
+		break;
+
+	/* Do resubmit in these cases: */
+	case -EOVERFLOW: /* request buffer overflow */
+		dev->stats.rx_over_errors++;
+	default:
+		dev->stats.rx_errors++;
+			pn_rx_submit(fp, req, GFP_ATOMIC);
+		break;
+		}
+	}
+
+	if (page)
+		netdev_free_page(dev, page);
+
+#else
+
 	int status = req->status;
 
 	switch (status) {
@@ -387,6 +536,7 @@ static void pn_rx_complete(struct usb_ep *ep, struct usb_request *req)
 		netdev_free_page(dev, page);
 	if (req)
 		pn_rx_submit(fp, req, GFP_ATOMIC);
+#endif		
 }
 
 /*-------------------------------------------------------------------------*/
@@ -428,6 +578,9 @@ static int pn_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		spin_lock(&port->lock);
 		__pn_reset(f);
 		if (alt == 1) {
+#if defined(CONFIG_MACH_PEGASUS)
+			struct usb_endpoint_descriptor *out, *in;
+#endif		
 			int i;
 
 			if (config_ep_by_speed(gadget, f, fp->in_ep) ||
@@ -444,9 +597,14 @@ static int pn_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			fp->out_ep->driver_data = fp;
 			fp->in_ep->driver_data = fp;
 
+#if !defined(CONFIG_MACH_PEGASUS)
 			netif_carrier_on(dev);
+#endif			
 			for (i = 0; i < phonet_rxq_size; i++)
 				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC);
+#if defined(CONFIG_MACH_PEGASUS)				
+			netif_carrier_on(dev);
+#endif			
 		}
 		spin_unlock(&port->lock);
 		return 0;
@@ -464,10 +622,17 @@ static int pn_get_alt(struct usb_function *f, unsigned intf)
 
 	if (intf == pn_data_intf_desc.bInterfaceNumber) {
 		struct phonet_port *port = netdev_priv(fp->dev);
+#if defined(CONFIG_MACH_PEGASUS)
+		int alt;
+
+		spin_lock(&port->lock);
+		alt = (port->usb != NULL);
+#else		
 		u8 alt;
 
 		spin_lock(&port->lock);
 		alt = port->usb != NULL;
+#endif		
 		spin_unlock(&port->lock);
 		return alt;
 	}
@@ -488,9 +653,12 @@ static void pn_disconnect(struct usb_function *f)
 }
 
 /*-------------------------------------------------------------------------*/
-
+#if defined(CONFIG_MACH_PEGASUS)
+static int pn_bind(struct usb_configuration *c, struct usb_function *f)
+#else
 static __init
 int pn_bind(struct usb_configuration *c, struct usb_function *f)
+#endif
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct usb_gadget *gadget = cdev->gadget;
@@ -587,7 +755,11 @@ pn_unbind(struct usb_configuration *c, struct usb_function *f)
 
 static struct net_device *dev;
 
+#if defined(CONFIG_MACH_PEGASUS)
+int phonet_bind_config(struct usb_configuration *c)
+#else
 int __init phonet_bind_config(struct usb_configuration *c)
+#endif
 {
 	struct f_phonet *fp;
 	int err, size;
@@ -612,7 +784,11 @@ int __init phonet_bind_config(struct usb_configuration *c)
 	return err;
 }
 
+#if defined(CONFIG_MACH_PEGASUS)
+int gphonet_setup(struct usb_gadget *gadget)
+#else
 int __init gphonet_setup(struct usb_gadget *gadget)
+#endif
 {
 	struct phonet_port *port;
 	int err;
@@ -629,12 +805,26 @@ int __init gphonet_setup(struct usb_gadget *gadget)
 	SET_NETDEV_DEV(dev, &gadget->dev);
 
 	err = register_netdev(dev);
+#if defined(CONFIG_MACH_PEGASUS)
+	if (err) {
+		free_netdev(dev);
+		dev = NULL;
+	}
+#else	
 	if (err)
 		free_netdev(dev);
+#endif
 	return err;
 }
 
 void gphonet_cleanup(void)
 {
+#if defined(CONFIG_MACH_PEGASUS)
+    if (dev) {
 	unregister_netdev(dev);
+		dev = NULL;
+	}
+#else
+	unregister_netdev(dev);
+#endif
 }

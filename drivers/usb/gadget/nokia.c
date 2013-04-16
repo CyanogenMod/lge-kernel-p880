@@ -14,7 +14,7 @@
  * Public License ("GPL") as published by the Free Software Foundation,
  * version 2 of that License.
  */
-
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/utsname.h>
 #include <linux/device.h>
@@ -155,6 +155,7 @@ static int __init nokia_bind(struct usb_composite_dev *cdev)
 	struct usb_gadget	*gadget = cdev->gadget;
 	int			status;
 
+	printk("nokia_bind called!!!!\n");
 	status = gphonet_setup(cdev->gadget);
 	if (status < 0)
 		goto err_phonet;
@@ -213,7 +214,9 @@ static int __init nokia_bind(struct usb_composite_dev *cdev)
 			nokia_bind_config);
 	if (status < 0)
 		goto err_usb;
-
+//                                                
+	usb_gadget_connect(cdev->gadget);
+//                                                
 	dev_info(&gadget->dev, "%s\n", NOKIA_LONG_NAME);
 
 	return 0;
@@ -233,6 +236,9 @@ static int __exit nokia_unbind(struct usb_composite_dev *cdev)
 	gphonet_cleanup();
 	gserial_cleanup();
 	gether_cleanup();
+//                                                 
+	usb_gadget_disconnect(cdev->gadget);
+//                                                 
 
 	return 0;
 }
@@ -247,6 +253,7 @@ static struct usb_composite_driver nokia_driver = {
 
 static int __init nokia_init(void)
 {
+	printk("nokia_init called!!!!\n");
 	return usb_composite_probe(&nokia_driver, nokia_bind);
 }
 module_init(nokia_init);

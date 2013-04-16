@@ -53,6 +53,7 @@
 
 #define NFUSES	64
 #define STATE_IDLE	(0x4 << 16)
+#define SENSE_DONE	(0x1 << 30)
 
 /* since fuse burning is irreversible, use this for testing */
 #define ENABLE_FUSE_BURNING 1
@@ -607,6 +608,17 @@ static void fuse_program_array(int pgm_cycles)
 	}
 
 	fuse_power_disable();
+
+	/*
+	 * Wait until done (polling)
+	 * this one needs to use fuse_sense done, the FSM follows a periodic
+	 * sequence that includes idle
+	 */
+	do {
+		udelay(1);
+		reg = tegra_fuse_readl(FUSE_CTRL);
+	} while ((reg & (0x1 << 30)) != SENSE_DONE);
+
 }
 
 static int fuse_set(enum fuse_io_param io_param, u32 *param, int size)
@@ -678,11 +690,19 @@ int tegra_fuse_program(struct fuse_data *pgm_data, u32 flags)
 		pr_err("fuse write disabled");
 		return -ENODEV;
 	}
-
-	if (fuse_odm_prod_mode() && (flags != FLAGS_ODMRSVD)) {
+     
+//                                                                      
+#if 0
+     if (fuse_odm_prod_mode() && (flags != FLAGS_ODMRSVD)) {
 		pr_err("reserved odm fuses aren't allowed in secure mode");
 		return -EPERM;
 	}
+#endif	
+	if (fuse_odm_prod_mode() && (flags & (FLAGS_SBK | FLAGS_DEVKEY)) ) {
+		pr_err("SBK and DK fuses aren't allowed in secure mode");
+		return -EPERM;
+	}
+//                                    
 
 	if ((flags & FLAGS_ODM_PROD_MODE) &&
 		(flags & (FLAGS_SBK | FLAGS_DEVKEY))) {
@@ -809,10 +829,18 @@ static ssize_t fuse_store(struct kobject *kobj, struct kobj_attribute *attr,
 		return -EINVAL;
 	}
 
+//                                                                     
+#if 0
 	if (fuse_odm_prod_mode()) {
 		pr_err("%s: device locked. odm fuse already blown\n", __func__);
 		return -EPERM;
 	}
+#endif
+     if (fuse_odm_prod_mode()  && (param != ODM_RSVD) ) {
+		pr_err("%s: device locked. odm fuse already blown\n", __func__);
+		return -EPERM;
+	}
+//                                  
 
 	count--;
 	if (DIV_ROUND_UP(count, 2) > fuse_info_tbl[param].sz) {
@@ -885,7 +913,7 @@ static ssize_t fuse_show(struct kobject *kobj, struct kobj_attribute *attr, char
 {
 	enum fuse_io_param param = fuse_name_to_param(attr->attr.name);
 	u32 data[8];
-	char str[8];
+	char str[9]; /* extra byte for null character */
 	int ret, i;
 
 	if ((param == -1) || (param == -ENODATA)) {

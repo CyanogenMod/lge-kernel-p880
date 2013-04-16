@@ -26,13 +26,14 @@
 #include <mach/dc.h>
 #include <mach/irqs.h>
 #include <mach/iomap.h>
-#include <mach/nvmap.h>
+#include <linux/nvmap.h>
 #include <mach/tegra_fb.h>
 #include <mach/fb.h>
 
 #include "devices.h"
 #include "gpio-names.h"
 #include "board.h"
+#include "tegra2_host1x_devices.h"
 
 #define harmony_bl_enb		TEGRA_GPIO_PB5
 #define harmony_lvds_shutdown	TEGRA_GPIO_PB2
@@ -56,8 +57,6 @@ static int harmony_backlight_init(struct device *dev)
 	ret = gpio_direction_output(harmony_bl_enb, 1);
 	if (ret < 0)
 		gpio_free(harmony_bl_enb);
-	else
-		tegra_gpio_enable(harmony_bl_enb);
 
 	return ret;
 }
@@ -66,7 +65,6 @@ static void harmony_backlight_exit(struct device *dev)
 {
 	gpio_set_value(harmony_bl_enb, 0);
 	gpio_free(harmony_bl_enb);
-	tegra_gpio_disable(harmony_bl_enb);
 }
 
 static int harmony_backlight_notify(struct device *unused, int brightness)
@@ -336,19 +334,15 @@ int __init harmony_panel_init(void)
 
 	gpio_request(harmony_en_vdd_pnl, "en_vdd_pnl");
 	gpio_direction_output(harmony_en_vdd_pnl, 1);
-	tegra_gpio_enable(harmony_en_vdd_pnl);
 
 	gpio_request(harmony_bl_vdd, "bl_vdd");
 	gpio_direction_output(harmony_bl_vdd, 1);
-	tegra_gpio_enable(harmony_bl_vdd);
 
 	gpio_request(harmony_lvds_shutdown, "lvds_shdn");
 	gpio_direction_output(harmony_lvds_shutdown, 1);
-	tegra_gpio_enable(harmony_lvds_shutdown);
 
 	gpio_request(harmony_hdmi_hpd, "hdmi_hpd");
 	gpio_direction_input(harmony_hdmi_hpd);
-	tegra_gpio_enable(harmony_hdmi_hpd);
 
 #if defined(CONFIG_TEGRA_NVMAP)
 	harmony_carveouts[1].base = tegra_carveout_start;
@@ -356,7 +350,7 @@ int __init harmony_panel_init(void)
 #endif
 
 #ifdef CONFIG_TEGRA_GRHOST
-	err = nvhost_device_register(&tegra_grhost_device);
+	err = tegra2_register_host1x_devices();
 	if (err)
 		return err;
 #endif

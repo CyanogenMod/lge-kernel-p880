@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/dev.c
  *
- * Copyright (C) 2011-2012, NVIDIA Corporation
+ * Copyright (c) 2011-2012, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  * Some code based on fbdev extensions written by:
@@ -26,12 +26,18 @@
 
 #include <video/tegra_dc_ext.h>
 
+//                                                                        
+#include <video/tegrafb.h>
+//                                                                        
+
+
 #include <mach/dc.h>
-#include <mach/nvmap.h>
+#include <linux/nvmap.h>
 #include <mach/tegra_dc_ext.h>
 
 /* XXX ew */
 #include "../dc_priv.h"
+#include "../dc_config.h"
 /* XXX ew 2 */
 #include "../../host/dev.h"
 /* XXX ew 3 */
@@ -55,6 +61,7 @@ struct tegra_dc_ext_flip_data {
 	struct tegra_dc_ext		*ext;
 	struct work_struct		work;
 	struct tegra_dc_ext_flip_win	win[DC_N_WINDOWS];
+	struct list_head		timestamp_node;
 };
 
 int tegra_dc_ext_get_num_outputs(void)
@@ -167,16 +174,51 @@ void tegra_dc_ext_disable(struct tegra_dc_ext *ext)
 	 */
 	for (i = 0; i < ext->dc->n_windows; i++) {
 		struct tegra_dc_ext_win *win = &ext->win[i];
-
+#if defined(CONFIG_MACH_LGE)		
+		mutex_lock(&win->lock); /*                                              */
+#endif		
 		flush_workqueue(win->flip_wq);
+#if defined(CONFIG_MACH_LGE)		
+		mutex_unlock(&win->lock);/*                                              */
+#endif		
 	}
+}
+
+int tegra_dc_ext_check_windowattr(struct tegra_dc_ext *ext,
+						struct tegra_dc_win *win)
+{
+	long *addr;
+	struct tegra_dc *dc = ext->dc;
+
+	/* Check the window format */
+	addr = tegra_dc_parse_feature(dc, win->idx, GET_WIN_FORMATS);
+	if (!test_bit(win->fmt, addr)) {
+		dev_err(&dc->ndev->dev, "Color format of window %d is"
+						" invalid.\n", win->idx);
+		goto fail;
+	}
+
+	/* Check window size */
+	addr = tegra_dc_parse_feature(dc, win->idx, GET_WIN_SIZE);
+	if (CHECK_SIZE(win->out_w, addr[MIN_WIDTH], addr[MAX_WIDTH]) ||
+		CHECK_SIZE(win->out_h, addr[MIN_HEIGHT], addr[MAX_HEIGHT])) {
+		dev_err(&dc->ndev->dev, "Size of window %d is"
+						" invalid.\n", win->idx);
+		goto fail;
+	}
+
+	return 0;
+fail:
+	return -EINVAL;
 }
 
 static int tegra_dc_ext_set_windowattr(struct tegra_dc_ext *ext,
 			       struct tegra_dc_win *win,
 			       const struct tegra_dc_ext_flip_win *flip_win)
 {
+	int err = 0;
 	struct tegra_dc_ext_win *ext_win = &ext->win[win->idx];
+	s64 timestamp_ns;
 
 	if (flip_win->handle[TEGRA_DC_Y] == NULL) {
 		win->flags = 0;
@@ -195,6 +237,10 @@ static int tegra_dc_ext_set_windowattr(struct tegra_dc_ext *ext,
 		win->flags |= TEGRA_WIN_FLAG_INVERT_H;
 	if (flip_win->attr.flags & TEGRA_DC_EXT_FLIP_FLAG_INVERT_V)
 		win->flags |= TEGRA_WIN_FLAG_INVERT_V;
+	if (flip_win->attr.flags & TEGRA_DC_EXT_FLIP_FLAG_GLOBAL_ALPHA)
+		win->global_alpha = flip_win->attr.global_alpha;
+	else
+		win->global_alpha = 255;
 	win->fmt = flip_win->attr.pixformat;
 	win->x.full = flip_win->attr.x;
 	win->y.full = flip_win->attr.y;
@@ -208,6 +254,14 @@ static int tegra_dc_ext_set_windowattr(struct tegra_dc_ext *ext,
 	win->z = flip_win->attr.z;
 	memcpy(ext_win->cur_handle, flip_win->handle,
 	       sizeof(ext_win->cur_handle));
+
+/*                                              */
+#if defined(CONFIG_MACH_LGE)
+	ext_win->phys_addr = flip_win->phys_addr;
+	ext_win->phys_addr_u = flip_win->phys_addr_u;
+	ext_win->phys_addr_v = flip_win->phys_addr_v;
+#endif	
+/*                                              */
 
 	/* XXX verify that this won't read outside of the surface */
 	win->phys_addr = flip_win->phys_addr + flip_win->attr.offset;
@@ -223,6 +277,11 @@ static int tegra_dc_ext_set_windowattr(struct tegra_dc_ext *ext,
 	win->stride = flip_win->attr.stride;
 	win->stride_uv = flip_win->attr.stride_uv;
 
+	err = tegra_dc_ext_check_windowattr(ext, win);
+	if (err < 0)
+		dev_err(&ext->dc->ndev->dev,
+				"Window atrributes are invalid.\n");
+
 	if ((s32)flip_win->attr.pre_syncpt_id >= 0) {
 		nvhost_syncpt_wait_timeout(
 				&nvhost_get_host(ext->dc->ndev)->syncpt,
@@ -231,9 +290,61 @@ static int tegra_dc_ext_set_windowattr(struct tegra_dc_ext *ext,
 				msecs_to_jiffies(500), NULL);
 	}
 
+#ifndef CONFIG_TEGRA_SIMULATION_PLATFORM
+	timestamp_ns = timespec_to_ns(&flip_win->attr.timestamp);
+
+	if (timestamp_ns) {
+		/* XXX: Should timestamping be overridden by "no_vsync" flag */
+		tegra_dc_config_frame_end_intr(win->dc, true);
+		trace_printk("%s:Before timestamp wait\n", win->dc->ndev->name);
+		err = wait_event_interruptible(win->dc->timestamp_wq,
+				tegra_dc_is_within_n_vsync(win->dc, timestamp_ns));
+		trace_printk("%s:After timestamp wait\n", win->dc->ndev->name);
+		tegra_dc_config_frame_end_intr(win->dc, false);
+	}
+#endif
+	return err;
+}
+
+//                                                                        
+#if defined (CONFIG_PANICRPT)    
+extern int panicrpt_ispanic (void);
+#endif /* CONFIG_PANICRPT */
+//                                                                        
+static void (*flip_callback)(void);
+static spinlock_t flip_callback_lock;
+static bool init_tegra_dc_flip_callback_called;
+
+static int __init init_tegra_dc_flip_callback(void)
+{
+	spin_lock_init(&flip_callback_lock);
+	init_tegra_dc_flip_callback_called = true;
+	return 0;
+}
+
+pure_initcall(init_tegra_dc_flip_callback);
+
+int tegra_dc_set_flip_callback(void (*callback)(void))
+{
+	WARN_ON(!init_tegra_dc_flip_callback_called);
+
+	spin_lock(&flip_callback_lock);
+	flip_callback = callback;
+	spin_unlock(&flip_callback_lock);
 
 	return 0;
 }
+EXPORT_SYMBOL(tegra_dc_set_flip_callback);
+
+int tegra_dc_unset_flip_callback()
+{
+	spin_lock(&flip_callback_lock);
+	flip_callback = NULL;
+	spin_unlock(&flip_callback_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(tegra_dc_unset_flip_callback);
 
 static void tegra_dc_ext_flip_worker(struct work_struct *work)
 {
@@ -247,11 +358,20 @@ static void tegra_dc_ext_flip_worker(struct work_struct *work)
 	int i, nr_unpin = 0, nr_win = 0;
 	bool skip_flip = false;
 
+//                                                                        
+#if defined (CONFIG_PANICRPT)    
+    if (panicrpt_ispanic ())
+        return;
+#endif /* CONFIG_PANICRPT */
+//                                                                        
+
 	for (i = 0; i < DC_N_WINDOWS; i++) {
 		struct tegra_dc_ext_flip_win *flip_win = &data->win[i];
-		int index = flip_win->attr.index;
+		int j = 0, index = flip_win->attr.index;
 		struct tegra_dc_win *win;
 		struct tegra_dc_ext_win *ext_win;
+		struct tegra_dc_ext_flip_data *temp = NULL;
+		s64 head_timestamp = 0;
 
 		if (index < 0)
 			continue;
@@ -263,7 +383,37 @@ static void tegra_dc_ext_flip_worker(struct work_struct *work)
 			(flip_win->attr.flags & TEGRA_DC_EXT_FLIP_FLAG_CURSOR))
 			skip_flip = true;
 
-		if (win->flags & TEGRA_WIN_FLAG_ENABLED) {
+		mutex_lock(&ext_win->queue_lock);
+		list_for_each_entry(temp, &ext_win->timestamp_queue,
+				timestamp_node) {
+			if (j == 0) {
+				if (unlikely(temp != data))
+					dev_err(&win->dc->ndev->dev,
+							"work queue did NOT dequeue head!!!");
+				else
+					head_timestamp =
+						timespec_to_ns(&flip_win->attr.timestamp);
+			} else {
+				s64 timestamp =
+					timespec_to_ns(&temp->win[i].attr.timestamp);
+
+				skip_flip = !tegra_dc_does_vsync_separate(ext->dc,
+						timestamp, head_timestamp);
+				/* Look ahead only one flip */
+				break;
+			}
+			j++;
+		}
+		if (!list_empty(&ext_win->timestamp_queue))
+			list_del(&data->timestamp_node);
+		mutex_unlock(&ext_win->queue_lock);
+
+		if (skip_flip)
+			old_handle = flip_win->handle[TEGRA_DC_Y];
+		else
+			old_handle = ext_win->cur_handle[TEGRA_DC_Y];
+
+		if (old_handle) {
 			int j;
 			for (j = 0; j < TEGRA_DC_NUM_PLANES; j++) {
 				if (skip_flip)
@@ -273,8 +423,23 @@ static void tegra_dc_ext_flip_worker(struct work_struct *work)
 
 				if (!old_handle)
 					continue;
+/*                                              */
+#if defined(CONFIG_MACH_LGE)
+				if (j==0 && !ext_win->phys_addr)
+					continue;
+
+				if (j==1 && !ext_win->phys_addr_u)
+					continue;
+
+				if (j==2 && !ext_win->phys_addr_v)
+					continue;
+#endif					
+/*                                              */
+//				unpin_handles[nr_unpin++] =
+//					ext_win->cur_handle[j];
 
 				unpin_handles[nr_unpin++] = old_handle;
+
 			}
 		}
 
@@ -288,17 +453,23 @@ static void tegra_dc_ext_flip_worker(struct work_struct *work)
 		tegra_dc_update_windows(wins, nr_win);
 		/* TODO: implement swapinterval here */
 		tegra_dc_sync_windows(wins, nr_win);
-	}
+		if (!tegra_dc_has_multiple_dc()) {
+			spin_lock(&flip_callback_lock);
+			if (flip_callback)
+				flip_callback();
+			spin_unlock(&flip_callback_lock);
+		}
 
-	for (i = 0; i < DC_N_WINDOWS; i++) {
-		struct tegra_dc_ext_flip_win *flip_win = &data->win[i];
-		int index = flip_win->attr.index;
+		for (i = 0; i < DC_N_WINDOWS; i++) {
+			struct tegra_dc_ext_flip_win *flip_win = &data->win[i];
+			int index = flip_win->attr.index;
 
-		if (index < 0)
-			continue;
+			if (index < 0)
+				continue;
 
-		tegra_dc_incr_syncpt_min(ext->dc, index,
-			flip_win->syncpt_max);
+			tegra_dc_incr_syncpt_min(ext->dc, index,
+					flip_win->syncpt_max);
+		}
 	}
 
 	/* unpin and deref previous front buffers */
@@ -408,8 +579,9 @@ static int tegra_dc_ext_flip(struct tegra_dc_ext_user *user,
 {
 	struct tegra_dc_ext *ext = user->ext;
 	struct tegra_dc_ext_flip_data *data;
-	int work_index;
+	int work_index = -1;
 	int i, ret = 0;
+	bool has_timestamp = false;
 
 #ifdef CONFIG_ANDROID
 	int index_check[DC_N_WINDOWS] = {0, };
@@ -450,6 +622,8 @@ static int tegra_dc_ext_flip(struct tegra_dc_ext_user *user,
 		int index = args->win[i].index;
 
 		memcpy(&flip_win->attr, &args->win[i], sizeof(flip_win->attr));
+		if (timespec_to_ns(&flip_win->attr.timestamp))
+			has_timestamp = true;
 
 		if (index < 0)
 			continue;
@@ -519,6 +693,15 @@ static int tegra_dc_ext_flip(struct tegra_dc_ext_user *user,
 		work_index = index;
 
 		atomic_inc(&ext->win[work_index].nr_pending_flips);
+	}
+	if (work_index < 0) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+	if (has_timestamp) {
+		mutex_lock(&ext->win[work_index].queue_lock);
+		list_add_tail(&data->timestamp_node, &ext->win[work_index].timestamp_queue);
+		mutex_unlock(&ext->win[work_index].queue_lock);
 	}
 	queue_work(ext->win[work_index].flip_wq, &data->work);
 
@@ -669,6 +852,21 @@ static int tegra_dc_ext_get_status(struct tegra_dc_ext_user *user,
 	return 0;
 }
 
+static int tegra_dc_ext_get_feature(struct tegra_dc_ext_user *user,
+				   struct tegra_dc_ext_feature *feature)
+{
+	struct tegra_dc *dc = user->ext->dc;
+	struct tegra_dc_feature *table = dc->feature;
+
+	if (dc->enabled && feature->entries) {
+		feature->length = table->num_entries;
+		memcpy(feature->entries, table->entries, table->num_entries *
+					sizeof(struct tegra_dc_feature_entry));
+	}
+
+	return 0;
+}
+
 static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 			   unsigned long arg)
 {
@@ -766,6 +964,22 @@ static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 		return tegra_dc_ext_set_lut(user, &args);
 	}
 
+	case TEGRA_DC_EXT_GET_FEATURES:
+	{
+		struct tegra_dc_ext_feature args;
+		int ret;
+
+		if (copy_from_user(&args, user_arg, sizeof(args)))
+			return -EFAULT;
+
+		ret = tegra_dc_ext_get_feature(user, &args);
+
+		if (copy_to_user(user_arg, &args, sizeof(args)))
+			return -EFAULT;
+
+		return ret;
+	}
+
 	default:
 		return -EINVAL;
 	}
@@ -829,6 +1043,8 @@ static int tegra_dc_ext_setup_windows(struct tegra_dc_ext *ext)
 		}
 
 		mutex_init(&win->lock);
+		mutex_init(&win->queue_lock);
+		INIT_LIST_HEAD(&win->timestamp_queue);
 	}
 
 	return 0;

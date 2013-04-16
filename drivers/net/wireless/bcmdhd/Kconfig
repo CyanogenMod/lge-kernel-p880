@@ -1,79 +1,107 @@
 config BCMDHD
-	tristate "Broadcom 4329/30 wireless cards support"
+	tristate "Broadcom 4330/34 wireless cards support"
 	depends on MMC
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom 4329/30 chipset.
-
+	  Broadcom 4330/34 chipset.
 	  This driver uses the kernel's wireless extensions subsystem.
-
 	  If you choose to build a module, it'll be called dhd. Say M if
 	  unsure.
 
-config BCMDHD_FW_DIR
+config BCM4330
+	tristate "Broadcom 4330 wireless cards support"
+	depends on BCMDHD
+	default n
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 4330 chipset.
+
+config BCM4334
+	tristate "Broadcom 4334 wireless cards support"
+	depends on BCMDHD
+	default n
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 4334 chipset.
+
+config BCMDHD_FW_PATH
 	depends on BCMDHD
 	string "Firmware path"
-	default "/system/vendor/firmware"
+	default "/system/etc/firmware/fw_bcmdhd.bin"
 	---help---
 	  Path to the firmware file.
 
-config BCMDHD_NVRAM_DIR
+config BCMDHD_NVRAM_PATH
 	depends on BCMDHD
 	string "NVRAM path"
-	default "/system/etc"
+	default "/system/etc/wifi/bcmdhd.cal"
 	---help---
 	  Path to the calibration file.
 
-choice
-	prompt "Select API"
-	depends on BCMDHD
-	default BCMDHD_NOAPI
-
 config BCMDHD_WEXT
 	bool "Enable WEXT support"
+	depends on BCMDHD && CFG80211 = n
 	select WIRELESS_EXT
 	select WEXT_PRIV
-	help
+	---help---
 	  Enables WEXT support
 
-config BCMDHD_CFG80211
-	bool "Enable CFG80211 support"
-	depends on CFG80211
-	help
-	  Enables CFG80211 support
-
-config BCMDHD_NOAPI
-	bool "No wireless API"
-	help
-	  No wireless API is needed
-
-endchoice
-
-config BCMDHD_WIFI_CONTROL_FUNC
-	bool "Use bcmdhd_wlan device"
+config LGE_BCM433X_PATCH
+	bool "BCM433X Patch by LGE"
+	default y
 	depends on BCMDHD
-	default n
+
+config BCMDHD_CONFIG_PATH
+	depends on LGE_BCM433X_PATCH
+	string "Config path"
+	default "/data/misc/wifi/config"
 	---help---
-	  Use this option to get various parameters from architecture specific
-	  bcmdhd_wlan platform device. Say n if unsure.
+	  Path to the config file.
+
+config BCMDHD_GPIO_WL_RESET
+	depends on BCMDHD
+	int "GPIO to the Reset"
+	default 82
+	---help---
+	  GPIO to the Reset
+
+config BCMDHD_HOSTWAKEUP_USE_GPIO
+	depends on BCMDHD
+	bool "Use GPIO to Host Wakeup"
+	---help---
+	  Use GPIO to Host Wakeup
+
+config BCMDHD_HOSTWAKEUP_USE_SDIO
+	depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = n
+	bool "Use SDIO pin to the Host Wakeup"
+	---help---
+	  Use SDIO pin to the Host Wakeup
+
+config BCMDHD_GPIO_WL_HOSTWAKEUP
+	depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = y
+	int "GPIO to the Host Wakeup"
+	default 81
+	---help---
+	  GPIO to the Host Wakeup
 
 config BCMDHD_HW_OOB
-	bool "Use out of band interrupt"
-	depends on BCMDHD
-	default n
+	depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = y
+	bool "Use H/W OOB to the Host Wakeup"
+	default y
 	---help---
-	  Use out of band interrupt for card interrupt and wake on wireless.
+	  Use H/W OOB to the Host Wakeup
 
-config BCMDHD_CSCAN_ENABLE
-	bool "Enable Combo Scan"
+config BRCM_CCX
 	depends on BCMDHD
+	bool "Enables CCX support"
 	default n
 	---help---
-	Enable Combo Scan
+	  Enables CCX support
 
-config BCMDHD_INSMOD_NO_FW_LOAD
-	bool "Enable delayed firmware load"
+config BROADCOM_WIFI_RESERVED_MEM
+	bool "BROADCOM Reserved memory for wifi device"
 	depends on BCMDHD
-	default n
 	---help---
-	Enable delayes firmware
+	   This is a configuration for broadcom WLAN driver.
+
+

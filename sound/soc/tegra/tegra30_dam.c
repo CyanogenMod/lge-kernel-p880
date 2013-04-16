@@ -3,6 +3,7 @@
  *
  * Author: Nikesh Oswal <noswal@nvidia.com>
  * Copyright (C) 2011 - NVIDIA, Inc.
+ * Copyright (C) 2012, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <sound/soc.h>
 #include "tegra30_dam.h"
@@ -421,8 +423,16 @@ int tegra30_dam_set_acif(int ifc, int chid, unsigned int audio_channels,
 	/*ch0 takes input as mono/16bit always*/
 	if ((chid == dam_ch_in0) &&
 		((client_channels != 1) || (client_bits != 16)))
+//                                                          
+#if defined(CONFIG_MACH_PEGASUS)
+		{
+			client_channels = 1;
+			client_bits = 16;
+		}
+#else
 		return -EINVAL;
-
+#endif
+//                                                          
 	value |= TEGRA30_CIF_MONOCONV_COPY;
 	value |= TEGRA30_CIF_STEREOCONV_CH0;
 	value |= (audio_channels-1)  << TEGRA30_AUDIO_CHANNELS_SHIFT;
@@ -455,6 +465,8 @@ int tegra30_dam_set_acif(int ifc, int chid, unsigned int audio_channels,
 void tegra30_dam_enable(int ifc, int on, int chid)
 {
 	u32 old_val, val, enreg;
+	u32 old_val_dam, val_dam;
+	int dcnt = 10;
 	struct tegra30_dam_context *dam = dams_cont_info[ifc];
 
 	if (ifc >= TEGRA30_NR_DAM_IFC)
@@ -476,19 +488,44 @@ void tegra30_dam_enable(int ifc, int on, int chid)
 			val &= ~TEGRA30_DAM_CH0_CTRL_EN;
 	}
 
-	if (val != old_val)
-		tegra30_dam_writel(dam, val, enreg);
-
-	old_val = val = tegra30_dam_readl(dam, TEGRA30_DAM_CTRL);
+	old_val_dam = val_dam = tegra30_dam_readl(dam, TEGRA30_DAM_CTRL);
 
 	if (dam->ch_enable_refcnt[dam_ch_in0] ||
 		dam->ch_enable_refcnt[dam_ch_in1])
-		val |= TEGRA30_DAM_CTRL_DAM_EN;
+		val_dam |= TEGRA30_DAM_CTRL_DAM_EN;
 	else
-		val &= ~TEGRA30_DAM_CTRL_DAM_EN;
+		val_dam &= ~TEGRA30_DAM_CTRL_DAM_EN;
 
-	if (old_val != val)
-		tegra30_dam_writel(dam, val, TEGRA30_DAM_CTRL);
+	if (val != old_val) {
+		tegra30_dam_writel(dam, val, enreg);
+
+		if (!on) {
+			if (chid == dam_ch_in0) {
+				while (!tegra30_ahub_dam_ch0_is_empty(ifc)
+					&& dcnt--)
+					udelay(100);
+
+				dcnt = 10;
+			}
+			else {
+				while (!tegra30_ahub_dam_ch1_is_empty(ifc)
+					&& dcnt--)
+					udelay(100);
+
+				dcnt = 10;
+			}
+		}
+	}
+
+	if (old_val_dam != val_dam) {
+		tegra30_dam_writel(dam, val_dam, TEGRA30_DAM_CTRL);
+		if (!on) {
+			while (!tegra30_ahub_dam_tx_is_empty(ifc) && dcnt--)
+				udelay(100);
+
+			dcnt = 10;
+		}
+	}
 }
 
 void tegra30_dam_ch0_set_datasync(struct tegra30_dam_context *dam, int datasync)
@@ -554,7 +591,7 @@ static int __devinit tegra30_dam_probe(struct platform_device *pdev)
 		goto err_free;
 	}
 	clkm_rate = clk_get_rate(clk_get_parent(dam->dam_clk));
-	while (clkm_rate > 12000000)
+	while (clkm_rate > 13000000)
 		clkm_rate >>= 1;
 
 	clk_set_rate(dam->dam_clk,clkm_rate);

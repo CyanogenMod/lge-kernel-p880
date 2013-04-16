@@ -11,6 +11,8 @@
  * published by the Free Software Foundation.
  */
 
+/* porting for at command gkpd :(key)acespirit 2012.11.19 */
+//#define DEBUG
 #include <linux/module.h>
 
 #include <linux/init.h>
@@ -31,6 +33,12 @@
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
 #include <linux/spinlock.h>
+#define FACTORY_AT_COMMAND_GKPD
+//                                                                                                                                       
+
+#if defined (FACTORY_AT_COMMAND_GKPD)
+#include <linux/wakelock.h>
+#endif
 
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
@@ -52,7 +60,12 @@ struct gpio_keys_drvdata {
 	void (*disable)(struct device *dev);
 	struct gpio_button_data data[0];
 };
-
+#ifdef FACTORY_AT_COMMAND_GKPD
+static unsigned int test_mode = 0;
+static int test_code = 0, gkpd_last_index = 0;
+static unsigned char gkpd_value[21];
+static struct wake_lock key_wake_lock;
+#endif //FACTORY_AT_COMMAND_GKPD
 /*
  * SYSFS interface for enabling/disabling keys and switches:
  *
@@ -100,7 +113,12 @@ static inline int get_n_events_by_type(int type)
 
 	return (type == EV_KEY) ? KEY_CNT : SW_CNT;
 }
-
+#ifdef FACTORY_AT_COMMAND_GKPD
+static inline struct device *_to_parent(struct input_dev *input)
+{
+	return input->dev.parent;
+}
+#endif //FACTORY_AT_COMMAND_GKPD
 /**
  * gpio_keys_disable_button() - disables given GPIO button
  * @bdata: button data for button to be disabled
@@ -313,12 +331,145 @@ static DEVICE_ATTR(disabled_keys, S_IWUSR | S_IRUGO,
 static DEVICE_ATTR(disabled_switches, S_IWUSR | S_IRUGO,
 		   gpio_keys_show_disabled_switches,
 		   gpio_keys_store_disabled_switches);
+#ifdef FACTORY_AT_COMMAND_GKPD
+int get_test_mode(void)
+{
+	return test_mode;
+}
+EXPORT_SYMBOL(get_test_mode);
 
+typedef struct
+{
+	char out;
+	unsigned char in;
+} Conv;
+
+Conv GKPD_table[]=
+{
+	{'D',  KEY_VOLUMEDOWN}
+	,{'U',  KEY_VOLUMEUP}
+/*                                                                   */
+#if defined(CONFIG_MACH_LGE_COSMOPOLITAN)
+	,{'F',  KEY_3D}
+#elif defined(CONFIG_MACH_LGE_P940)
+#if defined(CONFIG_MACH_LGE_P940_EVB)
+	,{'F',  KEY_GESTURE}
+#else
+	,{'F',  KEY_CAPTURE}
+#endif
+#endif
+	,{'H',  KEY_HOOK}
+	,{'B',  KEY_POWER} 
+	,{0, 0}
+};
+
+int gkpd_KeyConvert(int key)
+{
+	u16 indexCount = 4;
+	int i = 0;
+	
+	while ((i < indexCount) && (key != 0xFF))
+	{
+		if (GKPD_table[i].in == key)
+			return GKPD_table[i].out;
+		i++;
+	}
+	return key;
+}
+
+EXPORT_SYMBOL(gkpd_KeyConvert);
+
+void write_gkpd_value(int value)
+{
+	int i;
+	int con;
+
+	con=gkpd_KeyConvert(value);//                                                                                                       
+	value = con;
+
+	if (gkpd_last_index == 20) {
+		gkpd_value[gkpd_last_index] = value;
+		for ( i = 0; i < 20 ; i++) {
+			gkpd_value[i] = gkpd_value[i + 1];
+		}
+		gkpd_value[gkpd_last_index] = '\n';
+	}
+	else {
+		gkpd_value[gkpd_last_index] = value;
+		gkpd_value[gkpd_last_index + 1] = '\n';
+		gkpd_last_index++;
+
+		printk("[GPIO_KEYS] %s() gkpd_value[%d]:%d %c\n", __func__, gkpd_last_index, value, value);
+	}
+}
+
+EXPORT_SYMBOL(write_gkpd_value);
+
+static ssize_t keypad_test_mode_show(struct device *dev,  struct device_attribute *attr,  char *buf)
+{
+	int i;
+	int ret = 0;
+	int written_cnt = 0;
+	int total_written_cnt = 0;
+
+	dev_dbg(dev, "[GPIO_KEYS] %s() gkpd_last_index : %d\n", __func__, gkpd_last_index);
+
+	for(i = 0; i < gkpd_last_index; i++)
+	{
+		dev_dbg(dev, "[!] %s() code value : %c\n", __func__, gkpd_value[i]);
+		written_cnt = sprintf(buf+total_written_cnt, "%c", gkpd_value[i]);
+        total_written_cnt += written_cnt;
+	}
+
+	ret = total_written_cnt;
+
+	gkpd_last_index = 0;
+
+	memset(gkpd_value, 0x00, sizeof(unsigned char)*21);
+
+	return ret;
+}
+
+static ssize_t keypad_test_mode_store(struct device *dev,  struct device_attribute *attr,  const char *buf, size_t count)
+{
+    int ret;
+	int i;
+
+    ret = sscanf(buf, "%d", &test_mode);
+
+	gkpd_last_index = ret;
+
+	dev_dbg(dev, "[GPIO_KEYS] %s [%d]\n",__func__, gkpd_last_index);
+
+	if(test_mode == 1)
+	{
+		wake_lock(&key_wake_lock);
+
+		for(i = 0; i < gkpd_last_index; i++)
+		{
+			dev_dbg(dev, "test_mode[%d], keypad_test_mode_store[%d]", test_mode, gkpd_last_index);
+			gkpd_value[i] = 0;
+		}
+
+		gkpd_last_index = 0;
+	}
+	else if(test_mode == 0)
+	{
+		wake_unlock(&key_wake_lock);
+	}
+
+	return count;
+}
+static DEVICE_ATTR(key_test_mode, 0664, keypad_test_mode_show, keypad_test_mode_store);
+#endif //FACTORY_AT_COMMAND_GKPD
 static struct attribute *gpio_keys_attrs[] = {
 	&dev_attr_keys.attr,
 	&dev_attr_switches.attr,
 	&dev_attr_disabled_keys.attr,
 	&dev_attr_disabled_switches.attr,
+#ifdef FACTORY_AT_COMMAND_GKPD
+	&dev_attr_key_test_mode.attr,
+#endif //FACTORY_AT_COMMAND_GKPD
 	NULL,
 };
 
@@ -340,6 +491,16 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		input_event(input, type, button->code, !!state);
 	}
 	input_sync(input);
+#ifdef FACTORY_AT_COMMAND_GKPD
+	dev_dbg(_to_parent(input), "[GPIO_KEYS] test_mode :%d, code : %d, state :%d\n",test_mode, button->code, state);
+	if(test_mode == 1 && state)
+	{
+		dev_dbg(_to_parent(input), "[GPIO_KEYS] gpio_keys : %s GKPD 2 \n",__func__);
+
+		test_code = button->code/* & ~GROUP_MASK*/;
+		write_gkpd_value(test_code);
+	}
+#endif //FACTORY_AT_COMMAND_GKPD
 }
 
 static void gpio_keys_gpio_work_func(struct work_struct *work)
@@ -715,7 +876,9 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 			error);
 		goto fail2;
 	}
-
+#ifdef FACTORY_AT_COMMAND_GKPD
+	wake_lock_init(&key_wake_lock, WAKE_LOCK_SUSPEND, "sora-gpio-keys");
+#endif //FACTORY_AT_COMMAND_GKPD
 	error = input_register_device(input);
 	if (error) {
 		dev_err(dev, "Unable to register input device, error: %d\n",
@@ -759,7 +922,9 @@ static int __devexit gpio_keys_remove(struct platform_device *pdev)
 	int i;
 
 	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
-
+#ifdef FACTORY_AT_COMMAND_GKPD
+	wake_lock_destroy(&key_wake_lock);
+#endif //FACTORY_AT_COMMAND_GKPD
 	device_init_wakeup(&pdev->dev, 0);
 
 	for (i = 0; i < ddata->n_buttons; i++)

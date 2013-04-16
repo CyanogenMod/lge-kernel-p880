@@ -772,7 +772,9 @@ static int rfcomm_send_frame(struct rfcomm_session *s, u8 *data, int len)
 
 static int rfcomm_send_sabm(struct rfcomm_session *s, u8 dlci)
 {
-	struct rfcomm_cmd cmd;
+//LG_BT : WBT Issue [s] 
+	struct rfcomm_cmd cmd = { 0, };
+//LG_BT : WBT Issue [e] 
 
 	BT_DBG("%p dlci %d", s, dlci);
 
@@ -786,8 +788,9 @@ static int rfcomm_send_sabm(struct rfcomm_session *s, u8 dlci)
 
 static int rfcomm_send_ua(struct rfcomm_session *s, u8 dlci)
 {
-	struct rfcomm_cmd cmd;
-
+//LG_BT : WBT Issue [s] 
+	struct rfcomm_cmd cmd = { 0, };
+//LG_BT : WBT Issue [e]
 	BT_DBG("%p dlci %d", s, dlci);
 
 	cmd.addr = __addr(!s->initiator, dlci);
@@ -800,7 +803,9 @@ static int rfcomm_send_ua(struct rfcomm_session *s, u8 dlci)
 
 static int rfcomm_send_disc(struct rfcomm_session *s, u8 dlci)
 {
-	struct rfcomm_cmd cmd;
+//LG_BT : WBT Issue [s] 
+	struct rfcomm_cmd cmd = { 0, };
+//LG_BT : WBT Issue [e]
 
 	BT_DBG("%p dlci %d", s, dlci);
 
@@ -836,7 +841,9 @@ static int rfcomm_queue_disc(struct rfcomm_dlc *d)
 
 static int rfcomm_send_dm(struct rfcomm_session *s, u8 dlci)
 {
-	struct rfcomm_cmd cmd;
+//LG_BT : WBT Issue [s] 
+	struct rfcomm_cmd cmd = { 0, };
+//LG_BT : WBT Issue [e]
 
 	BT_DBG("%p dlci %d", s, dlci);
 
@@ -852,7 +859,10 @@ static int rfcomm_send_nsc(struct rfcomm_session *s, int cr, u8 type)
 {
 	struct rfcomm_hdr *hdr;
 	struct rfcomm_mcc *mcc;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, }; 
+//LG_BT : WBT Issue [e] 
+       u8 *ptr = buf;
 
 	BT_DBG("%p cr %d type %d", s, cr, type);
 
@@ -878,7 +888,11 @@ static int rfcomm_send_pn(struct rfcomm_session *s, int cr, struct rfcomm_dlc *d
 	struct rfcomm_hdr *hdr;
 	struct rfcomm_mcc *mcc;
 	struct rfcomm_pn  *pn;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, }; 
+//LG_BT : WBT Issue [e] 
+       u8 *ptr = buf;
+
 
 	BT_DBG("%p cr %d dlci %d mtu %d", s, cr, d->dlci, d->mtu);
 
@@ -923,7 +937,10 @@ int rfcomm_send_rpn(struct rfcomm_session *s, int cr, u8 dlci,
 	struct rfcomm_hdr *hdr;
 	struct rfcomm_mcc *mcc;
 	struct rfcomm_rpn *rpn;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, };
+//LG_BT : WBT Issue [e]
+	u8 *ptr = buf;
 
 	BT_DBG("%p cr %d dlci %d bit_r 0x%x data_b 0x%x stop_b 0x%x parity 0x%x"
 			" flwc_s 0x%x xon_c 0x%x xoff_c 0x%x p_mask 0x%x",
@@ -958,7 +975,10 @@ static int rfcomm_send_rls(struct rfcomm_session *s, int cr, u8 dlci, u8 status)
 	struct rfcomm_hdr *hdr;
 	struct rfcomm_mcc *mcc;
 	struct rfcomm_rls *rls;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, };
+//LG_BT : WBT Issue [e]
+       u8 *ptr = buf;
 
 	BT_DBG("%p cr %d status 0x%x", s, cr, status);
 
@@ -985,7 +1005,10 @@ static int rfcomm_send_msc(struct rfcomm_session *s, int cr, u8 dlci, u8 v24_sig
 	struct rfcomm_hdr *hdr;
 	struct rfcomm_mcc *mcc;
 	struct rfcomm_msc *msc;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, };
+//LG_BT : WBT Issue [e]
+       u8 *ptr = buf;
 
 	BT_DBG("%p cr %d v24 0x%x", s, cr, v24_sig);
 
@@ -1011,7 +1034,10 @@ static int rfcomm_send_fcoff(struct rfcomm_session *s, int cr)
 {
 	struct rfcomm_hdr *hdr;
 	struct rfcomm_mcc *mcc;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, };
+//LG_BT : WBT Issue [e]
+	u8 *ptr = buf;
 
 	BT_DBG("%p cr %d", s, cr);
 
@@ -1033,7 +1059,10 @@ static int rfcomm_send_fcon(struct rfcomm_session *s, int cr)
 {
 	struct rfcomm_hdr *hdr;
 	struct rfcomm_mcc *mcc;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, };
+//LG_BT : WBT Issue [e]
+       u8 *ptr = buf;
 
 	BT_DBG("%p cr %d", s, cr);
 
@@ -1086,7 +1115,10 @@ static int rfcomm_send_test(struct rfcomm_session *s, int cr, u8 *pattern, int l
 static int rfcomm_send_credits(struct rfcomm_session *s, u8 addr, u8 credits)
 {
 	struct rfcomm_hdr *hdr;
-	u8 buf[16], *ptr = buf;
+//LG_BT : WBT Issue [s] 
+	u8 buf[16] = {0, };
+//LG_BT : WBT Issue [e]
+       u8 *ptr = buf;
 
 	BT_DBG("%p addr %d credits %d", s, addr, credits);
 

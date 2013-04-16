@@ -5,7 +5,9 @@
  * 'tty.h' defines some structures used by tty_io.c and some defines.
  */
 
+#if 0 /*                                                          */
 #define NR_LDISCS		30
+#endif /*                                                          */
 
 /* line disciplines */
 #define N_TTY		0
@@ -31,9 +33,17 @@
 #define N_V253		19	/* Codec control over voice modem */
 #define N_CAIF		20      /* CAIF protocol for talking to modems */
 #define N_GSM0710	21	/* GSM 0710 Mux */
+#if 1 /*                                                          */
+#define N_RIN		22	/*            */
+#define NR_LDISCS	23
+#define N_TI_WL		24	/* for TI's WL BT, FM, GPS combo chips */
+#define N_TRACESINK	25	/* Trace data routing for MIPI P1149.7 */
+#define N_TRACEROUTER	26	/* Trace data routing for MIPI P1149.7 */
+#else /* orignal */ 
 #define N_TI_WL		22	/* for TI's WL BT, FM, GPS combo chips */
 #define N_TRACESINK	23	/* Trace data routing for MIPI P1149.7 */
 #define N_TRACEROUTER	24	/* Trace data routing for MIPI P1149.7 */
+#endif /*                                                          */
 
 #ifdef __KERNEL__
 #include <linux/fs.h>
@@ -295,7 +305,8 @@ struct tty_struct {
 	void *driver_data;
 	struct list_head tty_files;
 
-#define N_TTY_BUF_SIZE 32768
+//                                 
+#define N_TTY_BUF_SIZE 4096
 
 	/*
 	 * The following is data for the N_TTY line discipline.  For

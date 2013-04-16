@@ -31,7 +31,12 @@ enum {
 	DEBUG_EXPIRE = 1U << 3,
 	DEBUG_WAKE_LOCK = 1U << 4,
 };
+//                    
+#ifdef CONFIG_MACH_X3
+static int debug_mask = DEBUG_EXIT_SUSPEND | DEBUG_WAKEUP | DEBUG_SUSPEND;
+#else
 static int debug_mask = DEBUG_EXIT_SUSPEND | DEBUG_WAKEUP;
+#endif
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #define WAKE_LOCK_TYPE_MASK              (0x0f)
@@ -59,6 +64,10 @@ static unsigned suspend_short_count;
 static struct wake_lock deleted_wake_locks;
 static ktime_t last_sleep_time_update;
 static int wait_for_wakeup;
+//                    
+#ifdef CONFIG_MACH_X3
+static long has_wake_lock_locked(int type);
+#endif
 
 int get_expired_time(struct wake_lock *lock, ktime_t *expire_time)
 {
@@ -137,6 +146,38 @@ static int wakelock_stats_show(struct seq_file *m, void *unused)
 		list_for_each_entry(lock, &active_wake_locks[type], link)
 			ret = print_lock_stat(m, lock);
 	}
+//                    
+#ifdef CONFIG_MACH_X3
+	//                                               
+	ret = seq_puts(m, "\n========================================================== \n");
+	ret = has_wake_lock_locked(WAKE_LOCK_SUSPEND);
+	if (ret)
+	{
+		bool print_expired = true;
+
+	
+		list_for_each_entry(lock, &active_wake_locks[WAKE_LOCK_SUSPEND], link) {
+			if (lock->flags & WAKE_LOCK_AUTO_EXPIRE) {
+				long timeout = lock->expires - jiffies;
+				if (timeout > 0)
+					seq_printf(m, "active wake lock %s, time left %ld\n", lock->name, timeout);
+				else if (print_expired)
+					seq_printf(m, "wake lock %s, expired\n", lock->name);
+			} else {
+				seq_printf(m, "active wake lock %s\n", lock->name);
+				if (!(debug_mask & DEBUG_EXPIRE))
+					print_expired = false;
+			}
+		}
+	}
+	else
+	{
+		seq_printf(m, "active wake is not [%d]\n", ret);		
+	}
+	ret = seq_puts(m, "\n========================================================== \n");	
+	//                                               
+#endif
+	
 	spin_unlock_irqrestore(&list_lock, irqflags);
 	return 0;
 }

@@ -83,7 +83,8 @@ static inline void l2x0_inv_line(unsigned long addr)
 	writel_relaxed(addr, base + L2X0_INV_LINE_PA);
 }
 
-#if defined(CONFIG_PL310_ERRATA_588369) || defined(CONFIG_PL310_ERRATA_727915)
+#if !defined(CONFIG_TRUSTED_FOUNDATIONS) && \
+	(defined(CONFIG_PL310_ERRATA_588369) || defined(CONFIG_PL310_ERRATA_727915))
 
 #define debug_writel(val)	outer_cache.set_debug(val)
 
@@ -161,7 +162,7 @@ static void l2x0_flush_all(void)
 	unsigned long flags;
 
 #ifdef CONFIG_PL310_ERRATA_727915
-	if (is_pl310_rev(REV_PL310_R2P0)) {
+	if (is_pl310_rev(REV_PL310_R2P0) || is_pl310_rev(REV_PL310_R3P1_50)) {
 		l2x0_for_each_set_way(l2x0_base + L2X0_CLEAN_INV_LINE_IDX);
 		return;
 	}
@@ -178,7 +179,7 @@ static void l2x0_clean_all(void)
 	unsigned long flags;
 
 #ifdef CONFIG_PL310_ERRATA_727915
-	if (is_pl310_rev(REV_PL310_R2P0)) {
+	if (is_pl310_rev(REV_PL310_R2P0) || is_pl310_rev(REV_PL310_R3P1_50)) {
 		l2x0_for_each_set_way(l2x0_base + L2X0_CLEAN_LINE_IDX);
 		return;
 	}
@@ -335,6 +336,8 @@ static void __init l2x0_unlock(__u32 cache_id)
 	int lockregs;
 	int i;
 
+	cache_id &= L2X0_CACHE_ID_PART_MASK;
+
 	if (cache_id == L2X0_CACHE_ID_PART_L310)
 		lockregs = 8;
 	else
@@ -416,6 +419,7 @@ void l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	outer_cache.flush_range = l2x0_flush_range;
 	outer_cache.sync = l2x0_cache_sync;
 	outer_cache.flush_all = l2x0_flush_all;
+	outer_cache.clean_all = l2x0_clean_all;
 	outer_cache.inv_all = l2x0_inv_all;
 	outer_cache.disable = l2x0_disable;
 	outer_cache.set_debug = l2x0_set_debug;

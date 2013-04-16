@@ -27,15 +27,18 @@
 
 static irqreturn_t tegra_bpc_mgmt_bh(int irq, void *data)
 {
+	int ret = -1;
 	int gpio_val = 0;
 	struct tegra_bpc_mgmt_platform_data *bpc_platform_data;
 	bpc_platform_data = (struct tegra_bpc_mgmt_platform_data *)data;
 
-	tegra_system_edp_alarm(true);
 	/**
 	 * Keep on checking whether event has passed or not.
 	 */
 	while (!gpio_val) {
+		if (ret)
+			ret = tegra_system_edp_alarm(true);
+
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(msecs_to_jiffies(
 			bpc_platform_data->bpc_mgmt_timeout));
@@ -44,6 +47,7 @@ static irqreturn_t tegra_bpc_mgmt_bh(int irq, void *data)
 	}
 
 	tegra_system_edp_alarm(false);
+	pr_err("[BPC_MGMT]: %s(), line=%d, Current Alram Done.\n", __func__, __LINE__);
 
 	return IRQ_HANDLED;
 }
@@ -51,9 +55,32 @@ static irqreturn_t tegra_bpc_mgmt_bh(int irq, void *data)
 static irqreturn_t tegra_bpc_mgmt_isr(int irq, void *data)
 {
 	tegra_edp_throttle_cpu_now(2);
+	pr_err("[BPC_MGMT]: %s(), line=%d, Current Alram Start!\n", __func__, __LINE__);
 	return IRQ_WAKE_THREAD;
 }
+//                          
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void tegra_bpc_mgmt_early_suspend(struct early_suspend *h)
+{
+	struct tegra_bpc_mgmt_platform_data *bpc_platform_data
+			= container_of(h, struct tegra_bpc_mgmt_platform_data, bpc_mgmt_early_suspend);
 
+	disable_irq(gpio_to_irq(bpc_platform_data->gpio_trigger));
+
+	//return 0;
+}
+
+static void tegra_bpc_mgmt_late_resume(struct early_suspend *h)
+{
+	struct tegra_bpc_mgmt_platform_data *bpc_platform_data
+			= container_of(h, struct tegra_bpc_mgmt_platform_data, bpc_mgmt_early_suspend);
+
+	enable_irq(gpio_to_irq(bpc_platform_data->gpio_trigger));
+
+	//return 0;
+}
+#endif
+//                        
 static __devinit int tegra_bpc_mgmt_probe(struct platform_device *pdev)
 {
 	u32 ret;
@@ -100,6 +127,14 @@ static __devinit int tegra_bpc_mgmt_probe(struct platform_device *pdev)
 			sched_setscheduler_nocheck(bh_thread,
 						   SCHED_FIFO, &param);
 	}
+//                          
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	bpc_platform_data->bpc_mgmt_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	bpc_platform_data->bpc_mgmt_early_suspend.suspend = tegra_bpc_mgmt_early_suspend;
+	bpc_platform_data->bpc_mgmt_early_suspend.resume = tegra_bpc_mgmt_late_resume;
+	register_early_suspend(&bpc_platform_data->bpc_mgmt_early_suspend);
+#endif
+//                        
 
 	return 0;
 }

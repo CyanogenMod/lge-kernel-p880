@@ -63,6 +63,8 @@ static void timerirq_handler(unsigned long arg)
 	struct timerirq_data *data = (struct timerirq_data *)arg;
 	struct timeval irqtime;
 
+	touch_softlockup_watchdog();
+
 	data->data.interruptcount++;
 
 	data->data_ready = 1;
@@ -114,8 +116,8 @@ static int stop_timerirq(struct timerirq_data *data)
 		"%s current->pid %lx\n", __func__, (unsigned long)data);
 
 	if (data->run) {
-		data->run = false;
 		mod_timer(&data->timer, jiffies + 1);
+		data->run = false;//nVidia Timer error Patch		
 		wait_for_completion(&data->timer_done);
 	}
 	return 0;

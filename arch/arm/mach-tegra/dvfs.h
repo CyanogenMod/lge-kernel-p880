@@ -5,7 +5,7 @@
  * Author:
  *	Colin Cross <ccross@google.com>
  *
- * Copyright (C) 2010-2011 NVIDIA Corporation.
+ * Copyright (C) 2010-2012 NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,8 +21,8 @@
 #ifndef _TEGRA_DVFS_H_
 #define _TEGRA_DVFS_H_
 
-#define MAX_DVFS_FREQS	18
-#define DVFS_RAIL_STATS_TOP_BIN	40
+#define MAX_DVFS_FREQS	40
+#define DVFS_RAIL_STATS_TOP_BIN	42
 
 struct clk;
 struct dvfs_rail;
@@ -73,12 +73,6 @@ struct dvfs_rail {
 	struct rail_stats stats;
 };
 
-enum dvfs_alt_freqs {
-	ALT_FREQS_NOT_SUPPORTED = 0,
-	ALT_FREQS_DISABLED,
-	ALT_FREQS_ENABLED,
-};
-
 struct dvfs {
 	/* Used only by tegra2_clock.c */
 	const char *clk_name;
@@ -88,11 +82,10 @@ struct dvfs {
 	/* Must be initialized before tegra_dvfs_init */
 	int freqs_mult;
 	unsigned long freqs[MAX_DVFS_FREQS];
-	unsigned long alt_freqs[MAX_DVFS_FREQS];
+	unsigned long *alt_freqs;
 	const int *millivolts;
 	struct dvfs_rail *dvfs_rail;
 	bool auto_dvfs;
-	enum dvfs_alt_freqs alt_freqs_state;
 
 	/* Filled in by tegra_dvfs_init */
 	int max_millivolts;
@@ -122,10 +115,9 @@ void tegra_dvfs_rail_on(struct dvfs_rail *rail, ktime_t now);
 void tegra_dvfs_rail_pause(struct dvfs_rail *rail, ktime_t delta, bool on);
 struct dvfs_rail *tegra_dvfs_get_rail_by_name(const char *reg_id);
 int tegra_dvfs_predict_millivolts(struct clk *c, unsigned long rate);
-void tegra_dvfs_core_cap_enable(bool enable);
-void tegra_dvfs_core_cap_level_set(int level);
-int tegra_dvfs_alt_freqs_set(struct dvfs *d, bool enable);
-void tegra_cpu_dvfs_alter(int edp_thermal_index, bool before_clk_update);
+int tegra_dvfs_alt_freqs_set(struct dvfs *d, unsigned long *alt_freqs);
+int tegra_cpu_dvfs_alter(int edp_thermal_index, const cpumask_t *cpus,
+			 bool before_clk_update, int cpu_event);
 #else
 static inline void tegra_soc_init_dvfs(void)
 {}
@@ -156,25 +148,25 @@ static inline struct dvfs_rail *tegra_dvfs_get_rail_by_name(const char *reg_id)
 { return NULL; }
 static inline int tegra_dvfs_predict_millivolts(struct clk *c, unsigned long rate)
 { return 0; }
-static inline void tegra_dvfs_core_cap_enable(bool enable)
-{}
-static inline void tegra_dvfs_core_cap_level_set(int level)
-{}
-static inline int tegra_dvfs_alt_freqs_set(struct dvfs *d, bool enable)
+static inline int tegra_dvfs_alt_freqs_set(struct dvfs *d,
+					   unsigned long *alt_freqs)
 { return 0; }
-static inline void tegra_cpu_dvfs_alter(int edp_thermal_index,
-					bool before_clk_update)
+static inline int tegra_cpu_dvfs_alter(int edp_thermal_index,
+		 const cpumask_t *cpus, bool before_clk_update, int cpu_event)
 {}
 #endif
 
 #ifndef CONFIG_ARCH_TEGRA_2x_SOC
 int tegra_dvfs_rail_disable_prepare(struct dvfs_rail *rail);
 int tegra_dvfs_rail_post_enable(struct dvfs_rail *rail);
+void tegra_dvfs_age_cpu(int cur_linear_age);
 #else
 static inline int tegra_dvfs_rail_disable_prepare(struct dvfs_rail *rail)
 { return 0; }
 static inline int tegra_dvfs_rail_post_enable(struct dvfs_rail *rail)
 { return 0; }
+static inline void tegra_dvfs_age_cpu(int cur_linear_age)
+{ return; }
 #endif
 
 #endif

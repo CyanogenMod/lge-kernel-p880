@@ -390,9 +390,6 @@ static void __force_xfer_stop(struct dtv_stream *s)
 		}
 	}
 
-	/* just in case. dma should be cancelled before this */
-	if (!tegra_dma_is_empty(s->dma_chan))
-		pr_err("%s: DMA channel is not empty!\n", __func__);
 	tegra_dma_cancel(s->dma_chan);
 	s->xferring = false;
 
@@ -924,6 +921,7 @@ static int tegra_dtv_probe(struct platform_device *pdev)
 		ret = -EIO;
 		goto fail_no_clk;
 	}
+	dtv_ctx->clk = clk;
 	ret = clk_enable(clk);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "cannot enable clk for tegra_dtv.\n");

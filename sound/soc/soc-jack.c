@@ -18,6 +18,17 @@
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <trace/events/asoc.h>
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+#include <linux/hook_test_header.h> //                                                              
+#include <linux/wakelock.h> //                                                                                       
+
+//                                             
+unsigned int hook_status = HOOK_RELEASED;
+headset_type_enum headset_type = X3_NONE;
+int hook_detection_time = 20;//100; hyunsub.na for hookkey double click (= mp3 next play)
+static struct wake_lock hook_wake_lock; //                                          
+#endif
+//                                             
 
 /**
  * snd_soc_jack_new - Create a new jack
@@ -273,12 +284,140 @@ static irqreturn_t gpio_handler(int irq, void *data)
 }
 
 /* gpio work */
+//                                             
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+static void hook_det_work(struct work_struct *work)
+{
+    unsigned int gpio_headset = 0, gpio_hook = 0;
+    
+    gpio_headset = gpio_get_value(headset_sw_data->gpio);
+    gpio_hook = gpio_get_value(headset_sw_data->hook_gpio);
+	
+//    printk(KERN_ERR "##(hook_det_work)## xxxxxxx  headset pin = %d, hook pin = %d \n",gpio_headset, gpio_hook);
+	//                                                                                             
+    msleep(20);
+    msleep(20);
+    msleep(20);
+    msleep(20);
+    msleep(20);
+    msleep(20);
+    msleep(20);
+    msleep(20);
+    msleep(20);
+    msleep(20);
+	//                                                                                             
+    if(headset_type != X3_HEADSET)
+		return;
+	
+    wake_lock_timeout(&hook_wake_lock, HZ * 5);//                                             
+	if(hook_status == HOOK_RELEASED){
+		if(gpio_hook == 0){ 
+		    hook_status = HOOK_PRESSED;
+		    if ( get_test_mode() != 1 ) {
+		        input_report_key(headset_sw_data->ip_dev, KEY_HOOK, 1);
+			    input_sync(headset_sw_data->ip_dev);
+			} else {
+			    write_gkpd_value(KEY_HOOK); //                                                  
+			}
+			printk(KERN_ERR "##(hook_det_work)## HOOK PRESSED\n");
+		}
+    }
+	else{
+		if(gpio_hook == 1){
+		    hook_status = HOOK_RELEASED;
+		    if ( get_test_mode() != 1 ) {
+		        input_report_key(headset_sw_data->ip_dev, KEY_HOOK, 0);
+			    input_sync(headset_sw_data->ip_dev);
+			}
+			printk( KERN_ERR "##(hook_det_work)## HOOK RELEASED\n");
+		}
+	}
+}
+
+static irqreturn_t headset_hook_int_handler(int irq, void *dev_id)
+{
+	static i=0; //20130110 keunhui.park [Audio] prevent pressing hook key while unplugging headset
+	struct headset_switch_data	*switch_data =
+	    (struct headset_switch_data *)dev_id;
+
+	printk(KERN_ERR "##(Headset_det.c)## headset_hook_int_handler()!! headset type %d\n", headset_type );
+	
+	if(headset_type == X3_HEADSET)
+	{
+	//                                                                                             
+		schedule_delayed_work(&switch_data->hook_delayed_work[i++],	msecs_to_jiffies(hook_detection_time));
+		if (i>3)
+			i=0;
+	//                                                                                             
+	}
+
+	return IRQ_HANDLED;
+}
+#endif
+//                                             
+
 static void gpio_work(struct work_struct *work)
 {
 	struct snd_soc_jack_gpio *gpio;
+//                                             
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	int headset_gpio_status;
+	int hookkey_gpio_status;
+#endif
+//                                             
 
 	gpio = container_of(work, struct snd_soc_jack_gpio, work.work);
 	snd_soc_jack_gpio_detect(gpio);
+
+//                                             
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	headset_gpio_status = gpio_get_value (headset_sw_data->gpio);
+	hookkey_gpio_status = gpio_get_value (headset_sw_data->hook_gpio);
+
+	if (headset_gpio_status == 0)
+	{
+		headset_type = X3_NONE;
+
+		if (hookkey_gpio_status == 0)
+		{
+			headset_type = X3_HEADPHONE;
+//			gpio_set_value(headset_sw_data->ear_mic, 1);
+		}
+		else
+		{
+			headset_type = X3_HEADSET;
+//			gpio_set_value(headset_sw_data->ear_mic, 1);
+		}
+	}
+	else
+	{
+		headset_type = X3_NONE;
+//		gpio_set_value(headset_sw_data->ear_mic, 0);
+	//                                                                                             
+		if(hook_status == HOOK_PRESSED){
+		    hook_status = HOOK_RELEASED;
+		    if ( get_test_mode() != 1 ) {
+		        input_report_key(headset_sw_data->ip_dev, KEY_HOOK, 0);
+			    input_sync(headset_sw_data->ip_dev);
+			}
+			printk( KERN_ERR "##(hook_det_work)## HOOK RELEASED\n");
+			msleep(20);
+			msleep(20);
+			msleep(20);
+			msleep(20);
+			msleep(20);
+			msleep(20);
+			msleep(20);
+			msleep(20);
+			msleep(20);
+			msleep(20);
+		}
+	//                                                                                             
+	}
+
+	switch_set_state(&headset_sw_data->sdev, headset_type);
+#endif
+//                                             
 }
 
 /**
@@ -318,6 +457,10 @@ int snd_soc_jack_add_gpios(struct snd_soc_jack *jack, int count,
 		if (ret)
 			goto err;
 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+		tegra_gpio_enable (gpios[i].gpio);	//                                             
+#endif
+
 		INIT_DELAYED_WORK(&gpios[i].work, gpio_work);
 		gpios[i].jack = jack;
 
@@ -338,6 +481,58 @@ int snd_soc_jack_add_gpios(struct snd_soc_jack *jack, int count,
 					gpios[i].gpio, ret);
 		}
 
+  //                                                                  
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+    ret = enable_irq_wake(gpio_to_irq(gpios[i].gpio));
+    if (ret) {
+      printk("%s: enable_irq_wake error\n", __func__);
+      free_irq(gpio_to_irq(gpios[i].gpio), NULL);
+      return ret;
+    }
+  //                                                                  
+    
+//                                             
+		ret = gpio_request(headset_sw_data->ear_mic, "ear_mic");
+		ret = gpio_direction_output(headset_sw_data->ear_mic, 0);
+		if (ret)
+			goto err;
+		tegra_gpio_enable (headset_sw_data->ear_mic);
+
+
+		ret = gpio_request(headset_sw_data->hook_gpio, "hook_det");
+		ret = gpio_direction_input(headset_sw_data->hook_gpio);
+		if (ret)
+			goto err;
+		tegra_gpio_enable (headset_sw_data->hook_gpio);		
+	//                                                                                             
+		INIT_DELAYED_WORK(&headset_sw_data->hook_delayed_work[0], hook_det_work);
+		INIT_DELAYED_WORK(&headset_sw_data->hook_delayed_work[1], hook_det_work);
+		INIT_DELAYED_WORK(&headset_sw_data->hook_delayed_work[2], hook_det_work);
+		INIT_DELAYED_WORK(&headset_sw_data->hook_delayed_work[3], hook_det_work);
+	//                                                                                             
+
+		headset_sw_data->hook_irq = gpio_to_irq(headset_sw_data->hook_gpio);
+		
+		ret = request_irq(headset_sw_data->hook_irq, headset_hook_int_handler,
+			(IRQF_TRIGGER_FALLING|IRQF_TRIGGER_RISING), "hook_det", headset_sw_data);
+		if (ret)
+			goto err;
+
+    //                                                                    
+    ret = enable_irq_wake(headset_sw_data->hook_irq);
+    if (ret) {
+      printk("%s: enable_irq_wake error\n", __func__);
+      free_irq(headset_sw_data->hook_irq, NULL);
+      return ret;
+    }
+    //                                                                    
+
+		gpio_set_value(headset_sw_data->ear_mic, 1);
+
+		schedule_delayed_work(&gpios[i].work,0);
+#endif
+//                                             
+
 #ifdef CONFIG_GPIO_SYSFS
 		/* Expose GPIO value over sysfs for diagnostic purposes */
 		gpio_export(gpios[i].gpio, false);
@@ -347,16 +542,36 @@ int snd_soc_jack_add_gpios(struct snd_soc_jack *jack, int count,
 		snd_soc_jack_gpio_detect(&gpios[i]);
 	}
 
+  //                                                                          
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+  wake_lock_init(&hook_wake_lock, WAKE_LOCK_SUSPEND, "hook_wake_lock");
+#endif
+  //                                            
 	return 0;
 
 err:
 	gpio_free(gpios[i].gpio);
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	gpio_free(headset_sw_data->hook_gpio);
+	gpio_free(headset_sw_data->ear_mic);
+#endif
 undo:
 	snd_soc_jack_free_gpios(jack, i, gpios);
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_soc_jack_add_gpios);
+//                                                                 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+int snd_soc_jack_check(struct snd_soc_jack_gpio *gpios)
+{
+	tegra_gpio_enable (gpios[0].gpio);	
+	snd_soc_jack_gpio_detect(&gpios[0]);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_soc_jack_check);
+#endif
+
 
 /**
  * snd_soc_jack_free_gpios - Release GPIO pins' resources of an ASoC jack

@@ -24,7 +24,24 @@ struct baseband_config {
 	int channels;
 };
 
+//                                         
+struct hifi_config {
+	int i2s_num;
+	int rate;
+	int channels;
+};
+
+struct bt_config {
+	int i2s_num;
+	int rate;
+	int channels;
+};
+//                                         
+
 struct tegra_max98088_platform_data {
+	const char *name;	//                                             
+	int gpio_hook;		//                                             
+	int gpio_ear_mic;	//                                             
 	int gpio_spkr_en;
 	int gpio_hp_det;
 	int gpio_hp_mute;
@@ -32,4 +49,8 @@ struct tegra_max98088_platform_data {
 	int gpio_ext_mic_en;
 	int audio_port_id[NUM_I2S_DEVICES];
 	struct baseband_config baseband_param;
+//                                         
+	struct hifi_config hifi_param;
+	struct bt_config bt_param;
+//                                         
 };

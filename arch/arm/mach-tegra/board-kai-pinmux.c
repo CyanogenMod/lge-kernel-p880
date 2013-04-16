@@ -379,7 +379,7 @@ static __initdata struct tegra_pingroup_config kai_pinmux_common[] = {
 	DEFAULT_PINMUX(SPI2_MISO,       SPI2,            NORMAL,    NORMAL,     INPUT),
 	DEFAULT_PINMUX(SPI2_MOSI,       SPI2,            NORMAL,    NORMAL,     INPUT),
 
-	DEFAULT_PINMUX(KB_ROW11,        KBC,             NORMAL,    NORMAL,     OUTPUT),
+	DEFAULT_PINMUX(KB_ROW11,        KBC,             PULL_UP,   TRISTATE,   INPUT),
 	DEFAULT_PINMUX(KB_ROW12,        KBC,             NORMAL,    TRISTATE,   OUTPUT),
 	DEFAULT_PINMUX(KB_ROW13,        KBC,             NORMAL,    TRISTATE,   OUTPUT),
 };
@@ -449,13 +449,9 @@ static __initdata struct tegra_pingroup_config unused_pins_lowpower[] = {
 
 static void __init kai_pinmux_audio_init(void)
 {
-	tegra_gpio_enable(TEGRA_GPIO_CDC_IRQ);
 	gpio_request(TEGRA_GPIO_CDC_IRQ, "rt5640");
 	gpio_direction_input(TEGRA_GPIO_CDC_IRQ);
 
-	tegra_gpio_enable(TEGRA_GPIO_HP_DET);
-	tegra_gpio_enable(TEGRA_GPIO_INT_MIC_EN);
-	tegra_gpio_enable(TEGRA_GPIO_EXT_MIC_EN);
 }
 
 /* We are disabling this code for now. */
@@ -469,6 +465,7 @@ static void __init kai_pinmux_audio_init(void)
 static struct gpio_init_pin_info init_gpio_mode_kai_common[] = {
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PDD7, false, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PCC6, false, 0),
+	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PCC7, false, 1),
 };
 
 static void __init kai_gpio_init_configure(void)
@@ -550,7 +547,6 @@ static void set_unused_pin_gpio(struct gpio_init_pin_info *lpm_pin_info,
 			gpio_free(pin_info->gpio_nr);
 			continue;
 		}
-		tegra_gpio_enable(pin_info->gpio_nr);
 	}
 }
 

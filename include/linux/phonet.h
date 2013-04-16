@@ -24,7 +24,15 @@
 #define LINUX_PHONET_H
 
 #include <linux/types.h>
-
+//                                              
+#if defined(CONFIG_MACH_PEGASUS)
+/* Phonet media types */
+#define PN_MEDIA_ROUTING	0x00
+#define PN_MEDIA_USB		0x1B
+#define PN_MEDIA_DEFAULT	0x25
+#define PN_MEDIA_MODEM_HOST_IF  0x26
+#endif
+//                                              
 /* Automatic protocol selection */
 #define PN_PROTO_TRANSPORT	0
 /* Phonet datagram socket */
@@ -50,7 +58,12 @@
 #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
 #define SIOCPNADDRESOURCE	(SIOCPROTOPRIVATE + 14)
 #define SIOCPNDELRESOURCE	(SIOCPROTOPRIVATE + 15)
-
+//                                              
+#if defined(CONFIG_MACH_PEGASUS)
+#define SIOCCONFIGTYPE		(SIOCPROTOPRIVATE + 1) 
+#define SIOCCONFIGSUBTYPE	(SIOCPROTOPRIVATE + 2) 
+#endif
+//                                              
 /* Phonet protocol header */
 struct phonethdr {
 	__u8	pn_rdev;

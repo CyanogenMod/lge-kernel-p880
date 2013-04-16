@@ -441,8 +441,10 @@ struct input_keymap_entry {
 #define KEY_WIMAX		246
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
-#define KEY_MICMUTE		248	/* Mute / unmute the microphone */
+//#define KEY_MICMUTE		248	/* Mute / unmute the microphone */
+#define KEY_HOOK		248		//                                             
 
+#define KEY_HIGHLIGHER	499 //YJChae 20120615 for quickmemo key
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
@@ -1478,7 +1480,13 @@ void input_inject_event(struct input_handle *handle, unsigned int type, unsigned
 
 static inline void input_report_key(struct input_dev *dev, unsigned int code, int value)
 {
+//                                                                                                          
+#ifdef CONFIG_MACH_X3 //(key)acespirit 2012.11.22
+	input_event(dev, EV_KEY, code, value);
+#else
 	input_event(dev, EV_KEY, code, !!value);
+#endif
+//                                                                            
 }
 
 static inline void input_report_rel(struct input_dev *dev, unsigned int code, int value)

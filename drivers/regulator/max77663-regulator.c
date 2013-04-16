@@ -280,7 +280,7 @@ static int max77663_regulator_set_fps(struct max77663_regulator *reg)
 		fps_mask |= FPS_PD_PERIOD_MASK;
 	}
 
-	if (fps_val)
+	if (fps_val || fps_mask)
 		ret = max77663_regulator_cache_write(reg,
 					reg->regs[FPS_REG].addr, fps_mask,
 					fps_val, &reg->regs[FPS_REG].val);
@@ -454,9 +454,14 @@ static int max77663_regulator_enable(struct regulator_dev *rdev)
 {
 	struct max77663_regulator *reg = rdev_get_drvdata(rdev);
 	struct max77663_regulator_platform_data *pdata = _to_pdata(reg);
+
+#if defined(CONFIG_MFD_MAX77663_LPM)
 	int power_mode = (pdata->flags & GLPM_ENABLE) ?
 			 POWER_MODE_GLPM : POWER_MODE_NORMAL;
 
+#else
+	int power_mode = POWER_MODE_NORMAL;
+#endif
 	if (reg->fps_src != FPS_SRC_NONE) {
 		dev_dbg(&rdev->dev, "enable: Regulator %s using %s\n",
 			rdev->desc->name, fps_src_name(reg->fps_src));
@@ -537,8 +542,14 @@ static int max77663_regulator_set_mode(struct regulator_dev *rdev,
 	int ret;
 
 	if (mode == REGULATOR_MODE_NORMAL)
+	{
+#if defined(CONFIG_MFD_MAX77663_LPM)
 		power_mode = (pdata->flags & GLPM_ENABLE) ?
 			     POWER_MODE_GLPM : POWER_MODE_NORMAL;
+#else
+		power_mode = POWER_MODE_NORMAL;
+#endif
+	}
 	else if (mode == REGULATOR_MODE_STANDBY) {
 		/* N-Channel LDOs don't support Low-Power mode. */
 		power_mode = (reg->type != REGULATOR_TYPE_LDO_N) ?
@@ -637,9 +648,13 @@ static int max77663_regulator_preinit(struct max77663_regulator *reg)
 	 * from SRC_0, SRC_1 and SRC_2. */
 	if ((reg->fps_src != FPS_SRC_NONE) && (pdata->fps_src == FPS_SRC_NONE)
 			&& (reg->power_mode != POWER_MODE_NORMAL)) {
+#if defined(CONFIG_MFD_MAX77663_LPM)
 		val = (pdata->flags & GLPM_ENABLE) ?
 		      POWER_MODE_GLPM : POWER_MODE_NORMAL;
 		ret = max77663_regulator_set_power_mode(reg, val);
+#else
+		ret = max77663_regulator_set_power_mode(reg, POWER_MODE_NORMAL);
+#endif
 		if (ret < 0) {
 			dev_err(reg->dev, "preinit: Failed to "
 				"set power mode to POWER_MODE_NORMAL\n");
@@ -675,8 +690,14 @@ static int max77663_regulator_preinit(struct max77663_regulator *reg)
 	}
 
 	if (pdata->init_enable)
+	{
+#if defined(CONFIG_MFD_MAX77663_LPM)
 		val = (pdata->flags & GLPM_ENABLE) ?
 		      POWER_MODE_GLPM : POWER_MODE_NORMAL;
+#else
+		val = POWER_MODE_NORMAL;
+#endif
+	}
 	else
 		val = POWER_MODE_DISABLE;
 
@@ -704,15 +725,13 @@ skip_init_apply:
 				val |= (SD_SR_100 << SD_SR_SHIFT);
 		}
 
-		if (pdata->flags & SD_FORCED_PWM_MODE) {
-			mask |= SD_FPWM_MASK;
+		mask |= SD_FPWM_MASK;
+		if (pdata->flags & SD_FORCED_PWM_MODE)
 			val |= SD_FPWM_MASK;
-		}
 
-		if (pdata->flags & SD_FSRADE_DISABLE) {
-			mask |= SD_FSRADE_MASK;
+		mask |= SD_FSRADE_MASK;
+		if (pdata->flags & SD_FSRADE_DISABLE)
 			val |= SD_FSRADE_MASK;
-		}
 
 		ret = max77663_regulator_cache_write(reg,
 				reg->regs[CFG_REG].addr, mask, val,
@@ -818,7 +837,7 @@ static struct max77663_regulator max77663_regs[MAX77663_REGULATOR_ID_NR] = {
 	REGULATOR_SD(SD2,    SDX, SD2,  600000, 3387500, 12500),
 	REGULATOR_SD(SD3,    SDX, SD3,  600000, 3387500, 12500),
 	REGULATOR_SD(SD4,    SDX, SD4,  600000, 3387500, 12500),
-
+//                               
 	REGULATOR_LDO(LDO0, N, 800000, 2350000, 25000),
 	REGULATOR_LDO(LDO1, N, 800000, 2350000, 25000),
 	REGULATOR_LDO(LDO2, P, 800000, 3950000, 50000),
@@ -915,7 +934,9 @@ static int __init max77663_regulator_init(void)
 {
 	return platform_driver_register(&max77663_regulator_driver);
 }
-subsys_initcall(max77663_regulator_init);
+
+arch_initcall(max77663_regulator_init);
+
 
 static void __exit max77663_reg_exit(void)
 {

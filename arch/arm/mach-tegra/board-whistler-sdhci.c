@@ -2,7 +2,7 @@
  * arch/arm/mach-tegra/board-whistler-sdhci.c
  *
  * Copyright (C) 2010 Google, Inc.
- * Copyright (C) 2011 NVIDIA Corporation.
+ * Copyright (C) 2011-2012 NVIDIA Corporation.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -144,6 +144,7 @@ static struct resource sdhci_resource3[] = {
 	},
 };
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
 static struct embedded_sdio_data embedded_sdio_data1 = {
 	.cccr   = {
 		.sdio_vsn       = 2,
@@ -158,13 +159,20 @@ static struct embedded_sdio_data embedded_sdio_data1 = {
 		.device         = 0x4329,
 	},
 };
+#endif
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data1 = {
 	.mmc_data = {
 		.register_status_notify	= whistler_wifi_status_register,
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
 		.embedded_sdio = &embedded_sdio_data1,
-		.built_in = 1,
+#endif
+		.built_in = 0,
+		.ocr_mask = MMC_OCR_1V8_MASK,
 	},
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
+	.pm_flags = MMC_PM_KEEP_POWER,
+#endif
 	.cd_gpio = -1,
 	.wp_gpio = -1,
 	.power_gpio = -1,
@@ -216,15 +224,25 @@ static struct platform_device tegra_sdhci_device3 = {
 	},
 };
 
+#ifdef CONFIG_TEGRA_PREPOWER_WIFI
+static int __init whistler_wifi_prepower(void)
+{
+	if (!machine_is_whistler())
+		return 0;
+
+	whistler_wifi_power(1);
+
+	return 0;
+}
+
+subsys_initcall_sync(whistler_wifi_prepower);
+#endif
+
 static int __init whistler_wifi_init(void)
 {
 	gpio_request(WHISTLER_WLAN_PWR, "wlan_power");
 	gpio_request(WHISTLER_WLAN_RST, "wlan_rst");
 	gpio_request(WHISTLER_WLAN_WOW, "bcmsdh_sdmmc");
-
-	tegra_gpio_enable(WHISTLER_WLAN_PWR);
-	tegra_gpio_enable(WHISTLER_WLAN_RST);
-	tegra_gpio_enable(WHISTLER_WLAN_WOW);
 
 	gpio_direction_output(WHISTLER_WLAN_PWR, 0);
 	gpio_direction_output(WHISTLER_WLAN_RST, 0);
@@ -235,10 +253,6 @@ static int __init whistler_wifi_init(void)
 }
 int __init whistler_sdhci_init(void)
 {
-	int ret;
-
-	tegra_gpio_enable(WHISTLER_EXT_SDCARD_DETECT);
-
 	platform_device_register(&tegra_sdhci_device3);
 	platform_device_register(&tegra_sdhci_device2);
 	platform_device_register(&tegra_sdhci_device1);

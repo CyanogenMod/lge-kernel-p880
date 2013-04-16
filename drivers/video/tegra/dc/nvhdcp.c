@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvhdcp.c
  *
- * Copyright (c) 2010-2011, NVIDIA Corporation.
+ * Copyright (c) 2010-2012, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,6 +24,9 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 #include <asm/atomic.h>
+#include <linux/gpio.h>
+#include "../../../../arch/arm/mach-tegra/lge/x3/include/mach-tegra/gpio-names.h"
+
 
 #include <mach/dc.h>
 #include <mach/kfuse.h>
@@ -119,6 +122,7 @@ static int nvhdcp_i2c_read(struct tegra_nvhdcp *nvhdcp, u8 reg,
 {
 	int status;
 	int retries = 15;
+	int hdmi_hpd_status=1;
 	struct i2c_msg msg[] = {
 		{
 			.addr = 0x74 >> 1, /* primary link */
@@ -139,6 +143,13 @@ static int nvhdcp_i2c_read(struct tegra_nvhdcp *nvhdcp, u8 reg,
 			nvhdcp_err("disconnect during i2c xfer\n");
 			return -EIO;
 		}
+		//                                                          
+		hdmi_hpd_status = gpio_get_value(TEGRA_GPIO_PN7);
+		if (hdmi_hpd_status != 1) {
+			printk("nvhdcp: hdmi hpd is already low. (hpd=%d) disconnect during i2c read xfer.\n", hdmi_hpd_status);
+			return -EIO;
+		}
+		//                                                          
 		status = i2c_transfer(nvhdcp->client->adapter,
 			msg, ARRAY_SIZE(msg));
 		if ((status < 0) && (retries > 1))
@@ -158,6 +169,7 @@ static int nvhdcp_i2c_write(struct tegra_nvhdcp *nvhdcp, u8 reg,
 {
 	int status;
 	u8 buf[len + 1];
+	int hdmi_hpd_status=1;
 	struct i2c_msg msg[] = {
 		{
 			.addr = 0x74 >> 1, /* primary link */
@@ -176,6 +188,14 @@ static int nvhdcp_i2c_write(struct tegra_nvhdcp *nvhdcp, u8 reg,
 			nvhdcp_err("disconnect during i2c xfer\n");
 			return -EIO;
 		}
+		//                                                          
+		hdmi_hpd_status = gpio_get_value(TEGRA_GPIO_PN7);
+		if (hdmi_hpd_status != 1) {
+			printk("nvhdcp: hdmi hpd is already low. (hpd=%d) disconnect during i2c read xfer.\n", hdmi_hpd_status);
+			return -EIO;
+		}
+		//                                                          
+
 		status = i2c_transfer(nvhdcp->client->adapter,
 			msg, ARRAY_SIZE(msg));
 		if ((status < 0) && (retries > 1))

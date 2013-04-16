@@ -17,6 +17,14 @@
 #include <linux/irq.h>
 #include <linux/mfd/core.h>
 
+/*       */
+//#define CONFIG_MFD_MAX77663_LPM
+//#define CONFIG_MFD_MAX77663_SD_FORCED_PWM
+#define CONFIG_MFD_MAX77663_SMPL
+#define CONFIG_MFD_MAX77663_SMPL_DEFAULT_ENABLE
+#define CONFIG_MFD_MAX77663_FOR_USED_SCRATCH_REGISTER
+/*       */
+
 /*
  * Interrupts
  */
@@ -110,6 +118,20 @@ enum max77663_gpio_alt {
 	GPIO_ALT_DISABLE,
 };
 
+/*       */
+#define MAX77663_SCRATCH_REG_RESERVE_0		(1<<0)
+#define MAX77663_SCRATCH_REG_RESET			MAX77663_SCRATCH_REG_RESERVE_0
+#define	MAX77663_SCRATCH_REG_RESERVE_1		(1<<1)
+#define	MAX77663_SCRATCH_REG_RESERVE_2		(1<<2)
+#define	MAX77663_SCRATCH_REG_RESERVE_3		(1<<3)
+#define	MAX77663_SCRATCH_REG_RESERVE_4		(1<<4)
+#define	MAX77663_SCRATCH_REG_RESERVE_5		(1<<5)
+#define	MAX77663_SCRATCH_REG_RESERVE_6		(1<<6)
+#define MAX77663_SCRATCH_REG_BOOTLOADER	    MAX77663_SCRATCH_REG_RESERVE_1
+#define MAX77663_SCRATCH_REG_BL_UNLOCK	    MAX77663_SCRATCH_REG_RESERVE_2 //                                                         
+#define	MAX77663_SCRATCH_REG_RESERVE_DO_NOT_USED (1<<7)
+/*       */
+
 /*
  * Flags
  */
@@ -149,7 +171,15 @@ int max77663_write(struct device *dev, u8 addr, void *values, u32 len,
 		   bool is_rtc);
 int max77663_set_bits(struct device *dev, u8 addr, u8 mask, u8 value,
 		      bool is_rtc);
+int max77663_get_bits(struct device *dev, u8 addr, u8 mask,
+		      bool is_rtc);
+int max77663_power_off(void);
 int max77663_gpio_set_alternate(int gpio, int alternate);
+int max77663_get_acok_stat(void);
+int max77663_power_rst_wkup(int on); //                                                                             
+int max77663_set_ScratchRegister(u8 bit);
+
+
 #else
 static inline int max77663_read(struct device *dev, u8 addr, void *values,
 				u32 len, bool is_rtc)
@@ -169,10 +199,40 @@ static inline int max77663_set_bits(struct device *dev, u8 addr, u8 mask,
 	return 0;
 }
 
+static inline int max77663_get_bits(struct device *dev, u8 addr, u8 mask,
+		      bool is_rtc)
+{
+	return 0;
+}
+
+
+static inline int max77663_power_off(void)
+{
+	return 0;
+}
+
 static inline int max77663_gpio_set_alternate(int gpio, int alternate)
 {
 	return 0;
 }
+
+static inline int max77663_get_acok_stat(void) {
+	return 0;
+}
+
+//                                                                               
+int max77663_power_rst_wkup(int on)
+{
+	return 0;
+}
+//                                                                               
+
+static inline int max77663_set_ScratchRegister(u8 bit)
+{
+
+	return 0;
+}
+
 #endif /* defined(CONFIG_MFD_MAX77663) */
 
 #endif /* __LINUX_MFD_MAX77663_CORE_H__ */

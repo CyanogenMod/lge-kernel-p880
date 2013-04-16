@@ -1143,4 +1143,15 @@ config RTC_DRV_RC5T583
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-rc5t583.
 
+#
+# Secure clock
+# Replace RTC_DRV_GOLDFISH with real device's RTC driver
+#
+config RTC_INTF_SECCLK
+	bool "Android secure clock driver"
+	depends on RTC_DRV_MAX77663
+	default n
+	help
+	  Driver for supporting Android secure clock
+	  
 endif # RTC_CLASS

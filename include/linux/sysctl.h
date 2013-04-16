@@ -425,6 +425,13 @@ enum
 	NET_TCP_ALLOWED_CONG_CONTROL=123,
 	NET_TCP_MAX_SSTHRESH=124,
 	NET_TCP_FRTO_RESPONSE=125,
+//                                   
+#if defined(CONFIG_MACH_PEGASUS)	
+/* RMC 1003 */ 
+    NET_TCP_MHDP_CONCAT_NB_PKT=126,
+/* RMC 1003 */
+#endif
+//                                   
 };
 
 enum {

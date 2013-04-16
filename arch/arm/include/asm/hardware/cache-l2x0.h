@@ -79,6 +79,7 @@
 #define L2X0_AUX_CTRL_EARLY_BRESP_SHIFT		30
 
 #define REV_PL310_R2P0				4
+#define REV_PL310_R3P1_50			7
 
 #ifndef __ASSEMBLY__
 extern void l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask);

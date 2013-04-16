@@ -77,6 +77,21 @@ static int i2c_gpio_getscl(void *data)
 
 	return gpio_get_value(pdata->scl_pin);
 }
+//                                                                             
+static void i2c_gpio_setsda_direction_input(void *data)
+{
+	struct i2c_gpio_platform_data *pdata = data;
+	//printk("set sda input\n");
+	gpio_direction_input(pdata->sda_pin);
+}
+
+static void i2c_gpio_setsda_direction_output(void *data, int state)
+{
+	struct i2c_gpio_platform_data *pdata = data;
+	//printk("set sda output,val:%d\n", state);
+	gpio_direction_output(pdata->sda_pin, state);
+}
+//                                                                             
 
 static int __devinit i2c_gpio_probe(struct platform_device *pdev)
 {
@@ -105,7 +120,11 @@ static int __devinit i2c_gpio_probe(struct platform_device *pdev)
 		goto err_request_scl;
 
 	if (pdata->sda_is_open_drain) {
-		gpio_direction_output(pdata->sda_pin, 1);
+//                                               
+		gpio_direction_output(pdata->sda_pin, 0);
+//                                                                               
+		tegra_gpio_enable(pdata->sda_pin);
+//                                                                               
 		bit_data->setsda = i2c_gpio_setsda_val;
 	} else {
 		gpio_direction_input(pdata->sda_pin);
@@ -113,7 +132,11 @@ static int __devinit i2c_gpio_probe(struct platform_device *pdev)
 	}
 
 	if (pdata->scl_is_open_drain || pdata->scl_is_output_only) {
-		gpio_direction_output(pdata->scl_pin, 1);
+//                                               
+		gpio_direction_output(pdata->scl_pin, 0);
+//                                                                               
+		tegra_gpio_enable(pdata->scl_pin);
+//                                                                               
 		bit_data->setscl = i2c_gpio_setscl_val;
 	} else {
 		gpio_direction_input(pdata->scl_pin);
@@ -123,7 +146,10 @@ static int __devinit i2c_gpio_probe(struct platform_device *pdev)
 	if (!pdata->scl_is_output_only)
 		bit_data->getscl = i2c_gpio_getscl;
 	bit_data->getsda = i2c_gpio_getsda;
-
+//                                                                              
+	bit_data->setsdadirinput = i2c_gpio_setsda_direction_input;
+	bit_data->setsdadiroutput = i2c_gpio_setsda_direction_output;
+//                                                                              
 	if (pdata->udelay)
 		bit_data->udelay = pdata->udelay;
 	else if (pdata->scl_is_output_only)

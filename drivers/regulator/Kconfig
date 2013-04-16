@@ -117,6 +117,15 @@ config REGULATOR_MAX8952
 	  via I2C bus. Maxim 8952 has one voltage output and supports 4 DVS
 	  modes ranging from 0.77V to 1.40V by 0.01V steps.
 
+config REGULATOR_MAX8973
+	tristate "Maxim MAX8973 Power Regulator"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  This driver supports MAX8973 voltage regulator chip.
+	  The MAX8973 high-efficiency, three-phase, DC-DC step-down switching
+	  regulator delivers up to 9A of output current.
+
 config REGULATOR_MAX8997
 	tristate "Maxim 8997/8966 regulator"
 	depends on MFD_MAX8997
@@ -248,6 +257,16 @@ config REGULATOR_AB3100
 	 AB3100 analog baseband dealing with power regulators
 	 for the system.
 
+config REGULATOR_RC5T583
+	tristate "RICOH RC5T583 Power regulators"
+	depends on MFD_RC5T583
+	help
+	  Select this option to enable the power regulator of RICOH
+	  PMIC RC5T583.
+	  This driver supports the control of different power rails of device
+	  through regulator interface. The device supports multiple DCDC/LDO
+	  outputs which can be controlled by i2c communication.
+
 config REGULATOR_TPS6105X
 	tristate "TI TPS6105X Power regulators"
 	depends on TPS6105X
@@ -313,11 +332,27 @@ config REGULATOR_DB8500_PRCMU
 	  This driver supports the voltage domain regulators controlled by the
 	  DB8500 PRCMU
 
+config REGULATOR_TPS51632
+	tristate "TI TPS51632 Power Regulator"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  This driver supports TPS51632 voltage regulator chip.
+	  The TPS52632 is 3-2-1 Phase D-Cap+ Step Down Driverless Controller
+	  with Serial VID control and DVFS.
+
 config REGULATOR_TPS6586X
 	tristate "TI TPS6586X Power regulators"
 	depends on MFD_TPS6586X
 	help
 	  This driver supports TPS6586X voltage regulator chips.
+
+config REGULATOR_TPS65090
+	tristate "TI TPS65090 Power regulator"
+	depends on MFD_TPS65090
+	help
+	  This driver provides support for the voltage regulators on the
+	  TI TPS65090 PMIC.
 
 config REGULATOR_TPS6524X
 	tristate "TI TPS6524X Power regulators"
@@ -345,6 +380,16 @@ config REGULATOR_TPS62360
 	  high-frequency synchronous step down dc-dc converter optimized
 	  for battery-powered portable applications.
 
+config REGULATOR_TPS6238X0
+	tristate "TI TPS623850/TPS623860/TPS623870 Power Regulator"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  This driver supports TPS6238X0 voltage regulator chip. This
+	  regulator is meant for processor core supply. This chip is
+	  high-frequency synchronous step down dc-dc converter optimized
+	  for battery-powered portable applications.
+
 config REGULATOR_AAT2870
 	tristate "AnalogicTech AAT2870 Regulators"
 	depends on MFD_AAT2870_CORE
@@ -358,12 +403,6 @@ config REGULATOR_TPS6591X
 	default n
 	help
 	  This driver supports TPS6591X voltage regulator chips.
-
-config REGULATOR_TPS65090
-	tristate "TI TPS65090 Power regulators"
-	depends on MFD_TPS65090
-	help
-	  This driver supports TPS65090 voltage regulator chips.
 
 config REGULATOR_TPS80031
 	tristate "TI TPS80031 Power regulators"
@@ -379,6 +418,7 @@ config REGULATOR_RICOH583
 	help
 	  This driver supports regulator driver for RICOH583 PMIC.
 
+# LGE_UDPATE_S 2012/05/31 ssasuny.kim
 config REGULATOR_GPIO_SWITCH
 	bool "GPIO based enable/disable of power rails."
 	default n
@@ -386,6 +426,7 @@ config REGULATOR_GPIO_SWITCH
 	  This driver supports gpio based switch control of the power rails.
 	  Say Yes if the given platform have the rail enable through the
 	  gpios.
+# LGE_UDPATE_E 2012/05/31 ssasuny.kim
 
 config REGULATOR_AAT2870
 	tristate "AnalogicTech AAT2870 Regulators"
@@ -399,6 +440,13 @@ config REGULATOR_FAN53555
 	default n
 	help
 	  This driver supports FAN53555 DC-DC CPU power supply.
+
+config REGULATOR_CAM_SUBPMIC_LP8720
+        bool "SUB PMIC LP8720"
+        depends on I2C
+        default y
+        help
+        Support for LP8720 SUB PMIC driver
 
 endif
 

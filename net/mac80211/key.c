@@ -15,7 +15,9 @@
 #include <linux/rcupdate.h>
 #include <linux/rtnetlink.h>
 #include <linux/slab.h>
+#include <linux/export.h>
 #include <net/mac80211.h>
+#include <asm/unaligned.h>
 #include "ieee80211_i.h"
 #include "driver-ops.h"
 #include "debugfs_key.h"
@@ -53,14 +55,6 @@ static void assert_key_lock(struct ieee80211_local *local)
 	lockdep_assert_held(&local->key_mtx);
 }
 
-static struct ieee80211_sta *get_sta_for_key(struct ieee80211_key *key)
-{
-	if (key->sta)
-		return &key->sta->sta;
-
-	return NULL;
-}
-
 static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 {
 	/*
@@ -94,7 +88,7 @@ static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 {
 	struct ieee80211_sub_if_data *sdata;
-	struct ieee80211_sta *sta;
+	struct sta_info *sta;
 	int ret;
 
 	might_sleep();
@@ -104,7 +98,7 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 
 	assert_key_lock(key->local);
 
-	sta = get_sta_for_key(key);
+	sta = key->sta;
 
 	/*
 	 * If this is a per-STA GTK, check if it
@@ -112,6 +106,9 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 	 */
 	if (sta && !(key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE) &&
 	    !(key->local->hw.flags & IEEE80211_HW_SUPPORTS_PER_STA_GTK))
+		goto out_unsupported;
+
+	if (sta && !sta->uploaded)
 		goto out_unsupported;
 
 	sdata = key->sdata;
@@ -122,19 +119,21 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 		 */
 		if (!(key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE))
 			goto out_unsupported;
-		sdata = container_of(sdata->bss,
-				     struct ieee80211_sub_if_data,
-				     u.ap);
 	}
 
-	ret = drv_set_key(key->local, SET_KEY, sdata, sta, &key->conf);
+	ret = drv_set_key(key->local, SET_KEY, sdata,
+			  sta ? &sta->sta : NULL, &key->conf);
 
 	if (!ret) {
 		key->flags |= KEY_FLAG_UPLOADED_TO_HARDWARE;
 
 		if (!((key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_MMIC) ||
-		      (key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV)))
+		      (key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV) ||
+		      (key->conf.flags & IEEE80211_KEY_FLAG_PUT_IV_SPACE)))
 			sdata->crypto_tx_tailroom_needed_cnt--;
+
+		WARN_ON((key->conf.flags & IEEE80211_KEY_FLAG_PUT_IV_SPACE) &&
+			(key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV));
 
 		return 0;
 	}
@@ -142,7 +141,8 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 	if (ret != -ENOSPC && ret != -EOPNOTSUPP)
 		wiphy_err(key->local->hw.wiphy,
 			  "failed to set key (%d, %pM) to hardware (%d)\n",
-			  key->conf.keyidx, sta ? sta->addr : bcast_addr, ret);
+			  key->conf.keyidx,
+			  sta ? sta->sta.addr : bcast_addr, ret);
 
  out_unsupported:
 	switch (key->conf.cipher) {
@@ -161,7 +161,7 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 static void ieee80211_key_disable_hw_accel(struct ieee80211_key *key)
 {
 	struct ieee80211_sub_if_data *sdata;
-	struct ieee80211_sta *sta;
+	struct sta_info *sta;
 	int ret;
 
 	might_sleep();
@@ -174,25 +174,22 @@ static void ieee80211_key_disable_hw_accel(struct ieee80211_key *key)
 	if (!(key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE))
 		return;
 
-	sta = get_sta_for_key(key);
+	sta = key->sta;
 	sdata = key->sdata;
 
 	if (!((key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_MMIC) ||
-	      (key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV)))
+	      (key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV) ||
+	      (key->conf.flags & IEEE80211_KEY_FLAG_PUT_IV_SPACE)))
 		increment_tailroom_need_count(sdata);
 
-	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
-		sdata = container_of(sdata->bss,
-				     struct ieee80211_sub_if_data,
-				     u.ap);
-
 	ret = drv_set_key(key->local, DISABLE_KEY, sdata,
-			  sta, &key->conf);
+			  sta ? &sta->sta : NULL, &key->conf);
 
 	if (ret)
 		wiphy_err(key->local->hw.wiphy,
 			  "failed to remove key (%d, %pM) from hardware (%d)\n",
-			  key->conf.keyidx, sta ? sta->addr : bcast_addr, ret);
+			  key->conf.keyidx,
+			  sta ? sta->sta.addr : bcast_addr, ret);
 
 	key->flags &= ~KEY_FLAG_UPLOADED_TO_HARDWARE;
 }
@@ -464,7 +461,7 @@ int ieee80211_key_link(struct ieee80211_key *key,
 		 * some hardware cannot handle TKIP with QoS, so
 		 * we indicate whether QoS could be in use.
 		 */
-		if (test_sta_flags(sta, WLAN_STA_WME))
+		if (test_sta_flag(sta, WLAN_STA_WME))
 			key->conf.flags |= IEEE80211_KEY_FLAG_WMM_STA;
 	} else {
 		if (sdata->vif.type == NL80211_IFTYPE_STATION) {
@@ -478,7 +475,7 @@ int ieee80211_key_link(struct ieee80211_key *key,
 			/* same here, the AP could be using QoS */
 			ap = sta_info_get(key->sdata, key->sdata->u.mgd.bssid);
 			if (ap) {
-				if (test_sta_flags(ap, WLAN_STA_WME))
+				if (test_sta_flag(ap, WLAN_STA_WME))
 					key->conf.flags |=
 						IEEE80211_KEY_FLAG_WMM_STA;
 			}

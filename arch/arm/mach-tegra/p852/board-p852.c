@@ -45,13 +45,12 @@ static __initdata struct tegra_clk_init_table p852_clk_init_table[] = {
 	{"uartb",       "pll_p",      216000000,    true},
 	{"uartc",       "pll_p",      216000000,    true},
 	{"uartd",       "pll_p",      216000000,    true},
-	{"pll_m",       "clk_m",      600000000,    true},
 	{"pll_m_out1",  "pll_m",      240000000,    true},
 	{"pll_p_out4",  "pll_p",      240000000,    true},
 	{"host1x",      "pll_p",      166000000,    true},
 	{"disp1",       "pll_p",      216000000,    true},
 	{"vi",          "pll_m",      100000000,    true},
-	{"csus",        "pll_m",      100000000,    true},
+	{"csus",        "clk_m",      12000000,     true},
 	{"emc",         "pll_m",      600000000,    true},
 	{"pll_c",       "clk_m",      600000000,    true},
 	{"pll_c_out1",  "pll_c",      240000000,    true},
@@ -289,49 +288,6 @@ static struct platform_device debug_uart = {
 		},
 };
 
-static struct tegra_utmip_config utmi_phy_config[] = {
-	[0] = {
-	       .hssync_start_delay = 0,
-	       .idle_wait_delay = 17,
-	       .elastic_limit = 16,
-	       .term_range_adj = 6,
-	       .xcvr_setup = 15,
-	       .xcvr_lsfslew = 2,
-	       .xcvr_lsrslew = 2,
-	       },
-	[1] = {
-	       .hssync_start_delay = 0,
-	       .idle_wait_delay = 17,
-	       .elastic_limit = 16,
-	       .term_range_adj = 6,
-	       .xcvr_setup = 8,
-	       .xcvr_lsfslew = 2,
-	       .xcvr_lsrslew = 2,
-	       },
-};
-
-static struct tegra_ulpi_config ulpi_usb2_config = {
-	.reset_gpio = TEGRA_GPIO_PI5,
-};
-
-static struct tegra_ehci_platform_data tegra_ehci_pdata[] = {
-	[0] = {
-	       .phy_config = &utmi_phy_config[0],
-	       .operating_mode = TEGRA_USB_HOST,
-	       .power_down_on_bus_suspend = 0,
-	       },
-	[1] = {
-	       .phy_config = &ulpi_usb2_config,
-	       .operating_mode = TEGRA_USB_HOST,
-	       .power_down_on_bus_suspend = 0,
-	       .phy_type = TEGRA_USB_PHY_TYPE_LINK_ULPI,
-	       },
-	[2] = {
-	       .phy_config = &utmi_phy_config[1],
-	       .operating_mode = TEGRA_USB_HOST,
-	       .power_down_on_bus_suspend = 0,
-	       },
-};
 
 static void p852_usb_gpio_config(void)
 {
@@ -386,12 +342,10 @@ static void p852_usb_gpio_config(void)
 	if (has_onboard_ethernet) {
 		gpio_request_one(usbeth_mux_gpio, GPIOF_OUT_INIT_LOW,
 				 "eth_ena");
-		tegra_gpio_enable(usbeth_mux_gpio);
 
 		/* eth reset */
 		gpio_request_one(p852_eth_reset, GPIOF_OUT_INIT_LOW,
 				 "eth_reset");
-		tegra_gpio_enable(p852_eth_reset);
 		udelay(1);
 		gpio_direction_output(p852_eth_reset, 1);
 
@@ -476,7 +430,6 @@ void __init p852_spi_i2s_init(void)
 		gpio_request_one(pdata->gpio_i2s.gpio_no, GPIOF_OUT_INIT_HIGH,
 				 "i2s_cpld_dir1");
 	}
-	tegra_gpio_enable(pdata->gpio_i2s.gpio_no);
 	if (pdata->gpio_spi.active_state) {
 		gpio_request_one(pdata->gpio_spi.gpio_no, GPIOF_OUT_INIT_LOW,
 				 "spi_cpld_dir2");
@@ -485,7 +438,6 @@ void __init p852_spi_i2s_init(void)
 				 "spi_cpld_dir2");
 	}
 
-	tegra_gpio_enable(pdata->gpio_spi.gpio_no);
 	spi_register_board_info(&tegra_spi_i2s_device, 1);
 }
 #endif
@@ -530,6 +482,96 @@ static void __init p852_register_spidev(void)
 #define p852_register_spidev() do {} while (0)
 #endif
 
+/*
+  FixMe: Copied below GPIO value from Ventana board.
+  Plz correct it accordingly for embedded board usage
+*/
+#define TEGRA_GPIO_PV1		169
+
+static void ulpi_link_platform_open(void)
+{
+	int reset_gpio = TEGRA_GPIO_PV1;
+
+	gpio_request(reset_gpio, "ulpi_phy_reset");
+	gpio_direction_output(reset_gpio, 0);
+
+	gpio_direction_output(reset_gpio, 0);
+	msleep(5);
+	gpio_direction_output(reset_gpio, 1);
+}
+
+static struct tegra_usb_phy_platform_ops ulpi_link_plat_ops = {
+	.open = ulpi_link_platform_open,
+};
+
+static struct tegra_usb_platform_data tegra_ehci_ulpi_link_pdata = {
+	.port_otg = false,
+	.has_hostpc = false,
+	.phy_intf = TEGRA_USB_PHY_INTF_ULPI_LINK,
+	.op_mode	= TEGRA_USB_OPMODE_HOST,
+	.u_data.host = {
+		.vbus_gpio = -1,
+		.vbus_reg = NULL,
+		.hot_plug = false,
+		.remote_wakeup_supported = false,
+		.power_off_on_suspend = false,
+	},
+	.u_cfg.ulpi = {
+		.shadow_clk_delay = 10,
+		.clock_out_delay = 1,
+		.data_trimmer = 4,
+		.stpdirnxt_trimmer = 4,
+		.dir_trimmer = 4,
+		.clk = "cdev2",
+	},
+	.ops = &ulpi_link_plat_ops,
+};
+
+static struct tegra_usb_platform_data tegra_ehci1_utmi_pdata = {
+	.port_otg = false,
+	.has_hostpc = false,
+	.phy_intf = TEGRA_USB_PHY_INTF_UTMI,
+	.op_mode = TEGRA_USB_OPMODE_HOST,
+	.u_data.host = {
+		.vbus_gpio = -1,
+		.vbus_reg = NULL,
+		.hot_plug = true,
+		.remote_wakeup_supported = true,
+		.power_off_on_suspend = false,
+	},
+	.u_cfg.utmi = {
+	       .hssync_start_delay = 0,
+	       .idle_wait_delay = 17,
+	       .elastic_limit = 16,
+	       .term_range_adj = 6,
+	       .xcvr_setup = 15,
+	       .xcvr_lsfslew = 2,
+	       .xcvr_lsrslew = 2,
+	},
+};
+
+static struct tegra_usb_platform_data tegra_ehci3_utmi_pdata = {
+	.port_otg = false,
+	.has_hostpc = false,
+	.phy_intf = TEGRA_USB_PHY_INTF_UTMI,
+	.op_mode = TEGRA_USB_OPMODE_HOST,
+	.u_data.host = {
+		.vbus_gpio = -1,
+		.vbus_reg = NULL,
+		.hot_plug = true,
+		.remote_wakeup_supported = true,
+		.power_off_on_suspend = false,
+	},
+	.u_cfg.utmi = {
+	       .hssync_start_delay = 0,
+	       .idle_wait_delay = 17,
+	       .elastic_limit = 16,
+	       .term_range_adj = 6,
+	       .xcvr_setup = 8,
+	       .xcvr_lsfslew = 2,
+	       .xcvr_lsrslew = 2,
+	},
+};
 static void __init p852_usb_init(void)
 {
 
@@ -542,16 +584,16 @@ static void __init p852_usb_init(void)
 	   else
 	 */
 	{
-		tegra_ehci1_device.dev.platform_data = &tegra_ehci_pdata[0];
+		tegra_ehci1_device.dev.platform_data = &tegra_ehci1_utmi_pdata;
 		platform_device_register(&tegra_ehci1_device);
 	}
 
 	if (!(p852_sku_peripherals & P852_SKU_ULPI_DISABLE)) {
-		tegra_ehci2_device.dev.platform_data = &tegra_ehci_pdata[1];
+		tegra_ehci2_device.dev.platform_data = &tegra_ehci_ulpi_link_pdata;
 		platform_device_register(&tegra_ehci2_device);
 	}
 
-	tegra_ehci3_device.dev.platform_data = &tegra_ehci_pdata[2];
+	tegra_ehci3_device.dev.platform_data = &tegra_ehci3_utmi_pdata;
 	platform_device_register(&tegra_ehci3_device);
 }
 
@@ -635,10 +677,6 @@ static void __init p852_uart_init(void)
 	}
 }
 
-static struct platform_device generic_codec_driver = {
-	.name = "generic-dit",
-};
-
 static void __init p852_flash_init(void)
 {
 	if (p852_sku_peripherals & P852_SKU_NAND_ENABLE)
@@ -667,7 +705,7 @@ void __init p852_common_init(void)
 
 	platform_add_devices(p852_devices, ARRAY_SIZE(p852_devices));
 
-	//p852_panel_init();
+	p852_panel_init();
 
 	p852_spi_init();
 

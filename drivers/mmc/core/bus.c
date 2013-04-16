@@ -345,6 +345,11 @@ void mmc_remove_card(struct mmc_card *card)
 			printk(KERN_INFO "%s: card %04x removed\n",
 				mmc_hostname(card->host), card->rca);
 		}
+		/*                                        
+                                                
+                                        
+   */
+		card->state &= ~(MMC_STATE_INSERTED | MMC_STATE_PRESENT);
 		device_del(&card->dev);
 	}
 

@@ -72,9 +72,60 @@ static ssize_t led_max_brightness_show(struct device *dev,
 	return sprintf(buf, "%u\n", led_cdev->max_brightness);
 }
 
+static ssize_t led_max_brightness_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{ //(led)acespirit 2013.1.16
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	unsigned long state = 0;
+
+	ret = strict_strtoul(buf, 10, &state);
+	if (!ret) {
+		ret = size;
+		if (state > LED_FULL)
+			state = LED_FULL;
+		led_cdev->max_brightness = state;
+		led_set_brightness(led_cdev, led_cdev->brightness);
+	}
+
+	return ret;
+}
+
+//YJChae_S 20111124 add for touchkeyled
+static ssize_t led_br_maintain_on_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	int	state	=	simple_strtol(buf, NULL, 10);
+	if (state){
+		printk(KERN_ERR "[pwr_led]: SYSFS_LED br_maintain_on trigger is 1!\n");
+		led_set_brightness(led_cdev, 255);
+		led_cdev->br_maintain_trigger = 1;
+		}
+	else{
+		printk(KERN_ERR "[pwr_led]: SYSFS_LED br_maintain_on trigger is 0!\n");
+		led_cdev->br_maintain_trigger = 0;
+		led_set_brightness(led_cdev, 0);
+		}
+
+	return size;
+}
+
+static ssize_t led_br_maintain_on_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%u\n", led_cdev->br_maintain_trigger);
+}
+//YJChae_E 20111124 add for touchkeyled
+
+
 static struct device_attribute led_class_attrs[] = {
-	__ATTR(brightness, 0644, led_brightness_show, led_brightness_store),
-	__ATTR(max_brightness, 0444, led_max_brightness_show, NULL),
+	__ATTR(brightness, 0660, led_brightness_show, led_brightness_store), // 20111124 change chmod for hiddenmenu
+	//__ATTR(max_brightness, 0444, led_max_brightness_show, NULL),
+	__ATTR(max_brightness, 0664, led_max_brightness_show, led_max_brightness_store), //thermal mitigation //(led)acespirit 2013.1.16
+	__ATTR(br_maintain_on, 0660, led_br_maintain_on_show, led_br_maintain_on_store), // 20111124 add for touchkeyled
 #ifdef CONFIG_LEDS_TRIGGERS
 	__ATTR(trigger, 0644, led_trigger_show, led_trigger_store),
 #endif

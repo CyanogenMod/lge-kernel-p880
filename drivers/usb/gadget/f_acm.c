@@ -88,7 +88,17 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 /* notification endpoint uses smallish and infrequent fixed-size messages */
 
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
+
+
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER
+/*           
+                                                  
+                                   
+ */
+#define GS_NOTIFY_MAXPACKET		16	/* For LG host driver */
+#else
 #define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
+#endif
 
 /* interface and class descriptors: */
 
@@ -458,15 +468,38 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	struct usb_ep			*ep = acm->notify;
 	struct usb_request		*req;
 	struct usb_cdc_notification	*notify;
+#ifndef CONFIG_LGE_USB_GADGET_DRIVER
+	/*           
+                                                   
+                                    
+  */
 	const unsigned			len = sizeof(*notify) + length;
+#endif
 	void				*buf;
 	int				status;
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER
+	/*           
+                                                   
+                                    
+  */
+	unsigned char noti_buf[GS_NOTIFY_MAXPACKET];
+
+	memset(noti_buf, 0, GS_NOTIFY_MAXPACKET);
+#endif
 
 	req = acm->notify_req;
 	acm->notify_req = NULL;
 	acm->pending = false;
 
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER
+	/*           
+                                                   
+                                    
+  */
+	req->length = GS_NOTIFY_MAXPACKET;
+#else
 	req->length = len;
+#endif
 	notify = req->buf;
 	buf = notify + 1;
 
@@ -476,7 +509,16 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	notify->wValue = cpu_to_le16(value);
 	notify->wIndex = cpu_to_le16(acm->ctrl_id);
 	notify->wLength = cpu_to_le16(length);
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER
+	/*           
+                                                   
+                                    
+  */
+	memcpy(noti_buf, data, length);
+	memcpy(buf, noti_buf, GS_NOTIFY_MAXPACKET);
+#else
 	memcpy(buf, data, length);
+#endif
 
 	/* ep_queue() can complete immediately if it fills the fifo... */
 	spin_unlock(&acm->lock);

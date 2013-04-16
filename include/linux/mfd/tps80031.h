@@ -132,6 +132,30 @@ enum tps80031_ext_control {
 	PWR_ON_ON_SLEEP		= 0x00000010,
 };
 
+enum tps80031_pupd_pins {
+	TPS80031_PREQ1 = 0,
+	TPS80031_PREQ2A,
+	TPS80031_PREQ2B,
+	TPS80031_PREQ2C,
+	TPS80031_PREQ3,
+	TPS80031_NRES_WARM,
+	TPS80031_PWM_FORCE,
+	TPS80031_CHRG_EXT_CHRG_STATZ,
+	TPS80031_SIM,
+	TPS80031_MMC,
+	TPS80031_GPADC_START,
+	TPS80031_DVSI2C_SCL,
+	TPS80031_DVSI2C_SDA,
+	TPS80031_CTLI2C_SCL,
+	TPS80031_CTLI2C_SDA,
+};
+
+enum tps80031_pupd_settings {
+	TPS80031_PUPD_NORMAL,
+	TPS80031_PUPD_PULLDOWN,
+	TPS80031_PUPD_PULLUP,
+};
+
 struct tps80031_subdev_info {
 	int		id;
 	const char	*name;
@@ -141,6 +165,7 @@ struct tps80031_subdev_info {
 struct tps80031_rtc_platform_data {
 	int irq;
 	struct rtc_time time;
+	int msecure_gpio;
 };
 
 struct tps80031_clk32k_init_data {
@@ -154,9 +179,17 @@ struct tps80031_gpio_init_data {
 	unsigned long ext_ctrl_flag;
 };
 
+struct tps80031_pupd_init_data {
+	int input_pin;
+	int setting;
+};
+
+struct tps80031_bg_platform_data {
+	int irq_base;
+	int battery_present;
+};
+
 struct tps80031_platform_data {
-	int num_subdevs;
-	struct tps80031_subdev_info *subdevs;
 	int gpio_base;
 	int irq_base;
 	struct tps80031_32kclock_plat_data *clk32k_pdata;
@@ -165,12 +198,15 @@ struct tps80031_platform_data {
 	struct tps80031_clk32k_init_data *clk32k_init_data;
 	int clk32k_init_data_size;
 	bool use_power_off;
+	struct tps80031_pupd_init_data *pupd_init_data;
+	int pupd_init_data_size;
+	struct tps80031_regulator_platform_data **regulator_pdata;
+	int num_regulator_pdata;
+	struct tps80031_rtc_platform_data *rtc_pdata;
+	struct tps80031_bg_platform_data *bg_pdata;
+	struct tps80031_charger_platform_data *battery_charger_pdata;
 };
 
-struct tps80031_bg_platform_data {
-	int irq_base;
-	int battery_present;
-};
 
 /*
  * NOTE: the functions below are not intended for use outside

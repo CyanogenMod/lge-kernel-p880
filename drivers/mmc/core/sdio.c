@@ -586,7 +586,19 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 	 * Inform the card of the voltage
 	 */
 	if (!powered_resume) {
-		err = mmc_send_io_op_cond(host, host->ocr, &ocr);
+		/* The initialization should be done at 3.3 V I/O voltage. */
+		mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330, 0);
+		/*
+		 * If the host supports any of the UHS modes, check whether
+		 * the card supports 1.8V signalling voltage.
+		 */
+		if (host->caps &
+			(MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
+			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104 |
+			MMC_CAP_UHS_DDR50)) {
+			ocr |= R4_18V_PRESENT;
+		}
+		err = mmc_send_io_op_cond(host, ocr, &ocr);
 		if (err)
 			goto err;
 	}
@@ -1023,8 +1035,7 @@ static int mmc_sdio_power_restore(struct mmc_host *host)
 		goto out;
 	}
 
-	ret = mmc_sdio_init_card(host, host->ocr, host->card,
-				mmc_card_keep_power(host));
+	ret = mmc_sdio_init_card(host, host->ocr, host->card, 0);
 	if (!ret && host->sdio_irqs)
 		mmc_signal_sdio_irq(host);
 
@@ -1209,6 +1220,7 @@ int sdio_reset_comm(struct mmc_card *card)
 	int err;
 
 	printk("%s():\n", __func__);
+
 	mmc_claim_host(host);
 
 	mmc_go_idle(host);
@@ -1225,46 +1237,8 @@ int sdio_reset_comm(struct mmc_card *card)
 		goto err;
 	}
 
-	err = mmc_send_io_op_cond(host, host->ocr, &ocr);
+	err = mmc_sdio_init_card(host, host->ocr, card, 0);
 	if (err)
-		goto err;
-
-	if (mmc_host_is_spi(host)) {
-		err = mmc_spi_set_crc(host, use_spi_crc);
-		if (err)
-			goto err;
-	}
-
-	if (!mmc_host_is_spi(host)) {
-		err = mmc_send_relative_addr(host, &card->rca);
-		if (err)
-			goto err;
-		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
-	}
-	if (!mmc_host_is_spi(host)) {
-		err = mmc_select_card(card);
-		if (err)
-			goto err;
-	}
-
-	/*
-	 * Switch to high-speed (if supported).
-	 */
-	err = sdio_enable_hs(card);
-	if (err > 0)
-		mmc_sd_go_highspeed(card);
-	else if (err)
-		goto err;
-
-	/*
-	 * Change to the card's maximum speed.
-	 */
-	mmc_set_clock(host, mmc_sdio_get_max_clock(card));
-
-	err = sdio_enable_4bit_bus(card);
-	if (err > 0)
-		mmc_set_bus_width(host, MMC_BUS_WIDTH_4);
-	else if (err)
 		goto err;
 
 	mmc_release_host(host);

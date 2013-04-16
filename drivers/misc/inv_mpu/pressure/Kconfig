@@ -1,7 +1,7 @@
 menuconfig: INV_SENSORS_PRESSURE
 	bool "Pressure Sensor Slaves"
 	depends on INV_SENSORS
-	default y
+	default n
 	help
 	  Select y to see a list of supported pressure sensors that can be
 	  integrated with the MPUxxxx set of motion processors.

@@ -45,6 +45,7 @@
 #include "cpuidle.h"
 #include "pm.h"
 #include "sleep.h"
+#include "timer.h"
 
 int tegra_lp2_exit_latency;
 static int tegra_lp2_power_off_time;
@@ -117,19 +118,24 @@ static int tegra_idle_enter_lp2(struct cpuidle_device *dev,
 		return tegra_idle_enter_lp3(dev, state);
 	}
 
+	trace_printk("LP2 entry at %lu us\n",
+		     (unsigned long)readl(IO_ADDRESS(TEGRA_TMR1_BASE)
+					  + TIMERUS_CNTR_1US));
+
 	local_irq_disable();
 	enter = ktime_get();
 
 	tegra_cpu_idle_stats_lp2_ready(dev->cpu);
 	tegra_idle_lp2(dev, state);
 
+	trace_printk("LP2 exit at %lu us\n",
+		     (unsigned long)readl(IO_ADDRESS(TEGRA_TMR1_BASE)
+					  + TIMERUS_CNTR_1US));
+
 	exit = ktime_sub(ktime_get(), enter);
 	us = ktime_to_us(exit);
 
 	local_irq_enable();
-
-	/* cpu clockevents may have been reset by powerdown */
-	hrtimer_peek_ahead_timers();
 
 	smp_rmb();
 
@@ -212,6 +218,8 @@ static int tegra_cpuidle_register_device(unsigned int cpu)
 static int tegra_cpuidle_pm_notify(struct notifier_block *nb,
 	unsigned long event, void *dummy)
 {
+	printk("%s start [%d]\n", __func__, event);  //for debug
+
 #ifdef CONFIG_PM_SLEEP
 	if (event == PM_SUSPEND_PREPARE)
 		lp2_disabled_by_suspend = true;

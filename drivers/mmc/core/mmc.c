@@ -96,6 +96,7 @@ static int mmc_decode_cid(struct mmc_card *card)
 		card->cid.prod_name[3]	= UNSTUFF_BITS(resp, 72, 8);
 		card->cid.prod_name[4]	= UNSTUFF_BITS(resp, 64, 8);
 		card->cid.prod_name[5]	= UNSTUFF_BITS(resp, 56, 8);
+		card->cid.prod_rev	= UNSTUFF_BITS(resp, 48, 8);
 		card->cid.serial	= UNSTUFF_BITS(resp, 16, 32);
 		card->cid.month		= UNSTUFF_BITS(resp, 12, 4);
 		card->cid.year		= UNSTUFF_BITS(resp, 8, 4) + 1997;
@@ -425,6 +426,11 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		/* Check whether the eMMC card supports background ops */
 		if (ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1)
 			card->ext_csd.bk_ops = 1;
+
+		/* Check whether the eMMC card needs proactive refresh */
+		if ((card->cid.manfid == 0x90) && ((card->cid.prod_rev == 0x73)
+			|| (card->cid.prod_rev == 0x7b)))
+			card->ext_csd.refresh = 1;
 	}
 
 	if (ext_csd[EXT_CSD_ERASED_MEM_CONT])
@@ -516,6 +522,7 @@ MMC_DEV_ATTR(hwrev, "0x%x\n", card->cid.hwrev);
 MMC_DEV_ATTR(manfid, "0x%06x\n", card->cid.manfid);
 MMC_DEV_ATTR(name, "%s\n", card->cid.prod_name);
 MMC_DEV_ATTR(oemid, "0x%04x\n", card->cid.oemid);
+MMC_DEV_ATTR(prv, "0x%x\n", card->cid.prod_rev);
 MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
 MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 		card->ext_csd.enhanced_area_offset);
@@ -532,6 +539,7 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_manfid.attr,
 	&dev_attr_name.attr,
 	&dev_attr_oemid.attr,
+	&dev_attr_prv.attr,
 	&dev_attr_serial.attr,
 	&dev_attr_enhanced_area_offset.attr,
 	&dev_attr_enhanced_area_size.attr,
@@ -672,6 +680,17 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (err)
 			goto free_card;
 
+		if (card->ext_csd.refresh) {
+			init_timer(&card->timer);
+			card->timer.data = (unsigned long) card;
+			card->timer.function = mmc_refresh;
+			card->timer.expires = MMC_BKOPS_INTERVAL <
+				MMC_REFRESH_INTERVAL ? MMC_BKOPS_INTERVAL :
+				MMC_REFRESH_INTERVAL;
+			card->timer.expires *= HZ;
+			card->timer.expires += jiffies;
+			add_timer(&card->timer);
+		}
 		/* If doing byte addressing, check if required to do sector
 		 * addressing.  Handle the case of <2GB cards needing sector
 		 * addressing.  See section 8.1 JEDEC Standard JED84-A441;
@@ -799,6 +818,12 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * Indicate DDR mode (if supported).
 	 */
 	if (mmc_card_highspeed(card)) {
+		
+		pr_debug("YJChae %s: mmc_card_highspeed card->ext_csd.card_type %d host->caps %d\n", mmc_hostname(card->host),
+					card->ext_csd.card_type, host->caps);
+		pr_debug("YJChae %s: mmc_card_highspeed EXT_CSD_CARD_TYPE_DDR_1_8V %d MMC_CAP_1_8V_DDR %d MMC_CAP_UHS_DDR50 %d\n", mmc_hostname(card->host),
+			EXT_CSD_CARD_TYPE_DDR_1_8V, MMC_CAP_1_8V_DDR, MMC_CAP_UHS_DDR50);
+
 		if ((card->ext_csd.card_type & EXT_CSD_CARD_TYPE_DDR_1_8V)
 			&& ((host->caps & (MMC_CAP_1_8V_DDR |
 			     MMC_CAP_UHS_DDR50))
@@ -809,7 +834,13 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			     MMC_CAP_UHS_DDR50))
 				== (MMC_CAP_1_2V_DDR | MMC_CAP_UHS_DDR50)))
 				ddr = MMC_1_2V_DDR_MODE;
+
+		
+		pr_debug("YJChae %s: set DDR mode [MMC_1_8V_DDR_MODE :2 || MMC_1_2V_DDR_MODE :1] %d \n", mmc_hostname(card->host),
+					ddr);
 	}
+	pr_debug("YJChae %s: set SDR mode [SDR 0] %d \n", mmc_hostname(card->host),
+					ddr);
 
 	/*
 	 * Activate wide bus and DDR (if supported).
@@ -832,6 +863,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			idx = 0;
 		else
 			idx = 1;
+
+		pr_debug("YJChae %s: index %d \n", mmc_hostname(card->host),idx);
 		for (; idx < ARRAY_SIZE(bus_widths); idx++) {
 			bus_width = bus_widths[idx];
 			if (bus_width == MMC_BUS_WIDTH_1)
@@ -840,6 +873,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					 EXT_CSD_BUS_WIDTH,
 					 ext_csd_bits[idx][0],
 					 0);
+			pr_debug("YJChae sdr ext_csd_bit for ext_csd_bits : %d, bus_width : %d \n", ext_csd_bits[idx][0], bus_width);
 			if (!err) {
 				mmc_set_bus_width(card->host, bus_width);
 
@@ -863,7 +897,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					 EXT_CSD_BUS_WIDTH,
 					 ext_csd_bits[idx][1],
 					 0);
+			pr_debug("YJChae sdr ext_csd_bit for ext_csd_bits : %d, bus_width : %d \n", ext_csd_bits[idx][0], bus_width);
 		}
+		
+		pr_debug("YJChae %s: before switch to bus width %d ddr %d \n", mmc_hostname(card->host),
+				1 << bus_width, ddr);
 		if (err) {
 			printk(KERN_WARNING "%s: switch to bus width %d ddr %d "
 				"failed\n", mmc_hostname(card->host),
@@ -893,6 +931,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			mmc_card_set_ddr_mode(card);
 			mmc_set_timing(card->host, MMC_TIMING_UHS_DDR50);
 			mmc_set_bus_width(card->host, bus_width);
+			pr_debug("YJChae %s: switch to bus width %d \n", mmc_hostname(card->host), 1 << bus_width, ddr);
 		}
 	}
 
@@ -957,13 +996,19 @@ static void mmc_detect(struct mmc_host *host)
  */
 static int mmc_suspend(struct mmc_host *host)
 {
+	int err;
+
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	if (!mmc_host_is_spi(host))
+	if (mmc_card_can_sleep(host)) {
+		err = mmc_card_sleep(host);
+		if (!err)
+			mmc_card_set_sleep(host->card);
+	} else if (!mmc_host_is_spi(host))
 		mmc_deselect_cards(host);
-	host->card->state &= ~MMC_STATE_HIGHSPEED;
+	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 	mmc_release_host(host);
 
 	return 0;
@@ -983,7 +1028,11 @@ static int mmc_resume(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	err = mmc_init_card(host, host->ocr, host->card);
+	if (mmc_card_is_sleep(host->card)) {
+		err = mmc_card_awake(host);
+		mmc_card_clr_sleep(host->card);
+	} else
+		err = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
 
 	return err;
@@ -993,7 +1042,8 @@ static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
 
-	host->card->state &= ~MMC_STATE_HIGHSPEED;
+	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
+	mmc_card_clr_sleep(host->card);
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);

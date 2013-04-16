@@ -2,6 +2,7 @@
  * drivers/cpufreq/cpufreq_interactive.c
  *
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -29,8 +30,11 @@
 
 #include <asm/cputime.h>
 
-static atomic_t active_count = ATOMIC_INIT(0);
-
+//                                                               
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+#include "../../arch/arm/mach-tegra/pm.h"
+#endif
+//                                                               
 struct cpufreq_interactive_cpuinfo {
 	struct timer_list cpu_timer;
 	int timer_idlecancel;
@@ -42,10 +46,20 @@ struct cpufreq_interactive_cpuinfo {
 	u64 freq_change_time;
 	u64 freq_change_time_in_idle;
 	u64 freq_change_time_in_iowait;
+	u64 last_high_freq_time;
 	struct cpufreq_policy *policy;
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int target_freq;
 	int governor_enabled;
+#if 1//def CONFIG_MACH_X3
+	unsigned long boosted;
+#endif /* CONFIG_MACH_X3 */
+	//                                                               
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+	unsigned int last_calc_loads;
+#endif
+	//                                                               
+
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -59,6 +73,9 @@ static spinlock_t up_cpumask_lock;
 static cpumask_t down_cpumask;
 static spinlock_t down_cpumask_lock;
 static struct mutex set_speed_lock;
+static struct mutex gov_state_lock;
+static struct kobject *interactive_kobj;
+static unsigned int active_count;
 
 /* Go to max speed when CPU load at or above this value. */
 #define DEFAULT_GO_MAXSPEED_LOAD 85
@@ -88,8 +105,79 @@ static unsigned long min_sample_time;
 /*
  * The sample rate of the timer used to increase frequency
  */
-#define DEFAULT_TIMER_RATE 10000;
+#define DEFAULT_TIMER_RATE 20000;
 static unsigned long timer_rate;
+
+/*
+ * The minimum delay before frequency is allowed to raise over normal rate.
+ * Since it must remain at high frequency for a minimum of MIN_SAMPLE_TIME
+ * once it rises, setting this delay to a multiple of MIN_SAMPLE_TIME
+ * becomes the best way to enforce a square wave.
+ * e.g. 5*MIN_SAMPLE_TIME = 20% high freq duty cycle
+ */
+#define DEFAULT_HIGH_FREQ_MIN_DELAY 5*DEFAULT_MIN_SAMPLE_TIME
+static unsigned long high_freq_min_delay;
+
+/*
+ * The maximum frequency CPUs are allowed to run normally
+ * 0 if disabled
+ */
+#define DEFAULT_MAX_NORMAL_FREQ 0
+static unsigned long max_normal_freq;
+
+
+/* Defines to control mid-range frequencies */
+#define DEFAULT_MID_RANGE_GO_MAXSPEED_LOAD 95
+
+static unsigned long midrange_freq;
+static unsigned long midrange_go_maxspeed_load;
+static unsigned long midrange_max_boost;
+
+#if 1//def CONFIG_MACH_X3
+/*
+ * Parameters for dynamic frequency mode
+ */
+struct dynamic_freq_param {
+	unsigned long max_boost;
+	unsigned long min_buck;
+	unsigned long go_downspeed_load;
+	unsigned long downsustain_load;
+	unsigned int freq_1up;
+	unsigned int freq_1dn;
+};
+
+struct cpufreq_interactive_dynamic_freq {
+	unsigned long go_upspeed_load;
+	unsigned long go_downspeed_load;
+	unsigned long boost_high_boundary;
+	unsigned long boost_low_boundary;
+	unsigned long boost_step;
+	unsigned long buck_step;
+
+	struct dynamic_freq_param *params;
+	struct cpufreq_frequency_table *freq_table;
+	unsigned int freq_num;
+
+	unsigned long enabled;
+};
+
+#define DEFAULT_GO_UPSPEED_LOAD		85
+#define DEFAULT_GO_DOWNSPEED_LOAD	70
+#define DEFAULT_BOOST_HIGH_BOUNDARY	300000
+#define DEFAULT_BOOST_LOW_BOUNDARY	300000
+#define DEFAULT_BOOST_STEP		2
+#define DEFAULT_BUCK_STEP		5
+
+static struct cpufreq_interactive_dynamic_freq dynamic_freq = {
+	.go_upspeed_load = DEFAULT_GO_UPSPEED_LOAD,
+	.go_downspeed_load = DEFAULT_GO_DOWNSPEED_LOAD,
+	.boost_high_boundary = DEFAULT_BOOST_HIGH_BOUNDARY,
+	.boost_low_boundary = DEFAULT_BOOST_LOW_BOUNDARY,
+	.boost_step = DEFAULT_BOOST_STEP,
+	.buck_step = DEFAULT_BUCK_STEP,
+	.enabled = 0,
+};
+#endif /* CONFIG_MACH_X3 */
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event);
@@ -103,12 +191,176 @@ struct cpufreq_governor cpufreq_gov_interactive = {
 	.max_transition_latency = 10000000,
 	.owner = THIS_MODULE,
 };
+#if 1//def CONFIG_MACH_X3
+static int _set_param_go_downspeed_load(int idx)
+{
+	unsigned int freq = dynamic_freq.freq_table[idx].frequency;
+	unsigned int freq_1dn = dynamic_freq.params[idx].freq_1dn;	
+	int downspeed_load = dynamic_freq.go_downspeed_load;
+	unsigned long dn_load;
+
+calc_downspeed_load:
+	for (dn_load = 1; dn_load <= 100; dn_load++) {
+		if ((freq_1dn * dn_load / freq) >= downspeed_load)
+			break;
+	}
+
+	if (dn_load >= 100) {
+		if (--downspeed_load > 0)
+			goto calc_downspeed_load;
+		else
+			downspeed_load = 100;
+	}
+
+	dynamic_freq.params[idx].go_downspeed_load = downspeed_load;
+	dynamic_freq.params[idx].downsustain_load = dn_load;
+	return 0;
+}
+
+static int _set_param_max_boost(int idx)
+{
+	struct cpufreq_frequency_table *freq_table = dynamic_freq.freq_table;
+	unsigned int freq_num = dynamic_freq.freq_num;
+	int boost_step = dynamic_freq.boost_step;
+	unsigned int freq;
+
+	if (boost_step <= 1) {
+		freq = dynamic_freq.params[idx].freq_1up;
+	} else {
+		if ((idx + boost_step) < freq_num)
+			freq = freq_table[idx + boost_step].frequency;
+		else
+			freq = freq_table[freq_num - 1].frequency;
+	}
+
+	dynamic_freq.params[idx].max_boost = freq - freq_table[idx].frequency;
+	return 0;
+}
+
+static int _set_param_min_buck(int idx)
+{
+	struct cpufreq_frequency_table *freq_table = dynamic_freq.freq_table;
+	int buck_step = dynamic_freq.buck_step;
+	unsigned int freq;
+
+	if (buck_step <= 1) {
+		freq = dynamic_freq.params[idx].freq_1dn;
+	} else {
+		if ((idx - buck_step) > 0)
+			freq = freq_table[idx - buck_step].frequency;
+		else
+			freq = freq_table[0].frequency;
+	}
+
+	dynamic_freq.params[idx].min_buck = freq_table[idx].frequency - freq;
+ 	return 0;
+}
+
+unsigned long cpufreq_interactive_get_boost_step(void)
+{
+	if (!dynamic_freq.enabled)
+		return 0;
+
+	return dynamic_freq.boost_step;
+}
+
+int cpufreq_interactive_set_boost_step(unsigned long val)
+{
+	int i;
+
+	if (!dynamic_freq.enabled || (dynamic_freq.boost_step == val))
+		return 0;
+
+	dynamic_freq.boost_step = val;
+	for (i = 0; i < dynamic_freq.freq_num; i++) {
+		if (dynamic_freq.freq_table[i].frequency ==
+				CPUFREQ_ENTRY_INVALID)
+			continue;
+		_set_param_max_boost(i);
+	}
+	return 0;
+}
+
+static int cpufreq_interactive_dynamic_freq_alloc(void)
+{
+	int i = 0;
+
+	dynamic_freq.freq_table = cpufreq_frequency_get_table(0);
+	while (dynamic_freq.freq_table[i].frequency != CPUFREQ_TABLE_END)
+		i++;
+	dynamic_freq.freq_num = i;
+
+	dynamic_freq.params = kzalloc(sizeof(struct dynamic_freq_param) * i,
+				      GFP_KERNEL);
+	if (!dynamic_freq.params) {
+		pr_err("%s: Failed to alloc memory for params\n", __func__);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void cpufreq_interactive_dynamic_freq_free(void)
+{
+	kfree(dynamic_freq.params);
+}
+
+static int cpufreq_interactive_dynamic_freq_init(void)
+{
+	struct cpufreq_frequency_table *freq_table;
+	struct dynamic_freq_param *param = NULL;
+	unsigned int freq = 0;
+	int i, ret;
+
+	if (!dynamic_freq.enabled)
+		return 0;
+
+	if (!dynamic_freq.params) {
+		ret = cpufreq_interactive_dynamic_freq_alloc();
+		if (ret < 0) {
+			dynamic_freq.enabled = 0;
+			return ret;		
+		}
+	}
+
+	freq_table = dynamic_freq.freq_table;
+	for (i = 0; i < dynamic_freq.freq_num; i++) {
+		freq = freq_table[i].frequency;
+		if (freq == CPUFREQ_ENTRY_INVALID)
+			continue;
+
+		param = &dynamic_freq.params[i];
+
+		if ((i + 1) < dynamic_freq.freq_num)
+			param->freq_1up = freq_table[i + 1].frequency;
+		else
+			param->freq_1up =
+				freq_table[dynamic_freq.freq_num - 1].frequency;
+
+		if ((i - 1) > 0)
+			param->freq_1dn = freq_table[i - 1].frequency;
+		else
+			param->freq_1dn = freq_table[0].frequency;
+
+		_set_param_go_downspeed_load(i);
+		_set_param_max_boost(i);
+		_set_param_min_buck(i);
+	}
+	return 0;
+}
+#endif /* CONFIG_MACH_X3 */
 
 static unsigned int cpufreq_interactive_get_target(
 	int cpu_load, int load_since_change, struct cpufreq_policy *policy)
 {
 	unsigned int target_freq;
-
+	unsigned int maxspeed_load = go_maxspeed_load;
+	unsigned int mboost = max_boost;
+#if 1//def CONFIG_MACH_X3
+	struct cpufreq_interactive_cpuinfo *pcpu = NULL;
+	struct dynamic_freq_param *param = NULL;
+	unsigned long low_boundary = 0;
+	unsigned long high_boundary = 0;
+#endif
 	/*
 	 * Choose greater of short-term load (since last idle timer
 	 * started or timer function re-armed itself) or long-term load
@@ -117,14 +369,78 @@ static unsigned int cpufreq_interactive_get_target(
 	if (load_since_change > cpu_load)
 		cpu_load = load_since_change;
 
-	if (cpu_load >= go_maxspeed_load) {
+	if (midrange_freq && policy->cur > midrange_freq) {
+		maxspeed_load = midrange_go_maxspeed_load;
+		mboost = midrange_max_boost;
+	}
+#if 1//def CONFIG_MACH_X3
+	if (dynamic_freq.enabled) {
+		int i;
+		pcpu = &per_cpu(cpuinfo, policy->cpu);
+		low_boundary = dynamic_freq.boost_low_boundary;
+		high_boundary = dynamic_freq.boost_high_boundary;
+		for (i = 0; i < dynamic_freq.freq_num; i++) {
+			if (policy->cur ==
+					dynamic_freq.freq_table[i].frequency) {
+				param = &dynamic_freq.params[i];
+				break;
+			} else if (policy->cur >
+					dynamic_freq.freq_table[i].frequency) {
+				param = &dynamic_freq.params[i];
+			}
+		}
+	}
+
+	if (cpu_load >= maxspeed_load) {
+		if (!dynamic_freq.enabled) {
+			if (!boost_factor)
+				return policy->max;
+			target_freq = policy->cur * boost_factor;
+			if (max_boost && target_freq > policy->cur + max_boost)
+				target_freq = policy->cur + max_boost;
+		} else {
+			if ((!pcpu->boosted && policy->cur <= high_boundary) ||
+					(policy->cur <= low_boundary))
+				target_freq = policy->cur + param->max_boost;
+			else
+				target_freq = param->freq_1up;
+
+			if (policy->cur > low_boundary)
+				pcpu->boosted++;
+		}
+	} else {
+		if (!dynamic_freq.enabled) {
+			if (!sustain_load)
+				return policy->max * cpu_load / 100;
+
+			target_freq = policy->cur * cpu_load / sustain_load;
+		} else {
+			if (cpu_load >= dynamic_freq.go_upspeed_load) {
+				target_freq = param->freq_1up;
+			} else if (sustain_load && cpu_load >= sustain_load) {
+				target_freq = policy->cur;
+			} else if (cpu_load >= param->go_downspeed_load) {
+				target_freq = param->freq_1dn;
+			} else {
+				target_freq = policy->cur * cpu_load /
+						param->downsustain_load;
+				if (target_freq < policy->cur - param->min_buck)
+					target_freq = policy->cur -
+						      param->min_buck;
+			}
+			pcpu->boosted = 0;
+		}
+	}
+
+#else
+	if (cpu_load >= maxspeed_load) {
 		if (!boost_factor)
 			return policy->max;
 
 		target_freq = policy->cur * boost_factor;
 
-		if (max_boost && target_freq > policy->cur + max_boost)
-			target_freq = policy->cur + max_boost;
+		if (mboost && target_freq > policy->cur + mboost)
+			target_freq = policy->cur + mboost;
 	}
 	else {
 		if (!sustain_load)
@@ -132,7 +448,7 @@ static unsigned int cpufreq_interactive_get_target(
 
 		target_freq = policy->cur * cpu_load / sustain_load;
 	}
-
+#endif /* CONFIG_MACH_X3 */
 	target_freq = min(target_freq, policy->max);
 	return target_freq;
 }
@@ -228,6 +544,13 @@ static void cpufreq_interactive_timer(unsigned long data)
 			100 * (delta_time - delta_idle) / delta_time;
 	}
 
+
+	//                                                               
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+	pcpu->last_calc_loads = cpu_load>load_since_change ? cpu_load : load_since_change;
+#endif
+	//                                                               
+
 	/*
 	 * Combine short-term load (since last idle timer started or timer
 	 * function re-armed itself) and long-term load (since last frequency
@@ -257,6 +580,20 @@ static void cpufreq_interactive_timer(unsigned long data)
 		if (cputime64_sub(pcpu->timer_run_time, pcpu->freq_change_time)
 		    < min_sample_time)
 			goto rearm;
+	}
+
+	/*
+	 * Can only overclock if the delay is satisfy. Otherwise, cap it to
+	 * maximum allowed normal frequency
+	 */
+	if (max_normal_freq && (new_freq > max_normal_freq)) {
+		if (cputime64_sub(pcpu->timer_run_time, pcpu->last_high_freq_time)
+				< high_freq_min_delay) {
+			new_freq = max_normal_freq;
+		}
+		else {
+			pcpu->last_high_freq_time = pcpu->timer_run_time;
+		}
 	}
 
 	if (new_freq < pcpu->target_freq) {
@@ -505,164 +842,154 @@ static void cpufreq_interactive_freq_down(struct work_struct *work)
 	}
 }
 
-static ssize_t show_go_maxspeed_load(struct kobject *kobj,
-				     struct attribute *attr, char *buf)
-{
-	return sprintf(buf, "%lu\n", go_maxspeed_load);
-}
+#define DECL_CPUFREQ_INTERACTIVE_ATTR(name) \
+static ssize_t show_##name(struct kobject *kobj, \
+	struct attribute *attr, char *buf) \
+{ \
+	return sprintf(buf, "%lu\n", name); \
+} \
+\
+static ssize_t store_##name(struct kobject *kobj,\
+		struct attribute *attr, const char *buf, size_t count) \
+{ \
+	int ret; \
+	unsigned long val; \
+\
+	ret = strict_strtoul(buf, 0, &val); \
+	if (ret < 0) \
+		return ret; \
+	name = val; \
+	return count; \
+} \
+\
+static struct global_attr name##_attr = __ATTR(name, 0644, \
+		show_##name, store_##name);
 
-static ssize_t store_go_maxspeed_load(struct kobject *kobj,
+DECL_CPUFREQ_INTERACTIVE_ATTR(go_maxspeed_load)
+DECL_CPUFREQ_INTERACTIVE_ATTR(midrange_freq)
+DECL_CPUFREQ_INTERACTIVE_ATTR(midrange_go_maxspeed_load)
+DECL_CPUFREQ_INTERACTIVE_ATTR(boost_factor)
+DECL_CPUFREQ_INTERACTIVE_ATTR(io_is_busy)
+DECL_CPUFREQ_INTERACTIVE_ATTR(max_boost)
+DECL_CPUFREQ_INTERACTIVE_ATTR(midrange_max_boost)
+DECL_CPUFREQ_INTERACTIVE_ATTR(sustain_load)
+DECL_CPUFREQ_INTERACTIVE_ATTR(min_sample_time)
+DECL_CPUFREQ_INTERACTIVE_ATTR(timer_rate)
+DECL_CPUFREQ_INTERACTIVE_ATTR(high_freq_min_delay)
+DECL_CPUFREQ_INTERACTIVE_ATTR(max_normal_freq)
+
+#undef DECL_CPUFREQ_INTERACTIVE_ATTR
+
+//                                                               
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+static ssize_t store_cores_states(struct kobject *kobj,
 			struct attribute *attr, const char *buf, size_t count)
 {
-	int ret;
-	unsigned long val;
-
-	ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
-	go_maxspeed_load = val;
-	return count;
-}
-
-static struct global_attr go_maxspeed_load_attr = __ATTR(go_maxspeed_load, 0644,
-		show_go_maxspeed_load, store_go_maxspeed_load);
-
-static ssize_t show_boost_factor(struct kobject *kobj,
-				     struct attribute *attr, char *buf)
-{
-	return sprintf(buf, "%lu\n", boost_factor);
-}
-
-static ssize_t store_boost_factor(struct kobject *kobj,
-			struct attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	unsigned long val;
-
-	ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
-	boost_factor = val;
-	return count;
-}
-
-static struct global_attr boost_factor_attr = __ATTR(boost_factor, 0644,
-		show_boost_factor, store_boost_factor);
-
-static ssize_t show_io_is_busy(struct kobject *kobj,
-				     struct attribute *attr, char *buf)
-{
-	return sprintf(buf, "%lu\n", io_is_busy);
-}
-
-static ssize_t store_io_is_busy(struct kobject *kobj,
-			struct attribute *attr, const char *buf, size_t count)
-{
-	if (!strict_strtoul(buf, 0, &io_is_busy))
+	unsigned long new_max_cores;
+	if (!strict_strtoul(buf, 0, &new_max_cores))
+	{		
+		switch(new_max_cores)
+		{
+			case 1:
+			case 2:
+			case 4:
+				cpufreq_limited_max_cores_expected = new_max_cores;
+				break;
+			default:
+				break;
+		}
 		return count;
+	}	
+
 	return -EINVAL;
 }
 
-static struct global_attr io_is_busy_attr = __ATTR(io_is_busy, 0644,
-		show_io_is_busy, store_io_is_busy);
-
-static ssize_t show_max_boost(struct kobject *kobj,
-				     struct attribute *attr, char *buf)
-{
-	return sprintf(buf, "%lu\n", max_boost);
-}
-
-static ssize_t store_max_boost(struct kobject *kobj,
-			struct attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	unsigned long val;
-
-	ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
-	max_boost = val;
-	return count;
-}
-
-static struct global_attr max_boost_attr = __ATTR(max_boost, 0644,
-		show_max_boost, store_max_boost);
-
-
-static ssize_t show_sustain_load(struct kobject *kobj,
-				     struct attribute *attr, char *buf)
-{
-	return sprintf(buf, "%lu\n", sustain_load);
-}
-
-static ssize_t store_sustain_load(struct kobject *kobj,
-			struct attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	unsigned long val;
-
-	ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
-	sustain_load = val;
-	return count;
-}
-
-static struct global_attr sustain_load_attr = __ATTR(sustain_load, 0644,
-		show_sustain_load, store_sustain_load);
-
-static ssize_t show_min_sample_time(struct kobject *kobj,
+static ssize_t show_cores_states(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {
-	return sprintf(buf, "%lu\n", min_sample_time);
+	//cluster check 
+	unsigned int is_lp = is_lp_cluster();
+	unsigned int cores[4];
+	unsigned int loads[4];
+	unsigned int i = 0;
+
+	struct cpufreq_interactive_cpuinfo *pcpu;
+
+	unsigned int freq = cpufreq_quick_get(0);
+
+	// initalize values
+	cores[0] = cores[1] = cores[2] = cores[3] = 0;	
+	loads[0] = loads[1] = loads[2] = loads[3] = 0;
+
+	//get value for online cpu
+	for_each_online_cpu(i) {
+		pcpu = &per_cpu(cpuinfo, i);
+		cores[i] = 1;
+		if( pcpu->last_calc_loads > 0 &&
+			pcpu->last_calc_loads < 101)
+		{
+			loads[i] = pcpu->last_calc_loads;				
+		}				
+	}		
+
+	return sprintf(buf, "%d %d %d %d %d %d %d %d %d %d %d\n", is_lp, 
+														cores[0],cores[1],cores[2],cores[3],
+														loads[0],loads[1],loads[2],loads[3],
+														freq, cpufreq_limited_max_cores_cur);
 }
 
-static ssize_t store_min_sample_time(struct kobject *kobj,
-			struct attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	unsigned long val;
+static struct global_attr cores_states_attr = __ATTR(cores_states, 0644,
+		show_cores_states, store_cores_states);
+#endif
+//                                                               
 
-	ret = strict_strtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
-	min_sample_time = val;
-	return count;
-}
-
-static struct global_attr min_sample_time_attr = __ATTR(min_sample_time, 0644,
-		show_min_sample_time, store_min_sample_time);
-
-static ssize_t show_timer_rate(struct kobject *kobj,
+static ssize_t show_dynamic_freq_mode(struct kobject *kobj,
 			struct attribute *attr, char *buf)
 {
-	return sprintf(buf, "%lu\n", timer_rate);
+	return sprintf(buf, "%lu\n", dynamic_freq.enabled);
 }
 
-static ssize_t store_timer_rate(struct kobject *kobj,
+static ssize_t store_dynamic_freq_mode(struct kobject *kobj,
 			struct attribute *attr, const char *buf, size_t count)
 {
-	int ret;
 	unsigned long val;
+	int ret;
 
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-	timer_rate = val;
+
+	if (val == dynamic_freq.enabled)
+		return count;
+
+	dynamic_freq.enabled = val;
+
+	cpufreq_interactive_dynamic_freq_init();
 	return count;
 }
 
-static struct global_attr timer_rate_attr = __ATTR(timer_rate, 0644,
-		show_timer_rate, store_timer_rate);
+static struct global_attr dynamic_freq_mode_attr = __ATTR(dynamic_freq_mode,
+		0644, show_dynamic_freq_mode, store_dynamic_freq_mode);
 
 static struct attribute *interactive_attributes[] = {
 	&go_maxspeed_load_attr.attr,
+	&midrange_freq_attr.attr,
+	&midrange_go_maxspeed_load_attr.attr,
 	&boost_factor_attr.attr,
 	&max_boost_attr.attr,
+	&midrange_max_boost_attr.attr,
 	&io_is_busy_attr.attr,
 	&sustain_load_attr.attr,
 	&min_sample_time_attr.attr,
+	&dynamic_freq_mode_attr.attr,
 	&timer_rate_attr.attr,
+	//                                                               
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+	&cores_states_attr.attr,
+#endif
+	//                                                               
+	&high_freq_min_delay_attr.attr,
+	&max_normal_freq_attr.attr,
 	NULL,
 };
 
@@ -700,26 +1027,43 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu->freq_change_time_in_iowait =
 				get_cpu_iowait_time(j, NULL);
 			pcpu->time_in_iowait = pcpu->freq_change_time_in_iowait;
-
+			if (!pcpu->last_high_freq_time)
+				pcpu->last_high_freq_time = pcpu->freq_change_time;
 			pcpu->timer_idlecancel = 1;
 			pcpu->governor_enabled = 1;
+//                                                               
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+		pcpu->last_calc_loads = 0;
+#endif
+//                                                               
 			smp_wmb();
 
 			if (!timer_pending(&pcpu->cpu_timer))
 				mod_timer(&pcpu->cpu_timer, jiffies + 2);
 		}
 
+		mutex_lock(&gov_state_lock);
+		active_count++;
 		/*
 		 * Do not register the idle hook and create sysfs
 		 * entries if we have already done so.
 		 */
-		if (atomic_inc_return(&active_count) > 1)
-			return 0;
-
-		rc = sysfs_create_group(cpufreq_global_kobject,
-				&interactive_attr_group);
-		if (rc)
-			return rc;
+		if (active_count == 1) {
+			rc = sysfs_create_group(cpufreq_global_kobject,
+					&interactive_attr_group);
+			interactive_kobj = kobject_create_and_add(
+						"gov_interactive",
+						cpufreq_global_kobject);
+			kobject_uevent(interactive_kobj, KOBJ_ADD);
+			if (rc) {
+				mutex_unlock(&gov_state_lock);
+				return rc;
+			}
+		}
+#if 1 //def CONFIG_MACH_X3
+		cpufreq_interactive_dynamic_freq_init();
+#endif
+		mutex_unlock(&gov_state_lock);
 
 		break;
 
@@ -740,11 +1084,18 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		}
 
 		flush_work(&freq_scale_down_work);
-		if (atomic_dec_return(&active_count) > 0)
-			return 0;
+		mutex_lock(&gov_state_lock);
 
-		sysfs_remove_group(cpufreq_global_kobject,
-				&interactive_attr_group);
+		active_count--;
+
+		if (active_count == 0) {
+			sysfs_remove_group(cpufreq_global_kobject,
+					&interactive_attr_group);
+			kobject_uevent(interactive_kobj, KOBJ_REMOVE);
+			kobject_put(interactive_kobj);
+		}
+
+		mutex_unlock(&gov_state_lock);
 
 		break;
 
@@ -785,10 +1136,15 @@ static int __init cpufreq_interactive_init(void)
 	unsigned int i;
 	struct cpufreq_interactive_cpuinfo *pcpu;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
-
+#if 1//def CONFIG_MACH_X3
+	int ret;
+#endif
 	go_maxspeed_load = DEFAULT_GO_MAXSPEED_LOAD;
+	midrange_go_maxspeed_load = DEFAULT_MID_RANGE_GO_MAXSPEED_LOAD;
 	min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
 	timer_rate = DEFAULT_TIMER_RATE;
+	high_freq_min_delay = DEFAULT_HIGH_FREQ_MIN_DELAY;
+	max_normal_freq = DEFAULT_MAX_NORMAL_FREQ;
 
 	/* Initalize per-cpu timers */
 	for_each_possible_cpu(i) {
@@ -797,12 +1153,20 @@ static int __init cpufreq_interactive_init(void)
 		pcpu->cpu_timer.function = cpufreq_interactive_timer;
 		pcpu->cpu_timer.data = i;
 	}
-
+#if 1//def CONFIG_MACH_X3
+	ret = cpufreq_interactive_dynamic_freq_alloc();
+	if (ret < 0)
+		return ret;
+#endif
 	up_task = kthread_create(cpufreq_interactive_up_task, NULL,
 				 "kinteractiveup");
-	if (IS_ERR(up_task))
+	if (IS_ERR(up_task)){
+#if 1//def CONFIG_MACH_X3 
+		goto err_free_dynamic_freq;
+#else
 		return PTR_ERR(up_task);
-
+#endif
+        }
 	sched_setscheduler_nocheck(up_task, SCHED_FIFO, &param);
 	get_task_struct(up_task);
 
@@ -819,6 +1183,7 @@ static int __init cpufreq_interactive_init(void)
 	spin_lock_init(&up_cpumask_lock);
 	spin_lock_init(&down_cpumask_lock);
 	mutex_init(&set_speed_lock);
+	mutex_init(&gov_state_lock);
 
 	idle_notifier_register(&cpufreq_interactive_idle_nb);
 
@@ -826,6 +1191,10 @@ static int __init cpufreq_interactive_init(void)
 
 err_freeuptask:
 	put_task_struct(up_task);
+#if 1//def CONFIG_MACH_X3
+err_free_dynamic_freq:
+	cpufreq_interactive_dynamic_freq_free();
+#endif
 	return -ENOMEM;
 }
 
@@ -841,6 +1210,9 @@ static void __exit cpufreq_interactive_exit(void)
 	kthread_stop(up_task);
 	put_task_struct(up_task);
 	destroy_workqueue(down_wq);
+#if 1//def CONFIG_MACH_X3
+	cpufreq_interactive_dynamic_freq_free();
+#endif
 }
 
 module_exit(cpufreq_interactive_exit);

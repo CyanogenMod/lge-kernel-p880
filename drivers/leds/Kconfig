@@ -383,6 +383,14 @@ config LEDS_ASIC3
 	  cannot be used. This driver supports hardware blinking with an on+off
 	  period from 62ms to 125s. Say Y to enable LEDs on the HP iPAQ hx4700.
 
+config LEDS_VU10_PWRKEY
+	bool "LED Vu1.0 Power Key"
+	depends on MACH_VU10
+	depends on LEDS_CLASS
+	default y
+	help
+	  This allows Power Key LED in Vu1.0.
+
 config LEDS_TRIGGERS
 	bool "LED Trigger support"
 	depends on LEDS_CLASS

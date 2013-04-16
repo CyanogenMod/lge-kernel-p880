@@ -249,7 +249,11 @@ static int tegra_pinmux_set_func(const struct tegra_pingroup_config *config)
 	if (mux < 0) {
 		pr_err("The pingroup %s is not supported option %s\n",
 			pingroup_name(pg), func_name(func));
+		//                                                                            
+#if defined(CONFIG_MACH_LGE)		
+#else
 		WARN_ON(1);
+#endif		
 		return -EINVAL;
 	}
 

@@ -45,11 +45,14 @@ struct tegra_twd_context {
 int tegra_twd_get_state(struct tegra_twd_context *context);
 void tegra_twd_suspend(struct tegra_twd_context *context);
 void tegra_twd_resume(struct tegra_twd_context *context);
+int tegra_get_linear_age(void);
 #else
 static inline int tegra_twd_get_state(struct tegra_twd_context *context)
 { return -ENODEV; }
 static inline void tegra_twd_suspend(struct tegra_twd_context *context) {}
 static inline void tegra_twd_resume(struct tegra_twd_context *context) {}
+static inline int tegra_get_linear_age()
+{ return -1; }
 #endif
 
 #endif /* _MACH_TEGRA_TIMER_H_ */

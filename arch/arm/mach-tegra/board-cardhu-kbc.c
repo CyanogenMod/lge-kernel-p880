@@ -122,6 +122,17 @@ int __init cardhu_scroll_init(void)
 		.debounce_interval = 10,	\
 	}
 
+#define GPIO_SW_KEY(_id, _gpio, _iswake)	\
+	{					\
+		.code = _id,			\
+		.gpio = _gpio,			\
+		.active_low = 1,		\
+		.desc = #_id,			\
+		.type = EV_SW,			\
+		.wakeup = _iswake,		\
+		.debounce_interval = 1,		\
+	}
+
 #define GPIO_IKEY(_id, _irq, _iswake, _deb)	\
 	{					\
 		.code = _id,			\
@@ -165,6 +176,7 @@ static struct gpio_keys_button cardhu_keys_e1291[] = {
 	[4] = GPIO_KEY(KEY_BACK, PQ0, 0),
 	[5] = GPIO_KEY(KEY_MENU, PQ1, 0),
 	[6] = GPIO_IKEY(KEY_POWER, TPS6591X_IRQ_BASE + TPS6591X_INT_PWRON, 1, 100),
+	[7] = GPIO_SW_KEY(SW_LID, TPS6591X_GPIO_5, 0),
 };
 
 static struct gpio_keys_button cardhu_keys_e1291_a04[] = {
@@ -174,7 +186,9 @@ static struct gpio_keys_button cardhu_keys_e1291_a04[] = {
 	[3] = GPIO_KEY(KEY_SEARCH, PQ3, 0),
 	[4] = GPIO_KEY(KEY_BACK, PQ0, 0),
 	[5] = GPIO_KEY(KEY_MENU, PQ1, 0),
-	[6] = GPIO_IKEY(KEY_POWER, TPS6591X_IRQ_BASE + TPS6591X_INT_PWRON, 1, 100),
+	[6] = GPIO_KEY(KEY_RESERVED, PV0, 1),
+	[7] = GPIO_IKEY(KEY_POWER, TPS6591X_IRQ_BASE + TPS6591X_INT_PWRON, 1, 100),
+	[8] = GPIO_SW_KEY(SW_LID, TPS6591X_GPIO_5, 0),
 };
 
 static struct gpio_keys_platform_data cardhu_keys_e1291_pdata = {
@@ -195,12 +209,12 @@ static struct gpio_keys_button cardhu_int_keys[] = {
 };
 
 static struct gpio_keys_button cardhu_pm298_int_keys[] = {
-	[0] = GPIO_IKEY(KEY_POWER, MAX77663_IRQ_BASE + MAX77663_IRQ_ONOFF_EN0_FALLING, 1, 100),
-	[1] = GPIO_IKEY(KEY_POWER, MAX77663_IRQ_BASE + MAX77663_IRQ_ONOFF_EN0_1SEC, 1, 3000),
+	[0] = GPIO_IKEY(KEY_POWER, MAX77663_IRQ_BASE + MAX77663_IRQ_ONOFF_EN0_FALLING, 0, 100),
+	[1] = GPIO_IKEY(KEY_POWER, MAX77663_IRQ_BASE + MAX77663_IRQ_ONOFF_EN0_1SEC, 0, 3000),
 };
 
 static struct gpio_keys_button cardhu_pm299_int_keys[] = {
-	[0] = GPIO_IKEY(KEY_POWER, RICOH583_IRQ_BASE + RICOH583_IRQ_ONKEY, 1, 100),
+	[0] = GPIO_KEY(KEY_POWER, PV0, 1),
 };
 
 static struct gpio_keys_platform_data cardhu_int_keys_pdata = {
@@ -230,6 +244,7 @@ int __init cardhu_keys_init(void)
 		(board_info.board_id == BOARD_E1257) ||
 		(board_info.board_id == BOARD_PM305) ||
 		(board_info.board_id == BOARD_PM311) ||
+		(board_info.board_id == BOARD_PM267) ||
 		(board_info.board_id == BOARD_PM269)))
 		return 0;
 
@@ -250,8 +265,6 @@ int __init cardhu_keys_init(void)
 				if (get_tegra_image_type() == rck_image)
 					cardhu_keys_e1291_pdata.buttons[i].code
 							= KEY_ENTER;
-			} else {
-				tegra_gpio_enable(gpio_nr);
 			}
 		}
 
@@ -263,8 +276,6 @@ int __init cardhu_keys_init(void)
 			if (gpio_nr < 0) {
 				if (get_tegra_image_type() == rck_image)
 					cardhu_keys_e1198[i].code = KEY_ENTER;
-			} else {
-				tegra_gpio_enable(gpio_nr);
 			}
 		}
 
@@ -290,6 +301,7 @@ int __init cardhu_keys_init(void)
 		(board_info.board_id == BOARD_E1186) ||
 		(board_info.board_id == BOARD_PM305) ||
 		(board_info.board_id == BOARD_PM311) ||
+		(board_info.board_id == BOARD_PM267) ||
 		(board_info.board_id == BOARD_PM269)) {
 		if (get_tegra_image_type() == rck_image)
 			cardhu_int_keys[0].code = KEY_ENTER;

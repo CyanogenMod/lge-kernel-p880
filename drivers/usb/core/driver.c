@@ -1251,6 +1251,10 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 	int			i;
 	struct usb_interface	*intf;
 
+    printk(KERN_INFO"%s ++(%d) udev->reset_resume=%d kobject_name(&dev->kobj)=%s udev->state=%d\n",
+                                   __func__,__LINE__,udev->reset_resume,
+                                   kobject_name(&udev->dev.kobj),udev->state);
+                                   
 	if (udev->state == USB_STATE_NOTATTACHED) {
 		status = -ENODEV;
 		goto done;
@@ -1258,8 +1262,13 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 	udev->can_submit = 1;
 
 	/* Resume the device */
+    #if 1 //NV Patch (1175097) - [X3/AP33/JB/USB-HSIC] reproduce USB protocol error (-71) [Start]
+	if (udev->state == USB_STATE_SUSPENDED)
+		status = usb_resume_device(udev, msg);
+    #else //original
 	if (udev->state == USB_STATE_SUSPENDED || udev->reset_resume)
 		status = usb_resume_device(udev, msg);
+    #endif //NV Patch (1175097) - [X3/AP33/JB/USB-HSIC] reproduce USB protocol error (-71) [End]
 
 	/* Resume the interfaces */
 	if (status == 0 && udev->actconfig) {
@@ -1275,6 +1284,10 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 	dev_vdbg(&udev->dev, "%s: status %d\n", __func__, status);
 	if (!status)
 		udev->reset_resume = 0;
+		
+    printk(KERN_INFO"%s --(%d) udev->reset_resume=%d kobject_name(&dev->kobj)=%s udev->state=%d status=%d\n",
+                         __func__,__LINE__,udev->reset_resume,
+                         kobject_name(&udev->dev.kobj),udev->state,status);
 	return status;
 }
 

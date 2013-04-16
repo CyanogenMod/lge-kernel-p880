@@ -1,0 +1,8 @@
+#menu "GCOV-based kernel profiling"
+config MHL_TX_SII9244
+	bool "CONFIG_MHL_TX_SII9244"
+	default n
+	help
+	  Support for SII9244 MHL driver.
+	  
+#endmenu

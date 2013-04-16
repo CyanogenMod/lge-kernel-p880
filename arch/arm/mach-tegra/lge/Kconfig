@@ -1,0 +1,320 @@
+config MACH_LGE
+	bool
+
+menu "LGE Device-Specific Changes"
+
+menu "LGE Board Selection"
+
+choice
+	prompt "LGE Board selection"
+	default MACH_X3
+	
+config MACH_LX
+	depends on ARCH_TEGRA
+	select MACH_LGE
+	select MACH_HAS_SND_SOC_TEGRA_MAX98088 if SND_SOC
+	bool "TEGRA LX"
+	help
+	  Support for the LGE LX   
+	  
+config MACH_X3
+	depends on ARCH_TEGRA
+	select MACH_LGE
+	select MACH_HAS_SND_SOC_TEGRA_MAX98088 if SND_SOC
+	bool "TEGRA X3"
+	help
+	  Support for the LGE X3   	  
+
+config MACH_VU10
+	depends on ARCH_TEGRA
+	select MACH_LGE
+	select MACH_HAS_SND_SOC_TEGRA_MAX98088 if SND_SOC
+	bool "TEGRA VU10"
+	help
+	  Support for the LGE VU10
+endchoice
+	  
+choice
+	depends on MACH_LX
+	prompt "LX Board Revision Selection"
+	default MACH_LX_REV_A
+		  
+config MACH_LX_REV_A
+	bool "TEGRA LX Rev_A board"
+	help
+	  Support for the LGE LX REV_A
+	  
+config MACH_LX_REV_B
+	bool "TEGRA LX Rev_B board"
+	help
+	  Support for the LGE LX REV_B	  
+endchoice 
+
+choice
+	prompt "LGE Board CP selection"
+	default MACH_PEGASUS
+		  
+config MACH_IFX
+	bool "LGE Board IFX CP"
+	help
+	  Support for the LGE Board IFX CP
+	  		  
+config MACH_PEGASUS
+	bool "LGE Board RMC CP (PEGASUS)"
+	help
+	  Support for the LGE Board PEGASUS CP
+endchoice 	   	  	  	  	  
+
+endmenu
+ 
+menu "LGE LCD / Backlight Selection"
+
+config MACH_BACKLIGHT_38_ADDR
+       bool "BACKLIGHT_38_ADDR"
+       default n
+       help
+         Support for the i2c 0x38 address. E1-2PT need to use this feature!
+
+choice
+	prompt "LGE Board Display Driver Selection "
+	default MACH_HD5_LGD
+
+config MACH_HD5_LGD
+       bool "TARGET_450_INCH_LGD"
+       help
+         Support for 4.5 inch LG Display
+	  
+config MACH_HD7_HITACHI
+	bool "TARGET_457_INCH_HITACHI"
+	help
+	  Support for 4.57 inch Hitachi Display
+
+config MACH_VIEW5_HITACHI
+	bool "TARGET_5_INCH_HITACHI"
+	help
+	  Support for 5.0 inch Hitachi Display
+
+endchoice
+	  
+config MACH_RGB_CONVERTOR_SPI
+	bool "MACH_RGB_CONVERTOR"
+	help
+	  Support for the RGB CONVERTOR	
+	  
+config SPI_SOLOMON_BRIDGE
+	depends on MACH_RGB_CONVERTOR_SPI
+	bool "MACH_SOLOMON_CONVERTOR"
+	help
+	  Support for the SOLOMON CONVERTOR
+	  
+config SPI_TOSHIBA_BRIDGE
+	depends on MACH_RGB_CONVERTOR_SPI
+	bool "MACH_TOSHIBA_CONVERTOR"
+	help
+	  Support for the TOSHIBA CONVERTOR	      	  	  
+
+source "drivers/video/tegra/mhl/Kconfig"
+
+config BACKLIGHT_LM353X
+    bool "national lm353X dc-dc Backlight"
+    #depends on BACKLIGHT_CLASS_DEVICE && MFD_AAT2870_CORE
+    help
+      If you have a national lm353X say Y to enable the
+      backlight driver
+
+endmenu
+
+comment "Bluetooth driver Selection"
+# LG_BTUI : X3_BT_bringup - kukdong.bae@lge.com [S] 
+config BCM4330_RFKILL
+    bool "Enable BCM4330 RFKILL driver"
+    depends on RFKILL
+    default n
+    ---help---
+    Adds BCM4330 RFKILL driver for Broadcom BCM4330 chipset
+
+config BRCM_LPM
+    bool "BRCM LPM - Low Power Mode"
+    depends on BCM4330_RFKILL
+
+config BRCM_BT_WAKE
+    bool "BRCM BT Wakeup"
+    depends on BRCM_LPM
+
+config BRCM_HOST_WAKE
+    bool "BRCM Host Wakeup"
+    depends on BRCM_LPM
+
+config BD_ADDRESS
+    bool "Read/Write Bluetooth Address"
+    default n
+    ---help---
+    LGE added: It supports Bluetooth address Read / Write functionality on user mode.
+# LG_BTUI : X3_BT_bringup - kukdong.bae@lge.com [E]
+
+#source "drivers/misc/k3gtr/Kconfig"
+
+source "drivers/misc/inv_mpu/Kconfig"
+
+comment "Battery / Charger / Muic driver Selection"
+
+config LGE_BATTERY
+    bool "LG Battery Driver"
+    help
+      Say Y to enable support for battery driver.
+
+config MAX8971_CHARGER
+    bool "MAX8971 charger support"
+    help
+      Say Y here to enable support for the charger in the maxim MAX8971 charger.
+
+#20110816 pyocool.cho@lge.com "for fuel gauge max17043" start
+config BATTERY_MAX17043
+    tristate "Maxim MAX17043 Fuel Gauge"
+    depends on I2C 
+    help
+      MAX17043 is fuel-gauge systems for lithium-ion (Li+) batteries in 
+      handheld and portable equipment. The MAX17043 is configured to 
+      operate with a single lithium cell
+#20110816 pyocool.cho@lge.com "for fuel gauge max17043" end
+
+#20111213 pyocool.cho@lge.com "for tsc2007 adc" start
+config ADC_TSC2007
+	bool "TSC2007 ADC Driver"
+	default n
+	help
+	  Say Y here to enable support ADC in TSC2007
+#20111213 pyocool.cho@lge.com "for tsc2007 adc" end
+
+source "drivers/misc/muic/Kconfig"
+
+comment "Touch driver Selection"
+
+config TOUCHSCREEN_SYNAPTICS_COMMON
+    tristate "Touch touchscreen for SYNAPTICS chipset"
+    depends on I2C
+    help
+      This enables support for Synaptics I2C based touchscreens.
+
+choice
+	depends on TOUCHSCREEN_SYNAPTICS_COMMON
+	prompt "Touch selection"
+	default TOUCHSCREEN_SYNAPTICS_T3203
+
+config TOUCHSCREEN_SYNAPTICS_T3203
+	bool "SYNAPTICS T3203"
+	help
+	  This enables support for Synaptics T3203 over I2C based touchscreens
+	  		  
+config TOUCHSCREEN_SYNAPTICS_TM2195
+	bool "SYNAPTICS TM2195"
+	help
+	  This enables support for Synaptics T3203 over I2C based touchscreens        
+	  
+config TOUCHSCREEN_SYNAPTICS_LGE_f100
+    bool "LGE LTE SYNAPTICS chipset"
+    help
+      This enables support for Synaptics F100 5inch over I2C based touchscreens.  
+endchoice 	   
+
+
+config LGE_TOUCH_SYNAPTICS_FW_UPGRADE
+    bool "Synaptics ClearPad General F/W upgread"
+    depends on TOUCHSCREEN_SYNAPTICS_T1320_HD
+    help
+      This enables support for Synaptics general F/W upgrade.
+
+
+comment "Camera driver Selection"
+
+config VIDEO_IMX111
+        tristate "IMX111 camera sensor support"
+        depends on I2C && ARCH_TEGRA
+        default y
+        ---help---
+          This is a driver for the IMX111 camera sensor
+          for use with the tegra isp.
+
+config VIDEO_IMX119
+        tristate "IMX119 camera sensor support"
+        depends on I2C && ARCH_TEGRA
+        ---help---
+          This is a driver for the Sony IMX119 camera sensor
+          for use with the tegra isp.
+
+config VIDEO_MT9M114
+        tristate "MT9M114 camera sensor support"
+        depends on I2C && ARCH_TEGRA
+        ---help---
+          This is a driver for the MT9M114 camera sensor.
+
+config REGULATOR_CAM_SUBPMIC_LP8720
+    bool "SUB PMIC LP8720"
+    depends on I2C 
+    default y
+    help
+      Support for LP8720 SUB PMIC driver
+
+comment "Debug/ Vibrator/ etc driver Selection"
+
+config LGE_ERS
+    bool "LG Error Reporting System Device Driver"
+    default n
+    ---help---
+    LG Error Reporting System Device Driver
+
+config LGE_NXP_NFC
+    bool "LGE NXP NFC"
+    default n
+    help
+      LGE NXP NFC
+
+config NFC_DEVICES
+    bool "Near Field Communication (NFC) devices"
+    default n
+    help
+      NFC DEVICES
+      
+config LGE_NFC_PN544
+    bool "LGE NFC PN544"
+    default n
+    help
+      LGE NFC PN544
+
+config TSPDRV
+    bool "tspdrv"
+    default y
+
+config REBOOT_MONITOR
+      depends on ANDROID_RAM_CONSOLE
+      default n
+      bool "Support Reboot Monitor"
+      help
+       Panic and System Reboot Monitoring for Hidden Reset and log service	  
+
+config PMIC_POWERKEY
+      default n
+      bool "Support PMIC Powerkey"
+
+config MACH_X3_DUMP_GPIO
+	depends on MACH_X3
+	bool "GPIO Dump to debug sleep current"
+	help
+	  Support for the LGE GPIO DUMP
+	  	      	
+config CPWATCHER
+      bool "CP Status Watcher Driver"
+      default y      
+      help
+        Support for CP Status Watcher driver
+
+comment "Kernel Debug Selection" 
+config PANICRPT
+	bool "Enable Kernel Panic Dump Tool"
+	depends on MACH_LX
+	default n
+	help
+	  If you want to enable kernel panic dump tool , then say Y
+endmenu
+
+

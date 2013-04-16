@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (C) 2010-2011 NVIDIA Corporation
+ * Copyright (c) 2010-2012, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -321,10 +321,8 @@ int tegra_edid_mode_support_stereo(struct fb_videomode *mode)
 		((mode->refresh == 60) || (mode->refresh == 50)))
 		return 1;
 
-	/* Disabling 1080p stereo mode due to bug 869099. */
-	/* Must re-enable this to 1 once it is fixed. */
 	if (mode->xres == 1920 && mode->yres == 1080 && mode->refresh == 24)
-		return 0;
+		return 1;
 
 	return 0;
 }

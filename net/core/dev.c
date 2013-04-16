@@ -172,7 +172,11 @@
 
 #define PTYPE_HASH_SIZE	(16)
 #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
-
+//                                                                             
+#ifndef CONFIG_WIFI_NOTI_ERRNO
+#define CONFIG_WIFI_NOTI_ERRNO		1
+#endif
+//                                                                           
 static DEFINE_SPINLOCK(ptype_lock);
 static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
 static struct list_head ptype_all __read_mostly;	/* Taps */
@@ -1152,20 +1156,32 @@ static int __dev_open(struct net_device *dev)
 
 	if (!netif_device_present(dev))
 		return -ENODEV;
-
+//                                                                                          
 	ret = call_netdevice_notifiers(NETDEV_PRE_UP, dev);
-	ret = notifier_to_errno(ret);
+	//                                                                         
+	ret = notifier_to_errno(ret);	
+	//                                                                    
+#if CONFIG_WIFI_NOTI_ERRNO	
 	if (ret)
 		return ret;
+#endif
 
 	set_bit(__LINK_STATE_START, &dev->state);
 
-	if (ops->ndo_validate_addr)
+	if (ops->ndo_validate_addr) {
 		ret = ops->ndo_validate_addr(dev);
+	}
 
-	if (!ret && ops->ndo_open)
+#if CONFIG_WIFI_NOTI_ERRNO 
+	if (!ret && ops->ndo_open) {
 		ret = ops->ndo_open(dev);
-
+	}
+#else
+	if (ops->ndo_open) {
+		ret = ops->ndo_open(dev);
+	}
+#endif
+//                                                                                       
 	if (ret)
 		clear_bit(__LINK_STATE_START, &dev->state);
 	else {

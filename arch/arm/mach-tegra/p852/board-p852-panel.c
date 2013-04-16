@@ -25,13 +25,14 @@
 #include <linux/nvhost.h>
 #include <linux/platform_device.h>
 #include <asm/mach-types.h>
-#include <mach/nvmap.h>
+#include <linux/nvmap.h>
 #include <mach/irqs.h>
 #include <mach/iomap.h>
 #include <mach/dc.h>
 #include <mach/fb.h>
 
 #include "board-p852.h"
+#include "../tegra2_host1x_devices.h"
 
 #define CARVEOUT_IRAM {\
 	.name = "iram",\
@@ -175,7 +176,7 @@ int __init p852_panel_init(void)
 		return err;
 
 #ifdef CONFIG_TEGRA_GRHOST
-	err = nvhost_device_register(&tegra_grhost_device);
+	err = tegra2_register_host1x_devices();
 	if (err)
 		return err;
 #endif

@@ -36,6 +36,8 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/f_mtp.h>
 
+#define CONFIG_MTP_RELEASE_ISSUE_APPLY //(usb)acespirit 2013.1.9
+
 #define MTP_BULK_BUFFER_SIZE       16384
 #define INTR_BUFFER_SIZE           28
 
@@ -79,7 +81,11 @@ struct mtp_dev {
 	struct usb_ep *ep_intr;
 
 	int state;
-
+#ifdef CONFIG_MTP_RELEASE_ISSUE_APPLY //(usb)acespirit 2013.1.9
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER //                                                                   
+	bool check_mtp_release;
+#endif
+#endif //CONFIG_MTP_RELEASE_ISSUE_APPLY
 	/* synchronize access to our device file */
 	atomic_t open_excl;
 	/* to enforce only one ioctl at a time */
@@ -953,6 +959,11 @@ static int mtp_open(struct inode *ip, struct file *fp)
 		_mtp_dev->state = STATE_READY;
 
 	fp->private_data = _mtp_dev;
+#ifdef CONFIG_MTP_RELEASE_ISSUE_APPLY //(usb)acespirit 2013.1.9
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER //                                                                   
+	_mtp_dev->check_mtp_release = true;
+#endif
+#endif //CONFIG_MTP_RELEASE_ISSUE_APPLY
 	return 0;
 }
 
@@ -961,6 +972,11 @@ static int mtp_release(struct inode *ip, struct file *fp)
 	printk(KERN_INFO "mtp_release\n");
 
 	mtp_unlock(&_mtp_dev->open_excl);
+#ifdef CONFIG_MTP_RELEASE_ISSUE_APPLY //(usb)acespirit 2013.1.9
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER //                                                                     
+	_mtp_dev->check_mtp_release = false;
+#endif
+#endif //CONFIG_MTP_RELEASE_ISSUE_APPLY
 	return 0;
 }
 
@@ -1088,6 +1104,11 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 		return id;
 	mtp_interface_desc.bInterfaceNumber = id;
 
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER
+	/* for ptp & MS desc source from 8960 */
+	ptp_interface_desc.bInterfaceNumber = id;
+	mtp_ext_config_desc.function.bFirstInterfaceNumber = id;
+#endif
 	/* allocate endpoints */
 	ret = mtp_create_bulk_endpoints(dev, &mtp_fullspeed_in_desc,
 			&mtp_fullspeed_out_desc, &mtp_intr_desc);
@@ -1114,7 +1135,16 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct mtp_dev	*dev = func_to_mtp(f);
 	struct usb_request *req;
 	int i;
-
+#ifdef CONFIG_MTP_RELEASE_ISSUE_APPLY //(usb)acespirit 2013.1.9
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER //                                                                           
+	if(_mtp_dev->check_mtp_release)
+	{
+		msleep(200);
+		mtp_function_unbind(c, f);
+		return;
+	}
+#endif
+#endif //CONFIG_MTP_RELEASE_ISSUE_APPLY
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
 		mtp_request_free(req, dev->ep_in);
 	for (i = 0; i < RX_REQ_MAX; i++)
@@ -1232,7 +1262,11 @@ static int mtp_setup(void)
 	}
 	INIT_WORK(&dev->send_file_work, send_file_work);
 	INIT_WORK(&dev->receive_file_work, receive_file_work);
-
+#ifdef CONFIG_MTP_RELEASE_ISSUE_APPLY //(usb)acespirit 2013.1.9
+#ifdef CONFIG_LGE_USB_GADGET_DRIVER //                                                                    
+	dev->check_mtp_release = false;
+#endif
+#endif //CONFIG_MTP_RELEASE_ISSUE_APPLY
 	_mtp_dev = dev;
 
 	ret = misc_register(&mtp_device);

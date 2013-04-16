@@ -40,7 +40,6 @@
 #include "board.h"
 #include "board-kai.h"
 #include "pm.h"
-#include "wakeups-t3.h"
 #include "tegra3_tsensor.h"
 
 #define PMC_CTRL		0x0
@@ -178,16 +177,16 @@ static struct max77663_regulator_fps_cfg max77663_fps_cfgs[] = {
 	}
 
 MAX77663_PDATA_INIT(sd0,  600000, 3387500, NULL, 1, 0, 0,
-		    0, 0, -1, FPS_SRC_NONE, -1, -1, EN2_CTRL_SD0 | SD_FSRADE_DISABLE);
+		    0, 0, -1, FPS_SRC_NONE, -1, -1, EN2_CTRL_SD0);
 
 MAX77663_PDATA_INIT(sd1,  800000, 1587500, NULL, 1, 0, 0,
-		    1, 1, -1, FPS_SRC_1, -1, -1, SD_FSRADE_DISABLE);
+		    1, 1, -1, FPS_SRC_1, FPS_POWER_PERIOD_1, FPS_POWER_PERIOD_6, 0);
 
 MAX77663_PDATA_INIT(sd2,  1800000, 1800000, NULL, 1, 0, 0,
-		    1, 1, -1, FPS_SRC_NONE, -1, -1, 0);
+		    1, 1, -1, FPS_SRC_0, -1, -1, 0);
 
 MAX77663_PDATA_INIT(sd3,  600000, 3387500, NULL, 1, 0, 0,
-		    1, 1, -1, FPS_SRC_NONE, -1, -1, 0);
+		    1, 1, -1, FPS_SRC_0, -1, -1, 0);
 
 MAX77663_PDATA_INIT(ldo0, 800000, 2350000, max77663_rails(sd3), 1, 0, 0,
 		    1, 1, -1, FPS_SRC_1, -1, -1, 0);
@@ -199,10 +198,10 @@ MAX77663_PDATA_INIT(ldo2, 800000, 3950000, NULL, 1, 0, 0,
 		    1, 1, -1, FPS_SRC_1, -1, -1, 0);
 
 MAX77663_PDATA_INIT(ldo3, 800000, 3950000, NULL, 1, 0, 0,
-		    1, 1, -1, FPS_SRC_NONE, -1, -1, 0);
+		    1, 1, -1, FPS_SRC_1, -1, -1, 0);
 
 MAX77663_PDATA_INIT(ldo4, 800000, 1587500, NULL, 0, 0, 0,
-		    1, 1, 1000000, FPS_SRC_NONE, -1, -1, LDO4_EN_TRACKING);
+		    1, 1, 1000000, FPS_SRC_0, -1, -1, LDO4_EN_TRACKING);
 
 MAX77663_PDATA_INIT(ldo5, 800000, 2800000, NULL, 0, 0, 0,
 		    1, 1, -1, FPS_SRC_NONE, -1, -1, 0);
@@ -272,9 +271,9 @@ static struct max77663_gpio_config max77663_gpio_cfgs[] = {
 	{
 		.gpio = MAX77663_GPIO3,
 		.dir = GPIO_DIR_OUT,
-		.dout = GPIO_DOUT_HIGH,
+		.dout = GPIO_DOUT_LOW,
 		.out_drv = GPIO_OUT_DRV_OPEN_DRAIN,
-		.alternate = GPIO_ALT_DISABLE,
+		.alternate = GPIO_ALT_ENABLE,
 	},
 	{
 		.gpio = MAX77663_GPIO4,
@@ -459,7 +458,7 @@ FIXED_REG(3, en_1v8_cam_a00,	en_1v8_cam,		max77663_rails(sd2),
 FIXED_REG(4, en_vddio_vid_a00,	en_vddio_vid,		NULL,
 	0,	0,	TEGRA_GPIO_PB2,				true,	0,	5000);
 FIXED_REG(5, en_3v3_modem_a00,	en_3v3_modem,		NULL,
-	1,	1,	TEGRA_GPIO_PP0,				true,	0,	3300);
+	0,	1,	TEGRA_GPIO_PP0,				true,	0,	3300);
 FIXED_REG(6, en_vdd_pnl_a00,	en_vdd_pnl,		FIXED_SUPPLY(en_3v3_sys_a00),
 	0,	0,	TEGRA_GPIO_PW1,				true,	0,	3300);
 FIXED_REG(7, en_cam3_ldo_a00,	en_cam3_ldo,		FIXED_SUPPLY(en_3v3_sys_a00),
@@ -483,9 +482,9 @@ FIXED_REG(3, en_1v8_cam_a01,	en_1v8_cam,		max77663_rails(sd2),
 FIXED_REG(4, en_vddio_vid_a01,	en_vddio_vid,		NULL,
 	0,	0,	TEGRA_GPIO_PB2,				true,	0,	5000);
 FIXED_REG(5, en_3v3_modem_a01,	en_3v3_modem,		NULL,
-	1,	1,	TEGRA_GPIO_PP0,				true,	0,	3300);
+	0,	1,	TEGRA_GPIO_PP0,				true,	0,	3300);
 FIXED_REG(6, en_vdd_pnl_a01,	en_vdd_pnl,		FIXED_SUPPLY(en_3v3_sys_a01),
-	0,	0,	TEGRA_GPIO_PW1,				true,	0,	3300);
+	0,	1,	TEGRA_GPIO_PW1,				true,	0,	3300);
 FIXED_REG(7, en_cam3_ldo_a01,	en_cam3_ldo,		FIXED_SUPPLY(en_3v3_sys_a01),
 	0,	0,	TEGRA_GPIO_PR7,				true,	0,	3300);
 FIXED_REG(8, en_vdd_com_a01,	en_vdd_com,		FIXED_SUPPLY(en_3v3_sys_a01),
@@ -567,8 +566,6 @@ static int __init kai_fixed_regulator_init(void)
 			fixed_reg_devs[i]->dev.platform_data;
 		gpio_nr = fixed_reg_pdata->gpio;
 
-		if (gpio_nr < TEGRA_NR_GPIOS)
-			tegra_gpio_enable(gpio_nr);
 	}
 
 	return platform_add_devices(fixed_reg_devs, nfixreg_devs);
@@ -617,6 +614,14 @@ static struct tegra_suspend_platform_data kai_suspend_data = {
 	.cpu_lp2_min_residency = 2000,
 	.board_suspend = kai_board_suspend,
 	.board_resume = kai_board_resume,
+#ifdef CONFIG_TEGRA_LP1_950
+	.lp1_lowvolt_support = true,
+	.i2c_base_addr = TEGRA_I2C5_BASE,
+	.pmuslave_addr = 0x78,
+	.core_reg_addr = 0x17,
+	.lp1_core_volt_low = 0x0C,
+	.lp1_core_volt_high = 0x20,
+#endif
 };
 
 int __init kai_suspend_init(void)

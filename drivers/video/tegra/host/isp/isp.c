@@ -21,8 +21,15 @@
 #include "dev.h"
 #include "bus_client.h"
 
-static int __devinit isp_probe(struct nvhost_device *dev)
+static int __devinit isp_probe(struct nvhost_device *dev,
+	struct nvhost_device_id *id_table)
 {
+	int err = 0;
+
+	err = nvhost_client_device_get_resources(dev);
+	if (err)
+		return err;
+
 	return nvhost_client_device_init(dev);
 }
 
@@ -32,6 +39,7 @@ static int __exit isp_remove(struct nvhost_device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
 static int isp_suspend(struct nvhost_device *dev, pm_message_t state)
 {
 	return nvhost_client_device_suspend(dev);
@@ -42,8 +50,7 @@ static int isp_resume(struct nvhost_device *dev)
 	dev_info(&dev->dev, "resuming\n");
 	return 0;
 }
-
-struct nvhost_device *isp_device;
+#endif
 
 static struct nvhost_driver isp_driver = {
 	.probe = isp_probe,
@@ -60,16 +67,6 @@ static struct nvhost_driver isp_driver = {
 
 static int __init isp_init(void)
 {
-	int err;
-
-	isp_device = nvhost_get_device("isp");
-	if (!isp_device)
-		return -ENXIO;
-
-	err = nvhost_device_register(isp_device);
-	if (err)
-		return err;
-
 	return nvhost_driver_register(&isp_driver);
 }
 

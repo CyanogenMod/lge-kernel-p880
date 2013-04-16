@@ -14,6 +14,12 @@ obj-$(CONFIG_TOUCHSCREEN_AD7879_SPI)	+= ad7879-spi.o
 obj-$(CONFIG_TOUCHSCREEN_ADS7846)	+= ads7846.o
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT)	+= atmel_mxt_ts.o
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_TSADCC)	+= atmel_tsadcc.o
+obj-$(CONFIG_TOUCHSCREEN_ATMEL_MT_T9)   += atmel_maxtouch.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_T1320)     += synaptics1320_ts.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_T1320_HD)  += touch_synaptics_rmi4_i2c.o
+obj-$(CONFIG_LGE_TOUCH_SYNAPTICS_FW_UPGRADE)  += touch_synaptics_fw_upgrade.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_T3000)     += lge_touch_driver.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_T3000)     += lge_touch_synaptics.o
 obj-$(CONFIG_TOUCHSCREEN_BITSY)		+= h3600_ts_input.o
 obj-$(CONFIG_TOUCHSCREEN_BU21013)       += bu21013_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CY8CTMG110)	+= cy8ctmg110_ts.o
@@ -64,3 +70,14 @@ obj-$(CONFIG_TOUCHSCREEN_W90X900)	+= w90p910_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_RM31080A)	+= rm31080a_ts.o
 obj-$(CONFIG_TOUCHSCREEN_SYN_RMI4_SPI)  += rmi4/
+ifeq ($(CONFIG_MACH_X3),y)
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_COMMON)	+= lge_touch_core.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_COMMON)	+= touch_synaptics.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_COMMON)	+= touch_synaptics_fw_upgrade_2.o
+endif
+
+ifeq ($(CONFIG_MACH_VU10),y)
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_COMMON)	+= lge_touch_core_vu_global.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_COMMON)	+= touch_synaptics_vu_global.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_COMMON)	+= touch_synaptics_fw_upgrade_2_vu_global.o
+endif

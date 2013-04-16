@@ -3,7 +3,7 @@
  *
  * NCT1008, temperature monitoring device from ON Semiconductors
  *
- * Copyright (c) 2010, NVIDIA Corporation.
+ * Copyright (c) 2010-2012, NVIDIA Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,12 +24,15 @@
 #define _LINUX_NCT1008_H
 
 #include <linux/types.h>
+#include <linux/workqueue.h>
 
 #include <mach/edp.h>
 
 #define MAX_ZONES	16
 
 struct nct1008_data;
+
+enum nct1008_chip { NCT1008, NCT72 };
 
 struct nct1008_platform_data {
 	bool supported_hwrev;
@@ -56,6 +59,7 @@ struct nct1008_data {
 	u8 config;
 	s8 *limits;
 	u8 limits_sz;
+	enum nct1008_chip chip;
 	void (*alarm_fn)(bool raised);
 	struct regulator *nct_reg;
 	long current_lo_limit;
@@ -64,10 +68,14 @@ struct nct1008_data {
 
 	void (*alert_func)(void *);
 	void *alert_data;
+	bool running; //                                   
+	bool irq_running; //                                  
 };
 
 #ifdef CONFIG_SENSORS_NCT1008
 int nct1008_thermal_get_temp(struct nct1008_data *data, long *temp);
+int nct1008_thermal_get_temps(struct nct1008_data *data, long *etemp,
+				long *itemp);
 int nct1008_thermal_get_temp_low(struct nct1008_data *data, long *temp);
 int nct1008_thermal_set_limits(struct nct1008_data *data,
 				long lo_limit_milli,
@@ -80,6 +88,9 @@ int nct1008_thermal_set_shutdown_temp(struct nct1008_data *data,
 #else
 static inline int nct1008_thermal_get_temp(struct nct1008_data *data,
 						long *temp)
+{ return -EINVAL; }
+static inline int nct1008_thermal_get_temps(struct nct1008_data *data,
+						long *etemp, long *itemp)
 { return -EINVAL; }
 static inline int nct1008_thermal_get_temp_low(struct nct1008_data *data,
 						long *temp)

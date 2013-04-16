@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Copyright (C) 2011 Atmel Corporation
- * Copyright (C) 2011 NVIDIA Corporation
+ * Copyright (C) 2011-2012 NVIDIA Corporation
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
  *
  * This program is free software; you can redistribute  it and/or modify it
@@ -25,6 +25,8 @@
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif
+#define CREATE_TRACE_POINTS
+#include <trace/events/nvevent.h>
 
 /* Family ID */
 #define MXT224_ID		0x80
@@ -716,6 +718,7 @@ static void mxt_input_touchevent(struct mxt_data *data,
 	finger[id].area = area;
 	finger[id].pressure = pressure;
 
+	trace_nvevent_irq_data_submit("mxt_input_touchevent");
 	mxt_input_report(data, id);
 }
 
@@ -728,11 +731,15 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 	int touchid;
 	u8 reportid;
 
+	trace_nvevent_irq_data_read_start_series("mxt_input_interrupt");
 	do {
+		trace_nvevent_irq_data_read_start_single("mxt_input_interrupt");
 		if (mxt_read_message(data, &message)) {
 			dev_err(dev, "Failed to read message\n");
 			goto end;
 		}
+		trace_nvevent_irq_data_read_finish_single(
+					"mxt_input_interrupt");
 
 		reportid = message.reportid;
 
@@ -751,6 +758,7 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 		} else if (reportid != MXT_RPTID_NOMSG)
 			mxt_dump_message(dev, &message);
 	} while (reportid != MXT_RPTID_NOMSG);
+	trace_nvevent_irq_data_read_finish_series("mxt_input_interrupt");
 
 end:
 	return IRQ_HANDLED;
@@ -1642,6 +1650,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	input_dev->dev.parent = &client->dev;
 	input_dev->open = mxt_input_open;
 	input_dev->close = mxt_input_close;
+	input_dev->hint_events_per_packet = 256U;
 
 	data->client = client;
 	data->input_dev = input_dev;

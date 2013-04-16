@@ -18,7 +18,9 @@ struct sock_extended_err {
 #define SO_EE_ORIGIN_ICMP	2
 #define SO_EE_ORIGIN_ICMP6	3
 #define SO_EE_ORIGIN_TIMESTAMPING 4
-
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define SO_EE_ORIGIN_TXSTATUS	4  //                                                                                            
+#endif
 #define SO_EE_OFFENDER(ee)	((struct sockaddr*)((ee)+1))
 
 #ifdef __KERNEL__

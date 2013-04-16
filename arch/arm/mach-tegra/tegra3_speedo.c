@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/tegra3_speedo.c
  *
- * Copyright (c) 2011, NVIDIA Corporation.
+ * Copyright (c) 2011-2012, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,8 @@
 #include <linux/err.h>
 #include <mach/iomap.h>
 #include <mach/tegra_fuse.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
 
 #include "fuse.h"
 
@@ -108,8 +110,8 @@ static const u32 cpu_process_speedos[][CPU_PROCESS_CORNERS_NUM] = {
 
 /* T30 Automotives */
 	/* threshold_index 12: cpu_speedo_id 9 & 10
-	 * 0,1,2 values correspond to speedo_id  9
-	 * 3,4,5 values correspond to speedo_id 10 */
+	 * 0,1,2 values correspond to speedo_id  9/14
+	 * 3,4,5 values correspond to speedo_id 10/15*/
 	{300, 311, 360, 371, 381, 415, 431},
 	{300, 311, 410, 431, UINT_MAX}, /* [13]: cpu_speedo_id 11: T30 auto */
 
@@ -128,6 +130,11 @@ static int core_process_id;
 static int cpu_speedo_id;
 static int soc_speedo_id;
 static int package_id;
+/*
+ * Only AP37 supports App Profile
+ * This informs user space of support without exposing cpu id's
+ */
+static int enable_app_profiles;
 
 static void fuse_speedo_calib(u32 *speedo_g, u32 *speedo_lp)
 {
@@ -267,6 +274,7 @@ static void rev_sku_to_speedo_ids(int rev, int sku)
 				cpu_speedo_id = 12;
 				soc_speedo_id = 2;
 				threshold_index = 9;
+				enable_app_profiles = 1;
 				break;
 			default:
 				pr_err("Tegra3 Rev-A02: Reserved pkg: %d\n",
@@ -462,10 +470,31 @@ void tegra_init_speedo_data(void)
 		soc_speedo_id = 1;
 	}
 	if (threshold_index == 12 && cpu_process_id != INVALID_PROCESS_ID) {
-		if (cpu_process_id <= 2)
-			cpu_speedo_id = 9;
-		else if (cpu_process_id >= 3 && cpu_process_id < 6)
-			cpu_speedo_id = 10;
+		if (cpu_process_id <= 2) {
+			switch(fuse_sku) {
+			case 0xb0:
+			case 0xb1:
+				cpu_speedo_id = 9;
+				break;
+			case 0x90:
+			case 0x91:
+				cpu_speedo_id = 14;
+			default:
+				break;
+			}
+		} else if (cpu_process_id >= 3 && cpu_process_id < 6) {
+			switch(fuse_sku) {
+			case 0xb0:
+			case 0xb1:
+				cpu_speedo_id = 10;
+				break;
+			case 0x90:
+			case 0x91:
+				cpu_speedo_id = 15;
+			default:
+				break;
+			}
+		}
 	}
 	pr_info("Tegra3: CPU Speedo ID %d, Soc Speedo ID %d",
 		 cpu_speedo_id, soc_speedo_id);
@@ -510,8 +539,8 @@ int tegra_package_id(void)
  * latter is resolved by the dvfs code)
  */
 static const int cpu_speedo_nominal_millivolts[] =
-/* speedo_id 0,    1,    2,    3,    4,    5,    6,    7,    8,   9,  10,  11,   12,   13 */
-	{ 1125, 1150, 1150, 1150, 1237, 1237, 1237, 1150, 1150, 912, 850, 850, 1237, 1237};
+/* speedo_id 0,    1,    2,    3,    4,    5,    6,    7,    8,   9,  10,  11,   12,    13,  14,  15 */
+	{ 1125, 1150, 1150, 1150, 1237, 1237, 1237, 1150, 1150, 1007, 916, 850, 1237, 1237, 950, 900};
 
 int tegra_cpu_speedo_mv(void)
 {
@@ -539,3 +568,15 @@ int tegra_core_speedo_mv(void)
 		BUG();
 	}
 }
+
+static int get_enable_app_profiles(char *val, const struct kernel_param *kp)
+{
+	return param_get_uint(val, kp);
+}
+
+static struct kernel_param_ops tegra_profiles_ops = {
+	.get = get_enable_app_profiles,
+};
+
+module_param_cb(tegra_enable_app_profiles,
+	&tegra_profiles_ops, &enable_app_profiles, 0444);

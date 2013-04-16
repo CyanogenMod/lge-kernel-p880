@@ -492,6 +492,10 @@ int wiphy_register(struct wiphy *wiphy)
 		    !(wiphy->wowlan.flags & WIPHY_WOWLAN_SUPPORTS_GTK_REKEY)))
 		return -EINVAL;
 
+	if (WARN_ON(wiphy->ap_sme_capa &&
+		    !(wiphy->flags & WIPHY_FLAG_HAVE_AP_SME)))
+		return -EINVAL;
+
 	if (WARN_ON(wiphy->addresses && !wiphy->n_addresses))
 		return -EINVAL;
 
@@ -582,7 +586,7 @@ int wiphy_register(struct wiphy *wiphy)
 	}
 
 	/* set up regulatory info */
-	wiphy_update_regulatory(wiphy, NL80211_REGDOM_SET_BY_CORE);
+	regulatory_update(wiphy, NL80211_REGDOM_SET_BY_CORE);
 
 	list_add_rcu(&rdev->list, &cfg80211_rdev_list);
 	cfg80211_rdev_list_generation++;
@@ -629,20 +633,24 @@ EXPORT_SYMBOL(wiphy_register);
 
 void wiphy_rfkill_start_polling(struct wiphy *wiphy)
 {
+#ifdef CONFIG_RFKILL_PM
 	struct cfg80211_registered_device *rdev = wiphy_to_dev(wiphy);
 
 	if (!rdev->ops->rfkill_poll)
 		return;
 	rdev->rfkill_ops.poll = cfg80211_rfkill_poll;
 	rfkill_resume_polling(rdev->rfkill);
+#endif	
 }
 EXPORT_SYMBOL(wiphy_rfkill_start_polling);
 
 void wiphy_rfkill_stop_polling(struct wiphy *wiphy)
 {
+#ifdef CONFIG_RFKILL_PM
 	struct cfg80211_registered_device *rdev = wiphy_to_dev(wiphy);
 
 	rfkill_pause_polling(rdev->rfkill);
+#endif	
 }
 EXPORT_SYMBOL(wiphy_rfkill_stop_polling);
 

@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/board-aruba.c
  *
- * Copyright (c) 2010-2011, NVIDIA Corporation.
+ * Copyright (c) 2010-2012, NVIDIA Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,6 +47,7 @@
 #include <asm/mach/arch.h>
 #include <mach/usb_phy.h>
 #include <mach/nand.h>
+#include <mach/tegra_fiq_debugger.h>
 #include "board.h"
 #include "clock.h"
 #include "board-aruba.h"
@@ -446,7 +447,9 @@ static struct platform_device *aruba_devices[] __initdata = {
 	&tegra_smmu_device,
 #endif
 	&aruba_keys_device,
-	&tegra_wdt_device,
+	&tegra_wdt0_device,
+	&tegra_wdt1_device,
+	&tegra_wdt2_device,
 #if defined(CONFIG_SND_HDA_TEGRA)
 	&tegra_hda_device,
 #endif
@@ -455,14 +458,6 @@ static struct platform_device *aruba_devices[] __initdata = {
 	&tegra_nand_device,
 #endif
 };
-
-static void aruba_keys_init(void)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(aruba_keys); i++)
-		tegra_gpio_enable(aruba_keys[i].gpio);
-}
 
 static int __init aruba_touch_init(void)
 {
@@ -515,13 +510,13 @@ static void __init tegra_aruba_init(void)
 	aruba_i2c_init();
 	aruba_regulator_init();
 	aruba_touch_init();
-	aruba_keys_init();
 	aruba_usb_init();
 	aruba_panel_init();
 	aruba_sensors_init();
 	aruba_bt_rfkill();
 	aruba_sata_init();
 	tegra_release_bootloader_fb();
+	tegra_serial_debug_init(TEGRA_UARTD_BASE, INT_WDT_CPU, NULL, -1, -1);
 }
 
 static void __init tegra_aruba_reserve(void)

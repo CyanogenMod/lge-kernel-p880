@@ -59,6 +59,9 @@ struct regulatory_request {
 	int wiphy_idx;
 	enum nl80211_reg_initiator initiator;
 	char alpha2[2];
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	u8 dfs_region;
+#endif
 	bool intersect;
 	bool processed;
 	enum environment_cap country_ie_env;
@@ -85,6 +88,9 @@ struct ieee80211_reg_rule {
 struct ieee80211_regdomain {
 	u32 n_reg_rules;
 	char alpha2[2];
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+	u8 dfs_region;
+#endif
 	struct ieee80211_reg_rule reg_rules[];
 };
 

@@ -304,6 +304,8 @@ struct spi_master {
 	 */
 	int			(*transfer)(struct spi_device *spi,
 						struct spi_message *mesg);
+	int			(*clock_control)(struct spi_device *spi,
+						int enable);
 
 	/* called on release() to free memory provided by spi_master */
 	void			(*cleanup)(struct spi_device *spi);
@@ -331,6 +333,8 @@ static inline void spi_master_put(struct spi_master *master)
 	if (master)
 		put_device(&master->dev);
 }
+
+extern int spi_clock_control(struct spi_device *spi, int enable);
 
 
 /* the spi driver core manages memory for the spi_master classdev */

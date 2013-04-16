@@ -118,6 +118,9 @@
 
 /* M98088_REG_18_DAI1_FILTERS, M98088_REG_20_DAI2_FILTERS */
        #define M98088_DAI_DHF                  (1<<3)
+	   #define M98088_DAI_AVFLT_MASK           (7<<4)
+	   #define M98088_DAI_AVFLT_SHIFT          4
+	   #define M98088_DAI_MODE          	   (1<<7)
 
 /* M98088_REG_22_MIX_DAC */
        #define M98088_DAI1L_TO_DACL            (1<<7)
@@ -221,6 +224,11 @@
 
 #define M98088_BYTE1(w) ((w >> 8) & 0xff)
 #define M98088_BYTE0(w) (w & 0xff)
+
+/* HeadPhone and HeadSet detection Bitmasks */
+#define M98088_HP         0
+#define M98088_HS         M98088_JKSNS_6
+#define M98088_NONE   (M98088_JKSNS_7 | M98088_JKSNS_6)
 
 int max98088_headset_detect(struct snd_soc_codec *codec,
         struct snd_soc_jack *jack, enum snd_jack_types type);

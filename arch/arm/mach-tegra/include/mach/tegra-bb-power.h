@@ -47,6 +47,20 @@ union tegra_bb_gpio_id {
 		int service;
 		int resout2;
 	} m7400;
+//                                         
+#if defined(CONFIG_MACH_PEGASUS)	&& defined(CONFIG_TEGRA_BB_MODEM4)
+	struct { 
+		int mdm4_rst;
+		int mdm4_on;
+		int usb_awr;
+		int usb_cwr;
+		int mdm4_spare;
+		int mdm4_wdi;
+		int rsvd1;
+		int rsvd2;
+	} modem4; 
+#endif	
+//                                         
 };
 
 typedef struct platform_device* (*ehci_register_cb)(void);
@@ -58,4 +72,12 @@ struct tegra_bb_pdata {
 	ehci_register_cb ehci_register;
 	ehci_unregister_cb ehci_unregister;
 	int bb_id;
+	/* HSIC rail regulator name. Provide a name if --
+	rail is shared and the co-owner will turn it off when done */
+	char *regulator;
+//                                         
+#if defined(CONFIG_MACH_PEGASUS)	
+	int *attr_load_val_ptr; //dalyong.cha
+#endif	
+//                                         
 };

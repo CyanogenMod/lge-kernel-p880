@@ -430,7 +430,9 @@ static __devinit int tegra30_spdif_platform_probe(struct platform_device *pdev)
 		TEGRA30_SPDIF_CIF_TXD_CTRL_CLIENT_CH2 |
 		(3 << TEGRA30_SPDIF_CIF_TXD_CTRL_FIFO_TH_SHIFT);
 
-	tegra30_spdif_write(spdif, TEGRA30_SPDIF_CIF_TXD_CTRL, reg_val);
+#if !defined(CONFIG_MACH_X3) && !defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
+	tegra30_spdif_write(spdif, TEGRA30_SPDIF_CIF_TXD_CTRL, reg_val); //                                           
+#endif
 
 	tegra30_spdif_disable_clocks(spdif);
 

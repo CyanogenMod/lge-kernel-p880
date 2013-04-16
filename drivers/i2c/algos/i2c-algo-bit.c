@@ -63,7 +63,15 @@ MODULE_PARM_DESC(i2c_debug,
 #define setscl(adap, val)	adap->setscl(adap->data, val)
 #define getsda(adap)		adap->getsda(adap->data)
 #define getscl(adap)		adap->getscl(adap->data)
+//                                                                             
+#define setsdadirinput(adap)	adap->setsdadirinput(adap->data)
+#define setsdadiroutput(adap, val)	adap->setsdadiroutput(adap->data, val)
 
+static unsigned char device_addr;
+static unsigned char register_addr;
+static unsigned char register_value;
+static bool is_read;
+//                                                                             
 static inline void sdalo(struct i2c_algo_bit_data *adap)
 {
 	setsda(adap, 0);
@@ -157,11 +165,13 @@ static void i2c_stop(struct i2c_algo_bit_data *adap)
  * 0 if the device did not ack
  * -ETIMEDOUT if an error occurred (while raising the scl line)
  */
+ //                                                                             
 static int i2c_outb(struct i2c_adapter *i2c_adap, unsigned char c)
 {
 	int i;
 	int sb;
 	int ack;
+	int overtime;
 	struct i2c_algo_bit_data *adap = i2c_adap->algo_data;
 
 	/* assert: scl is low */
@@ -192,11 +202,26 @@ static int i2c_outb(struct i2c_adapter *i2c_adap, unsigned char c)
 	/* read ack: SDA should be pulled down by slave, or it may
 	 * NAK (usually to report problems with the data we wrote).
 	 */
-	ack = !getsda(adap);    /* ack: sda is pulled low -> success */
+	setsdadirinput(adap);
+	overtime = 10;
+	while(overtime --){
+		ack = !getsda(adap); /* ack: sda is pulled low -> success */
+		if(!ack)
+			break;
+		udelay(adap->udelay / 2);
+	}  
 	bit_dbg(2, &i2c_adap->dev, "i2c_outb: 0x%02x %s\n", (int)c,
 		ack ? "A" : "NA");
-
+	setsdadiroutput(adap, !ack);
 	scllo(adap);
+	if(!ack){
+		if(is_read)
+			printk("Error:I2C reading failed, device:0x%x, register:0x%x, NO ack after sending 0x%x!!!\n", 
+					device_addr, register_addr, c);
+		else
+			printk("Error:I2C writing failed, device:0x%x, register:0x%x, value:0x%x, NO ack after sending 0x%x!!!\n", 
+					device_addr, register_addr, register_value, c);
+	}
 	return ack;
 	/* assert: scl is low (sda undef) */
 }
@@ -212,6 +237,7 @@ static int i2c_inb(struct i2c_adapter *i2c_adap)
 
 	/* assert: scl is low */
 	sdahi(adap);
+	setsdadirinput(adap);
 	for (i = 0; i < 8; i++) {
 		if (sclhi(adap) < 0) { /* timeout */
 			bit_dbg(1, &i2c_adap->dev, "i2c_inb: timeout at bit "
@@ -224,10 +250,12 @@ static int i2c_inb(struct i2c_adapter *i2c_adap)
 		setscl(adap, 0);
 		udelay(i == 7 ? adap->udelay / 2 : adap->udelay);
 	}
-	/* assert: scl is low */
+	setsdadiroutput(adap, indata & 0x01);
+	setscl(adap, 0); 
+	udelay(adap->udelay / 2);
 	return indata;
 }
-
+//                                                                             
 /*
  * Sanity check for the adapter hardware - check the reaction of
  * the bus lines only if it seems to be idle.
@@ -401,9 +429,12 @@ static int acknak(struct i2c_adapter *i2c_adap, int is_ack)
 {
 	struct i2c_algo_bit_data *adap = i2c_adap->algo_data;
 
-	/* assert: sda is high */
-	if (is_ack)		/* send ack */
-		setsda(adap, 0);
+//                                                                             
+	if(is_ack)
+		setsda(adap, 0);	
+	else 
+		setsda(adap, 1);
+//                                                                                
 	udelay((adap->udelay + 1) / 2);
 	if (sclhi(adap) < 0) {	/* timeout */
 		dev_err(&i2c_adap->dev, "readbytes: ack/nak timeout\n");
@@ -542,7 +573,19 @@ static int bit_xfer(struct i2c_adapter *i2c_adap,
 		if (ret < 0)
 			return ret;
 	}
-
+//                                                                              
+	if((num > 1) && (msgs[1].flags & I2C_M_RD)){
+		is_read = true;
+		device_addr = msgs[0].addr;
+		register_addr = msgs[0].buf[0];
+	}else{
+		is_read = false;
+		device_addr = msgs[0].addr;
+		register_addr = msgs[0].buf[0];
+		register_value = msgs[0].buf[1];
+	}
+//                                                                              
+	
 	bit_dbg(3, &i2c_adap->dev, "emitting start condition\n");
 	i2c_start(adap);
 	for (i = 0; i < num; i++) {

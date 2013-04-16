@@ -21,8 +21,15 @@
 #include "dev.h"
 #include "bus_client.h"
 
-static int __devinit vi_probe(struct nvhost_device *dev)
+static int __devinit vi_probe(struct nvhost_device *dev,
+	struct nvhost_device_id *id_table)
 {
+	int err = 0;
+
+	err = nvhost_client_device_get_resources(dev);
+	if (err)
+		return err;
+
 	return nvhost_client_device_init(dev);
 }
 
@@ -32,6 +39,7 @@ static int __exit vi_remove(struct nvhost_device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
 static int vi_suspend(struct nvhost_device *dev, pm_message_t state)
 {
 	return nvhost_client_device_suspend(dev);
@@ -42,8 +50,7 @@ static int vi_resume(struct nvhost_device *dev)
 	dev_info(&dev->dev, "resuming\n");
 	return 0;
 }
-
-struct nvhost_device *vi_device;
+#endif
 
 static struct nvhost_driver vi_driver = {
 	.probe = vi_probe,
@@ -60,16 +67,6 @@ static struct nvhost_driver vi_driver = {
 
 static int __init vi_init(void)
 {
-	int err;
-
-	vi_device = nvhost_get_device("vi");
-	if (!vi_device)
-		return -ENXIO;
-
-	err = nvhost_device_register(vi_device);
-	if (err)
-		return err;
-
 	return nvhost_driver_register(&vi_driver);
 }
 

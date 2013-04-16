@@ -83,6 +83,9 @@
 #define ETH_P_8021AH	0x88E7          /* 802.1ah Backbone Service Tag */
 #define ETH_P_1588	0x88F7		/* IEEE 1588 Timesync */
 #define ETH_P_FCOE	0x8906		/* Fibre Channel over Ethernet  */
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define ETH_P_TDLS	0x890D          /* TDLS */
+#endif
 #define ETH_P_FIP	0x8914		/* FCoE Initialization Protocol */
 #define ETH_P_QINQ1	0x9100		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
 #define ETH_P_QINQ2	0x9200		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
@@ -116,7 +119,13 @@
 #define ETH_P_PHONET	0x00F5		/* Nokia Phonet frames          */
 #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
 #define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
-
+//                                              
+#if defined(CONFIG_MACH_PEGASUS) && defined(CONFIG_MHI_NETDEV)
+#define ETH_P_MHI	0x00F8		/* Renesas MHI protocol         */ 
+#define ETH_P_RAW	0x00F9		/* RAW access to frames         */ 
+#define ETH_P_MHDP	0x00FA		/* MHDP data frames             */ 
+#endif
+//                                              
 /*
  *	This is an Ethernet frame header.
  */

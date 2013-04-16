@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 NVIDIA, Inc.
+ * Copyright (C) 2010-2012 NVIDIA Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,7 +34,6 @@
 #include "gpio-names.h"
 #include "fuse.h"
 #include "pm.h"
-#include "wakeups-t2.h"
 #include "board.h"
 #include "board-ventana.h"
 
@@ -47,7 +46,6 @@ int __init ventana_charge_init(void)
 {
 	gpio_request(CHARGING_DISABLE, "chg_disable");
 	gpio_direction_output(CHARGING_DISABLE, 0);
-	tegra_gpio_enable(CHARGING_DISABLE);
 	return 0;
 }
 
@@ -92,8 +90,8 @@ static struct regulator_consumer_supply tps658621_ldo6_supply[] = {
 	REGULATOR_SUPPLY("vcsi", "tegra_camera"),
 	REGULATOR_SUPPLY("vdd_dmic", "tegra-snd-wm8903.0"),
 	REGULATOR_SUPPLY("vdd_i2c", "3-0030"),
-	REGULATOR_SUPPLY("vdd_i2c", "6-0072"),
-	REGULATOR_SUPPLY("vdd_i2c", "7-0072"),
+	REGULATOR_SUPPLY("dvdd", "6-0072"),
+	REGULATOR_SUPPLY("dvdd", "7-0072"),
 };
 static struct regulator_consumer_supply tps658621_ldo7_supply[] = {
 	REGULATOR_SUPPLY("vdd_ldo7", NULL),
@@ -255,14 +253,6 @@ static struct platform_device *fixed_voltage_regulators[] __initdata = {
 
 int __init ventana_fixed_voltage_regulator_init(void)
 {
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(fixed_voltage_regulators); ++i) {
-		struct fixed_voltage_config *fixed_voltage_regulators_pdata =
-				fixed_voltage_regulators[i]->dev.platform_data;
-		if (fixed_voltage_regulators_pdata->gpio < TEGRA_NR_GPIOS)
-			tegra_gpio_enable(fixed_voltage_regulators_pdata->gpio);
-	}
 	return platform_add_devices(fixed_voltage_regulators,
 				ARRAY_SIZE(fixed_voltage_regulators));
 }
@@ -317,7 +307,6 @@ static struct platform_device ventana_charger_device = {
 
 int __init ventana_charger_init(void)
 {
-	tegra_gpio_enable(AC_PRESENT_GPIO);
 	platform_device_register(&ventana_charger_device);
 	return 0;
 }

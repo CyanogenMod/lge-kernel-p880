@@ -327,4 +327,8 @@ err:
 void mmc_remove_card_debugfs(struct mmc_card *card)
 {
 	debugfs_remove_recursive(card->debugfs_root);
+	/*                                        
+                       
+  */
+	card->debugfs_root = NULL;
 }

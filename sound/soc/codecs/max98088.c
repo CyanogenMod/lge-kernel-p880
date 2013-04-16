@@ -23,6 +23,11 @@
 #include <sound/initval.h>
 #include <sound/tlv.h>
 #include <linux/slab.h>
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+#include <linux/notifier.h>
+#include <linux/reboot.h>
+#endif
+
 #include <asm/div64.h>
 #include <sound/max98088.h>
 #include <sound/jack.h>
@@ -57,6 +62,15 @@ struct max98088_priv {
        unsigned int extmic_mode;
        int irq;
        struct snd_soc_jack *headset_jack;
+//                                          
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	   int active;
+       int shutdown; //for audio codec power register control
+		struct i2c_client *i2c; 
+#endif
+//                                          
+       unsigned int jk_sns;
+       int jack_report;
 };
 
 static const u8 max98088_reg[M98088_REG_CNT] = {
@@ -441,7 +455,7 @@ static struct {
        { 0xFF, 0xFF, 0 }, /* 5F DAI1 EQ2 */
 
        { 0xFF, 0xFF, 0 }, /* 60 DAI1 EQ2 */
-       { 0xFF, 0xFF, 0 }, /* 61 DAI1 EQ2 */
+       { 0xFF, 0x00, 0 }, /* 61 DAI1 EQ2 */
        { 0xFF, 0xFF, 0 }, /* 62 DAI1 EQ2 */
        { 0xFF, 0xFF, 0 }, /* 63 DAI1 EQ2 */
        { 0xFF, 0xFF, 0 }, /* 64 DAI1 EQ2 */
@@ -611,6 +625,10 @@ static struct {
        { 0xFF, 0x00, 1 }, /* FF */
 };
 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+struct max98088_priv *max98088_driver_data;
+#endif
+
 static int max98088_volatile_register(struct snd_soc_codec *codec, unsigned int reg)
 {
        return max98088_access[reg].vol;
@@ -738,6 +756,73 @@ static int max98088_mic2pre_get(struct snd_kcontrol *kcontrol,
        return 0;
 }
 
+//            
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+static int max98088_dai1_voice_filter_set(struct snd_kcontrol *kcontrol,
+                               struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int val;
+	unsigned int mask, bitmask;
+
+	int change;
+	unsigned int old, new;
+	int ret = 0;
+		
+	for (bitmask = 1; bitmask < e->max; bitmask <<= 1)
+		;
+	if (ucontrol->value.enumerated.item[0] > e->max - 1)
+		return -EINVAL;
+	val = ucontrol->value.enumerated.item[0] << e->shift_l;
+	mask = (bitmask - 1) << e->shift_l;
+	if (e->shift_l != e->shift_r) {
+		if (ucontrol->value.enumerated.item[1] > e->max - 1)
+			return -EINVAL;
+		val |= ucontrol->value.enumerated.item[1] << e->shift_r;
+		mask |= (bitmask - 1) << e->shift_r;
+	}
+
+	mutex_lock(&codec->mutex);
+
+	ret = snd_soc_read(codec, e->reg);
+	if (ret >= 0){
+		old = ret;
+		new = (old & ~mask) | val;
+		change = old != new;
+		if (change) {
+			u8 shdn_bit = snd_soc_read(codec, M98088_REG_51_PWR_SYS) & M98088_SHDNRUN;
+
+			if (shdn_bit) {
+					snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS,
+							M98088_SHDNRUN, 0);
+					msleep(50);
+			}
+
+			ret = snd_soc_write(codec, e->reg, new);
+			
+			if (shdn_bit) {
+					snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS,
+							M98088_SHDNRUN, M98088_SHDNRUN);
+			}
+		}
+
+		if( ret >= 0 ) ret = change;
+	}
+	
+	mutex_unlock(&codec->mutex);
+
+	return ret;
+}
+
+static int max98088_dai1_voice_filter_get(struct snd_kcontrol *kcontrol,
+                               struct snd_ctl_elem_value *ucontrol)
+{
+	return snd_soc_get_enum_double(kcontrol, ucontrol);
+}
+#endif
+//            
+
 static const unsigned int max98088_micboost_tlv[] = {
        TLV_DB_RANGE_HEAD(2),
        0, 1, TLV_DB_SCALE_ITEM(0, 2000, 0),
@@ -745,6 +830,19 @@ static const unsigned int max98088_micboost_tlv[] = {
 };
 
 static const struct snd_kcontrol_new max98088_snd_controls[] = {
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       SOC_SINGLE("DV1 Volume", M98088_REG_2F_LVL_DAI1_PLAY, 0, 0xf, 1),
+       
+       SOC_SINGLE("AGC Hold Time", M98088_REG_3F_MICAGC_CFG, 0, 0x3, 0),
+       SOC_SINGLE("AGC Attack Time", M98088_REG_3F_MICAGC_CFG, 2, 0x3, 0),
+       SOC_SINGLE("AGC Release Time", M98088_REG_3F_MICAGC_CFG, 4, 0x7, 0),
+       SOC_SINGLE("AGC Source", M98088_REG_3F_MICAGC_CFG, 7, 0x1, 0),
+       SOC_SINGLE("AGC Threshold", M98088_REG_3F_MICAGC_CFG, 0, 0xf, 0),
+       
+       SOC_SINGLE("Noise Gate Threshold", M98088_REG_40_MICAGC_THRESH, 4, 0xf, 0),
+#endif
+//                                         
 
        SOC_DOUBLE_R("Headphone Volume", M98088_REG_39_LVL_HP_L,
                M98088_REG_3A_LVL_HP_R, 0, 31, 0),
@@ -760,8 +858,15 @@ static const struct snd_kcontrol_new max98088_snd_controls[] = {
        SOC_DOUBLE_R("Receiver Switch", M98088_REG_3B_LVL_REC_L,
                M98088_REG_3C_LVL_REC_R, 7, 1, 1),
 
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       SOC_SINGLE("MIC1 Volume", M98088_REG_35_LVL_MIC1, 0, 20, 1),
+       SOC_SINGLE("MIC2 Volume", M98088_REG_36_LVL_MIC2, 0, 20, 1),
+#else
        SOC_SINGLE("MIC1 Volume", M98088_REG_35_LVL_MIC1, 0, 31, 1),
        SOC_SINGLE("MIC2 Volume", M98088_REG_36_LVL_MIC2, 0, 31, 1),
+#endif
+//                                         
 
        SOC_SINGLE_EXT_TLV("MIC1 Boost Volume",
                        M98088_REG_35_LVL_MIC1, 5, 2, 0,
@@ -772,11 +877,23 @@ static const struct snd_kcontrol_new max98088_snd_controls[] = {
                        max98088_mic2pre_get, max98088_mic2pre_set,
                        max98088_micboost_tlv),
 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       SOC_SINGLE("INA Volume", M98088_REG_37_LVL_INA, 0, 5, 1),
+       SOC_SINGLE("INB Volume", M98088_REG_38_LVL_INB, 0, 5, 1),
+#else
        SOC_SINGLE("INA Volume", M98088_REG_37_LVL_INA, 0, 7, 1),
        SOC_SINGLE("INB Volume", M98088_REG_38_LVL_INB, 0, 7, 1),
+#endif
 
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       SOC_SINGLE("ADCL Volume", M98088_REG_33_LVL_ADC_L, 0, 15, 1),
+       SOC_SINGLE("ADCR Volume", M98088_REG_34_LVL_ADC_R, 0, 15, 1),
+#else
        SOC_SINGLE("ADCL Volume", M98088_REG_33_LVL_ADC_L, 0, 15, 0),
        SOC_SINGLE("ADCR Volume", M98088_REG_34_LVL_ADC_R, 0, 15, 0),
+#endif
+//                                         
 
        SOC_SINGLE("ADCL Boost Volume", M98088_REG_33_LVL_ADC_L, 4, 3, 0),
        SOC_SINGLE("ADCR Boost Volume", M98088_REG_34_LVL_ADC_R, 4, 3, 0),
@@ -787,8 +904,13 @@ static const struct snd_kcontrol_new max98088_snd_controls[] = {
        SOC_ENUM("EX Limiter Mode", max98088_exmode_enum),
        SOC_ENUM("EX Limiter Threshold", max98088_ex_thresh_enum),
 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       SOC_ENUM_EXT("DAI1 Filter Mode", max98088_filter_mode_enum, max98088_dai1_voice_filter_get, max98088_dai1_voice_filter_set),
+       SOC_ENUM_EXT("DAI1 DAC Filter", max98088_dai1_dac_filter_enum, max98088_dai1_voice_filter_get, max98088_dai1_voice_filter_set),
+#else
        SOC_ENUM("DAI1 Filter Mode", max98088_filter_mode_enum),
        SOC_ENUM("DAI1 DAC Filter", max98088_dai1_dac_filter_enum),
+#endif
        SOC_ENUM("DAI1 ADC Filter", max98088_dai1_adc_filter_enum),
        SOC_SINGLE("DAI2 DC Block Switch", M98088_REG_20_DAI2_FILTERS,
                0, 1, 0),
@@ -811,10 +933,11 @@ static const struct snd_kcontrol_new max98088_snd_controls[] = {
 
 /* Left speaker mixer switch */
 static const struct snd_kcontrol_new max98088_left_speaker_mixer_controls[] = {
-       SOC_DAPM_SINGLE("Left DAC1 Switch", M98088_REG_2B_MIX_SPK_LEFT, 0, 1, 0),
-       SOC_DAPM_SINGLE("Right DAC1 Switch", M98088_REG_2B_MIX_SPK_LEFT, 7, 1, 0),
-       SOC_DAPM_SINGLE("Left DAC2 Switch", M98088_REG_2B_MIX_SPK_LEFT, 0, 1, 0),
-       SOC_DAPM_SINGLE("Right DAC2 Switch", M98088_REG_2B_MIX_SPK_LEFT, 7, 1, 0),
+///
+       SOC_DAPM_SINGLE("Left DAC1 Switch", M98088_REG_2B_MIX_SPK_LEFT, 7, 1, 0),
+       SOC_DAPM_SINGLE("Right DAC1 Switch", M98088_REG_2B_MIX_SPK_LEFT, 0, 1, 0),
+       SOC_DAPM_SINGLE("Left DAC2 Switch", M98088_REG_2B_MIX_SPK_LEFT, 7, 1, 0),
+       SOC_DAPM_SINGLE("Right DAC2 Switch", M98088_REG_2B_MIX_SPK_LEFT, 0, 1, 0),
        SOC_DAPM_SINGLE("MIC1 Switch", M98088_REG_2B_MIX_SPK_LEFT, 5, 1, 0),
        SOC_DAPM_SINGLE("MIC2 Switch", M98088_REG_2B_MIX_SPK_LEFT, 6, 1, 0),
        SOC_DAPM_SINGLE("INA1 Switch", M98088_REG_2B_MIX_SPK_LEFT, 1, 1, 0),
@@ -867,10 +990,11 @@ static const struct snd_kcontrol_new max98088_right_hp_mixer_controls[] = {
 
 /* Left earpiece/receiver mixer switch */
 static const struct snd_kcontrol_new max98088_left_rec_mixer_controls[] = {
-       SOC_DAPM_SINGLE("Left DAC1 Switch", M98088_REG_28_MIX_REC_LEFT, 0, 1, 0),
-       SOC_DAPM_SINGLE("Right DAC1 Switch", M98088_REG_28_MIX_REC_LEFT, 7, 1, 0),
-       SOC_DAPM_SINGLE("Left DAC2 Switch", M98088_REG_28_MIX_REC_LEFT, 0, 1, 0),
-       SOC_DAPM_SINGLE("Right DAC2 Switch", M98088_REG_28_MIX_REC_LEFT, 7, 1, 0),
+///
+       SOC_DAPM_SINGLE("Left DAC1 Switch", M98088_REG_28_MIX_REC_LEFT, 7, 1, 0),
+       SOC_DAPM_SINGLE("Right DAC1 Switch", M98088_REG_28_MIX_REC_LEFT, 0, 1, 0),
+       SOC_DAPM_SINGLE("Left DAC2 Switch", M98088_REG_28_MIX_REC_LEFT, 7, 1, 0),
+       SOC_DAPM_SINGLE("Right DAC2 Switch", M98088_REG_28_MIX_REC_LEFT, 0, 1, 0),
        SOC_DAPM_SINGLE("MIC1 Switch", M98088_REG_28_MIX_REC_LEFT, 5, 1, 0),
        SOC_DAPM_SINGLE("MIC2 Switch", M98088_REG_28_MIX_REC_LEFT, 6, 1, 0),
        SOC_DAPM_SINGLE("INA1 Switch", M98088_REG_28_MIX_REC_LEFT, 1, 1, 0),
@@ -1008,7 +1132,43 @@ static int max98088_pga_inb2_event(struct snd_soc_dapm_widget *w,
 }
 
 static const struct snd_soc_dapm_widget max98088_dapm_widgets[] = {
+//                                          
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       SND_SOC_DAPM_ADC("CallADCL", "CALL Capture",
+               SND_SOC_NOPM, 0, 0),
+       SND_SOC_DAPM_ADC("CallADCR", "CALL Capture",
+               SND_SOC_NOPM, 0, 0),
 
+       SND_SOC_DAPM_ADC("ADCLHiFi", "HiFi Capture",
+               SND_SOC_NOPM, 0, 0),
+       SND_SOC_DAPM_ADC("ADCRHiFi", "HiFi Capture",
+               SND_SOC_NOPM, 0, 0),
+               
+       SND_SOC_DAPM_DAC("CallDACL", "CALL Playback",
+               SND_SOC_NOPM, 0, 0),
+       SND_SOC_DAPM_DAC("CallDACR", "CALL Playback",
+               SND_SOC_NOPM, 0, 0),
+
+       SND_SOC_DAPM_DAC("DACL1HiFi", "HiFi Playback",
+               SND_SOC_NOPM, 0, 0),
+       SND_SOC_DAPM_DAC("DACR1HiFi", "HiFi Playback",
+               SND_SOC_NOPM, 0, 0),
+               
+       SND_SOC_DAPM_DAC("DACL2", "Aux Playback",
+               M98088_REG_4D_PWR_EN_OUT, 1, 0),
+       SND_SOC_DAPM_DAC("DACR2", "Aux Playback",
+               M98088_REG_4D_PWR_EN_OUT, 0, 0),
+
+       SND_SOC_DAPM_PGA("ADCL", M98088_REG_4C_PWR_EN_IN,
+               1, 0, NULL, 0),
+       SND_SOC_DAPM_PGA("ADCR", M98088_REG_4C_PWR_EN_IN,
+               0, 0, NULL, 0),
+       
+       SND_SOC_DAPM_PGA("DACL1", M98088_REG_4D_PWR_EN_OUT,
+               1, 0, NULL, 0),
+       SND_SOC_DAPM_PGA("DACR1", M98088_REG_4D_PWR_EN_OUT,
+               0, 0, NULL, 0),
+#else
        SND_SOC_DAPM_ADC("ADCL", "HiFi Capture", M98088_REG_4C_PWR_EN_IN, 1, 0),
        SND_SOC_DAPM_ADC("ADCR", "HiFi Capture", M98088_REG_4C_PWR_EN_IN, 0, 0),
 
@@ -1020,7 +1180,9 @@ static const struct snd_soc_dapm_widget max98088_dapm_widgets[] = {
                M98088_REG_4D_PWR_EN_OUT, 1, 0),
        SND_SOC_DAPM_DAC("DACR2", "Aux Playback",
                M98088_REG_4D_PWR_EN_OUT, 0, 0),
-
+#endif
+//                                          
+  
        SND_SOC_DAPM_PGA("HP Left Out", M98088_REG_4D_PWR_EN_OUT,
                7, 0, NULL, 0),
        SND_SOC_DAPM_PGA("HP Right Out", M98088_REG_4D_PWR_EN_OUT,
@@ -1095,7 +1257,13 @@ static const struct snd_soc_dapm_widget max98088_dapm_widgets[] = {
                6, 0, NULL, 0, max98088_pga_inb2_event,
                SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       SND_SOC_DAPM_MICBIAS("MICBIAS", SND_SOC_NOPM, 0, 0),
+
+       SND_SOC_DAPM_MICBIAS("SUBMICBIAS", SND_SOC_NOPM, 0, 0),
+#else
        SND_SOC_DAPM_MICBIAS("MICBIAS", M98088_REG_4C_PWR_EN_IN, 3, 0),
+#endif
 
        SND_SOC_DAPM_OUTPUT("HPL"),
        SND_SOC_DAPM_OUTPUT("HPR"),
@@ -1113,6 +1281,22 @@ static const struct snd_soc_dapm_widget max98088_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route max98088_audio_map[] = {
+//                                          
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       {"CallADCL", NULL, "ADCL"},
+       {"CallADCR", NULL, "ADCR"},
+       
+       {"ADCLHiFi", NULL, "ADCL"},
+       {"ADCRHiFi", NULL, "ADCR"},
+
+       {"DACL1", NULL, "CallDACL"},
+       {"DACR1", NULL, "CallDACR"},
+       
+       {"DACL1", NULL, "DACL1HiFi"},
+	   {"DACR1", NULL, "DACR1HiFi"},
+#endif
+//                                          
+
        /* Left headphone output mixer */
        {"Left HP Mixer", "Left DAC1 Switch", "DACL1"},
        {"Left HP Mixer", "Left DAC2 Switch", "DACL2"},
@@ -1217,6 +1401,9 @@ static const struct snd_soc_dapm_route max98088_audio_map[] = {
 
        /* Inputs */
        {"ADCL", NULL, "Left ADC Mixer"},
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       {"ADCL", NULL, "Right ADC Mixer"}, //                                                    
+#endif
        {"ADCR", NULL, "Right ADC Mixer"},
        {"INA1 Input", NULL, "INA1"},
        {"INA2 Input", NULL, "INA2"},
@@ -1318,6 +1505,19 @@ static int max98088_dai1_hw_params(struct snd_pcm_substream *substream,
                snd_soc_update_bits(codec, M98088_REG_18_DAI1_FILTERS,
                        M98088_DAI_DHF, M98088_DAI_DHF);
 
+//                                                               
+#if !(defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10))
+		if (rate > 24000)
+			snd_soc_update_bits(codec, M98088_REG_18_DAI1_FILTERS,
+						M98088_DAI_MODE, M98088_DAI_MODE);
+		else
+			snd_soc_update_bits(codec, M98088_REG_18_DAI1_FILTERS,
+						M98088_DAI_MODE, 0);
+
+		snd_soc_update_bits(codec, M98088_REG_18_DAI1_FILTERS,
+						M98088_DAI_AVFLT_MASK, 5<<M98088_DAI_AVFLT_SHIFT);
+#endif
+//                                                               
        snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS, M98088_SHDNRUN,
                M98088_SHDNRUN);
 
@@ -1627,8 +1827,15 @@ static void max98088_sync_cache(struct snd_soc_codec *codec)
 static int max98088_set_bias_level(struct snd_soc_codec *codec,
                                   enum snd_soc_bias_level level)
 {
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
+
+       if( max98088->shutdown ) return 0;
+#endif
+	   
        switch (level) {
        case SND_SOC_BIAS_ON:
+               level = SND_SOC_BIAS_STANDBY; //                                                       
                break;
 
        case SND_SOC_BIAS_PREPARE:
@@ -1660,19 +1867,80 @@ static int max98088_set_bias_level(struct snd_soc_codec *codec,
 #define MAX98088_RATES SNDRV_PCM_RATE_8000_96000
 #define MAX98088_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE)
 
+//                                          
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+static int max98088_startup(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai){
+	struct snd_soc_codec *codec = dai->codec;
+	struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
+
+	// reset audio codec
+	if( max98088->active++ == 0 ){
+		snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS,
+						M98088_SHDNRUN, 0);
+		msleep(100);
+		snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS,
+						M98088_SHDNRUN, M98088_SHDNRUN);
+	}
+	
+	return 0;
+}
+
+static int max98088_shutdown(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai){
+	struct snd_soc_codec *codec = dai->codec;
+	struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
+
+	// reset audio codec
+	if( --max98088->active == 0 ){
+#if 0		
+		snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS,
+						M98088_SHDNRUN, 0);
+		msleep(50);
+		snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS,
+						M98088_SHDNRUN, M98088_SHDNRUN);
+#endif
+	}
+	
+	return 0;
+}
+#endif
+//                                          
+
 static struct snd_soc_dai_ops max98088_dai1_ops = {
        .set_sysclk = max98088_dai_set_sysclk,
        .set_fmt = max98088_dai1_set_fmt,
        .hw_params = max98088_dai1_hw_params,
+ //                                                                                     
+#if !defined(CONFIG_MACH_X3) && ! defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
        .digital_mute = max98088_dai1_digital_mute,
+#endif
 };
 
 static struct snd_soc_dai_ops max98088_dai2_ops = {
        .set_sysclk = max98088_dai_set_sysclk,
        .set_fmt = max98088_dai2_set_fmt,
        .hw_params = max98088_dai2_hw_params,
+//                                                                                     
+#if !defined(CONFIG_MACH_X3) && ! defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
        .digital_mute = max98088_dai2_digital_mute,
+#endif
 };
+
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+static struct snd_soc_dai_ops max98088_fm_ops = {
+       .set_sysclk = max98088_dai_set_sysclk,
+};
+static struct snd_soc_dai_ops max98088_call_ops = {
+       .startup = max98088_startup,
+       .shutdown = max98088_shutdown,
+       .set_sysclk = max98088_dai_set_sysclk,
+       .set_fmt = max98088_dai1_set_fmt,
+       .hw_params = max98088_dai1_hw_params,
+};
+#endif
+//                                         
 
 static struct snd_soc_dai_driver max98088_dai[] = {
 {
@@ -1703,7 +1971,47 @@ static struct snd_soc_dai_driver max98088_dai[] = {
                .formats = MAX98088_FORMATS,
        },
        .ops = &max98088_dai2_ops,
+},
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+{
+       .name = "FM",
+       .playback = {
+               .stream_name = "FM Playback",
+               .channels_min = 1,
+               .channels_max = 2,
+               .rates = MAX98088_RATES,
+               .formats = MAX98088_FORMATS,
+       },
+       .capture = {
+               .stream_name = "FM Capture",
+               .channels_min = 1,
+               .channels_max = 2,
+               .rates = MAX98088_RATES,
+               .formats = MAX98088_FORMATS,
+       },
+       .ops = &max98088_fm_ops,
+},
+{
+	  .name = "CALL",
+	  .playback = {
+			  .stream_name = "CALL Playback",
+			  .channels_min = 1,
+			  .channels_max = 2,
+			  .rates = MAX98088_RATES,
+			  .formats = MAX98088_FORMATS,
+	  },
+	  .capture = {
+			  .stream_name = "CALL Capture",
+			  .channels_min = 1,
+			  .channels_max = 2,
+			  .rates = MAX98088_RATES,
+			  .formats = MAX98088_FORMATS,
+	  },
+	   .ops = &max98088_call_ops,
 }
+#endif
+//                                         
 };
 
 static int max98088_get_channel(const char *name)
@@ -1750,7 +2058,13 @@ static void max98088_setup_eq1(struct snd_soc_codec *codec)
        save = snd_soc_read(codec, M98088_REG_49_CFG_LEVEL);
        snd_soc_update_bits(codec, M98088_REG_49_CFG_LEVEL, M98088_EQ1EN, 0);
 
+//                                          
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       coef_set = &pdata->eq_cfg[best];
+#else
        coef_set = &pdata->eq_cfg[sel];
+#endif
+//                                          
 
        m98088_eq_band(codec, 0, 0, coef_set->band1);
        m98088_eq_band(codec, 0, 1, coef_set->band2);
@@ -1968,19 +2282,28 @@ static void max98088_handle_pdata(struct snd_soc_codec *codec)
 int max98088_report_jack(struct snd_soc_codec *codec)
 {
        struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
-       unsigned int value;
-       int jack_report = 0;
+       unsigned int jk_sns_curr;
+       int jack_report_curr = 0;
 
        /* Read the Jack Status Register*/
-       value = snd_soc_read(codec, M98088_REG_02_JACK_STAUS);
+       jk_sns_curr = (snd_soc_read(codec, M98088_REG_02_JACK_STAUS))
+                                & (M98088_JKSNS_7 | M98088_JKSNS_6);
 
-       if ((value & M98088_JKSNS_7) == 0)
-               jack_report |= SND_JACK_HEADPHONE;
-       if (value & M98088_JKSNS_6)
-               jack_report |= SND_JACK_MICROPHONE;
+       if (max98088->jk_sns == M98088_NONE && jk_sns_curr == M98088_HP)
+              jack_report_curr = SND_JACK_HEADPHONE;
+       else if (max98088->jk_sns == M98088_NONE && jk_sns_curr == M98088_HS)
+              jack_report_curr = SND_JACK_HEADSET;
+       else if ((max98088->jk_sns == M98088_HP || max98088->jk_sns == M98088_HS)
+              && jk_sns_curr == M98088_NONE)
+              jack_report_curr = 0;
+       else
+              jack_report_curr = max98088->jack_report;
+
+       max98088->jack_report = jack_report_curr;
+       max98088->jk_sns = jk_sns_curr;
 
        snd_soc_jack_report(max98088->headset_jack,
-               jack_report, SND_JACK_HEADSET);
+               jack_report_curr, SND_JACK_HEADSET);
 
        return 0;
 }
@@ -2001,6 +2324,8 @@ int max98088_headset_detect(struct snd_soc_codec *codec,
 {
        struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
        max98088->headset_jack = jack;
+       max98088->jk_sns = M98088_NONE;
+       max98088->jack_report = 0;
 
        if (max98088->irq) {
                if (type & SND_JACK_HEADSET) {
@@ -2043,7 +2368,16 @@ static int max98088_probe(struct snd_soc_codec *codec)
        int ret = 0;
 
        codec->cache_sync = 1;
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+//                                          
+	   // Google requires very low noise level when starting audio recording.
+	   // But, whenever mic bias turn on, 1s mic noise happens.
+	   // So, I decide that maxim codec and mic bias keep power-on during phone wakes up.
+       codec->dapm.idle_bias_off = 0;
+#else
        codec->dapm.idle_bias_off = 1;
+#endif
+//                                          
 
        ret = snd_soc_codec_set_cache_io(codec, 8, 8, SND_SOC_I2C);
        if (ret != 0) {
@@ -2099,6 +2433,11 @@ static int max98088_probe(struct snd_soc_codec *codec)
        /* initialize registers cache to hardware default */
        max98088_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	   snd_soc_update_bits(codec, M98088_REG_4C_PWR_EN_IN,
+					   M98088_MBEN, M98088_MBEN);
+#endif
+
        snd_soc_write(codec, M98088_REG_0F_IRQ_ENABLE, 0x00);
 
        snd_soc_write(codec, M98088_REG_22_MIX_DAC,
@@ -2114,6 +2453,24 @@ static int max98088_probe(struct snd_soc_codec *codec)
        snd_soc_write(codec, M98088_REG_1E_DAI2_IOCFG,
                M98088_S2NORMAL|M98088_SDATA);
 
+//                                             
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	   snd_soc_write(codec, M98088_REG_27_MIX_HP_CNTL, 0x30);
+//                                             
+//                                          
+//       snd_soc_write(codec, M98088_REG_37_LVL_INA, 0x20);
+//       snd_soc_write(codec, M98088_REG_38_LVL_INB, 0x20);
+#endif
+//                                          
+
+       snd_soc_write(codec, M98088_REG_2B_MIX_SPK_LEFT, (1<<7) | (1<<0) );
+       
+       snd_soc_write(codec, M98088_REG_2C_MIX_SPK_RIGHT, (1<<7) | (1<<0) );
+  
+       printk("[max98088] reg 2B (0x%x) / 2C(0x%x)\n", 
+              snd_soc_read(codec, M98088_REG_2B_MIX_SPK_LEFT),
+              snd_soc_read(codec, M98088_REG_2C_MIX_SPK_RIGHT)); //JCK 
+ 
        max98088_handle_pdata(codec);
 
        snd_soc_add_controls(codec, max98088_snd_controls,
@@ -2137,7 +2494,7 @@ static int max98088_remove(struct snd_soc_codec *codec)
 static int max98088_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
 	struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
-
+    printk("(snd codec) suspend.....\n");
 	disable_irq(max98088->irq);
 	max98088_set_bias_level(codec, SND_SOC_BIAS_OFF);
 
@@ -2148,6 +2505,7 @@ static int max98088_resume(struct snd_soc_codec *codec)
 {
 	struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
 
+    printk("(snd codec) resume.....\n");
 	max98088_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	max98088_report_jack(codec);
 	enable_irq(max98088->irq);
@@ -2175,6 +2533,45 @@ static struct snd_soc_codec_driver soc_codec_dev_max98088 = {
 	.num_dapm_routes = ARRAY_SIZE(max98088_audio_map),
 };
 
+
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+static int max98088_reboot_notify(struct notifier_block *nb,
+                                unsigned long event, void *data)
+{
+	struct max98088_priv *max98088 = max98088_driver_data;
+
+	
+
+    switch (event) {
+    case SYS_RESTART:
+    case SYS_HALT:
+    case SYS_POWER_OFF:
+		{	
+			int ret;
+			
+			u8 buf[2];
+			
+			max98088->shutdown = 1;
+			
+			buf[0] = M98088_REG_51_PWR_SYS;
+			buf[1] = 0x0;
+			
+			ret = i2c_master_send(max98088->i2c, buf, 2);
+			mdelay(30);
+			printk("%s [%d]\n", __func__, ret);
+
+		}
+	    return NOTIFY_OK;
+    }
+    return NOTIFY_DONE;
+}
+
+
+static struct notifier_block max98088_reboot_nb = {
+	.notifier_call = max98088_reboot_notify,
+};
+#endif
+
 static int max98088_i2c_probe(struct i2c_client *i2c,
                             const struct i2c_device_id *id)
 {
@@ -2192,10 +2589,24 @@ static int max98088_i2c_probe(struct i2c_client *i2c,
        max98088->pdata = i2c->dev.platform_data;
        max98088->irq = i2c->irq;
 
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	   max98088_driver_data = max98088;
+	   max98088_driver_data->i2c = i2c;
+#endif
+
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       ret = snd_soc_register_codec(&i2c->dev,
+                       &soc_codec_dev_max98088, max98088_dai, ARRAY_SIZE(max98088_dai));
+#else
        ret = snd_soc_register_codec(&i2c->dev,
                        &soc_codec_dev_max98088, &max98088_dai[0], 2);
+#endif
        if (ret < 0)
                kfree(max98088);
+
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	   register_reboot_notifier(&max98088_reboot_nb);
+#endif
        return ret;
 }
 
@@ -2205,6 +2616,25 @@ static int __devexit max98088_i2c_remove(struct i2c_client *client)
        kfree(i2c_get_clientdata(client));
        return 0;
 }
+
+//                                                     
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+static void max98088_i2c_shutdown(struct i2c_client *client)
+{
+       struct max98088_priv *max98088 = i2c_get_clientdata(client);
+       u8 buf[2];
+	   
+	   max98088->shutdown = 1;
+
+	   buf[0] = M98088_REG_51_PWR_SYS;
+	   buf[1] = 0x0;
+
+	   i2c_master_send(client, buf, 2);
+	   
+       return;
+}
+#endif
+//                                                     
 
 static const struct i2c_device_id max98088_i2c_id[] = {
        { "max98088", MAX98088 },
@@ -2220,6 +2650,9 @@ static struct i2c_driver max98088_i2c_driver = {
        },
        .probe  = max98088_i2c_probe,
        .remove = __devexit_p(max98088_i2c_remove),
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+       .shutdown = max98088_i2c_shutdown, //                                                    
+#endif
        .id_table = max98088_i2c_id,
 };
 

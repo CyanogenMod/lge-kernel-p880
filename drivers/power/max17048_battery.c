@@ -40,7 +40,8 @@
 #define MAX17048_UNLOCK_VALUE	0x4a57
 #define MAX17048_RESET_VALUE	0x5400
 #define MAX17048_DELAY		1000
-#define MAX17048_BATTERY_FULL	95
+#define MAX17048_BATTERY_FULL	100
+#define MAX17048_BATTERY_LOW	15
 #define MAX17048_VERSION_NO	0x11
 
 struct max17048_chip {
@@ -60,6 +61,10 @@ struct max17048_chip {
 	int soc;
 	/* State Of Charge */
 	int status;
+	/* battery health */
+	int health;
+	/* battery capacity */
+	int capacity_level;
 
 	int lasttime_vcell;
 	int lasttime_soc;
@@ -88,17 +93,20 @@ static int max17048_write_word(struct i2c_client *client, int reg, u16 value)
 	return ret;
 }
 
-static uint16_t max17048_read_word(struct i2c_client *client, int reg)
+static int max17048_read_word(struct i2c_client *client, int reg)
 {
-	uint16_t ret;
+	int ret;
 
 	ret = i2c_smbus_read_word_data(client, reg);
 
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(&client->dev, "%s(): Failed in reading register"
 					"0x%02x err %d\n", __func__, reg, ret);
-
-	return swab16(ret);
+		return ret;
+	} else {
+		ret = (int)swab16((uint16_t)(ret & 0x0000ffff));
+		return ret;
+	}
 }
 
 static int max17048_get_property(struct power_supply *psy,
@@ -117,6 +125,12 @@ static int max17048_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = chip->soc;
+		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = chip->health;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
+		val->intval = chip->capacity_level;
 		break;
 	default:
 	return -EINVAL;
@@ -157,25 +171,38 @@ static int max17048_usb_get_property(struct power_supply *psy,
 static void max17048_get_vcell(struct i2c_client *client)
 {
 	struct max17048_chip *chip = i2c_get_clientdata(client);
-	uint16_t vcell;
+	int vcell;
 
 	vcell = max17048_read_word(client, MAX17048_VCELL);
 	if (vcell < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, vcell);
-
-	chip->vcell = vcell;
+	else
+		chip->vcell = (uint16_t)(((vcell >> 4) * 125) / 100);
 }
 
 static void max17048_get_soc(struct i2c_client *client)
 {
 	struct max17048_chip *chip = i2c_get_clientdata(client);
-	uint16_t soc;
+	int soc;
 
 	soc = max17048_read_word(client, MAX17048_SOC);
 	if (soc < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, soc);
+	else
+		chip->soc = (uint16_t)soc >> 9;
 
-	chip->soc = soc >> 9;
+	if (chip->soc > MAX17048_BATTERY_FULL) {
+		chip->soc = MAX17048_BATTERY_FULL;
+		chip->status = POWER_SUPPLY_STATUS_FULL;
+		chip->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_FULL;
+		chip->health = POWER_SUPPLY_HEALTH_GOOD;
+	} else if (chip->soc < MAX17048_BATTERY_LOW) {
+		chip->health = POWER_SUPPLY_HEALTH_DEAD;
+		chip->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_CRITICAL;
+	} else {
+		chip->health = POWER_SUPPLY_HEALTH_GOOD;
+		chip->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_NORMAL;
+	}
 }
 
 static uint16_t max17048_get_version(struct i2c_client *client)
@@ -194,10 +221,11 @@ static void max17048_work(struct work_struct *work)
 
 	if (chip->vcell != chip->lasttime_vcell ||
 		chip->soc != chip->lasttime_soc ||
-		chip->status !=	chip->lasttime_status) {
+		chip->status != chip->lasttime_status) {
 
 		chip->lasttime_vcell = chip->vcell;
 		chip->lasttime_soc = chip->soc;
+		chip->lasttime_status = chip->status;
 
 		power_supply_changed(&chip->battery);
 	}
@@ -212,18 +240,15 @@ static void max17048_battery_status(enum charging_states status,
 	chip->ac_online = 0;
 	chip->usb_online = 0;
 
-	if (chrg_type == AC)
-		chip->ac_online = 1;
-	else if (chrg_type == USB)
-		chip->usb_online = 1;
-
-	if (status == progress)
+	if (status == progress) {
 		chip->status = POWER_SUPPLY_STATUS_CHARGING;
-	else
+		if (chrg_type == AC)
+			chip->ac_online = 1;
+		else if (chrg_type == USB)
+			chip->usb_online = 1;
+	} else
 		chip->status = POWER_SUPPLY_STATUS_DISCHARGING;
 
-	if (chip->soc > MAX17048_BATTERY_FULL)
-			chip->status = POWER_SUPPLY_STATUS_FULL;
 
 	power_supply_changed(&chip->battery);
 	power_supply_changed(&chip->usb);
@@ -234,6 +259,8 @@ static enum power_supply_property max17048_battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 };
 
 static enum power_supply_property max17048_ac_props[] = {
@@ -249,13 +276,18 @@ static int max17048_write_rcomp_seg(struct i2c_client *client,
 {
 	uint8_t rs1, rs2;
 	int ret;
+	uint8_t rcomp_seg_table[16];
 
 	rs2 = rcomp_seg | 0x00FF;
 	rs1 = rcomp_seg >> 8;
-	uint8_t rcomp_seg_table[16] = { rs1, rs2, rs1, rs2,
-					rs1, rs2, rs1, rs2,
-					rs1, rs2, rs1, rs2,
-					rs1, rs2, rs1, rs2};
+
+	rcomp_seg_table[0] = rcomp_seg_table[2] = rcomp_seg_table[4] =
+		rcomp_seg_table[6] = rcomp_seg_table[8] = rcomp_seg_table[10] =
+			rcomp_seg_table[12] = rcomp_seg_table[14] = rs1;
+
+	rcomp_seg_table[1] = rcomp_seg_table[3] = rcomp_seg_table[5] =
+		rcomp_seg_table[7] = rcomp_seg_table[9] = rcomp_seg_table[11] =
+			rcomp_seg_table[13] = rcomp_seg_table[15] = rs2;
 
 	ret = i2c_smbus_write_i2c_block_data(client, MAX17048_RCOMPSEG1,
 				16, (uint8_t *)rcomp_seg_table);
@@ -282,7 +314,12 @@ static int max17048_load_model_data(struct max17048_chip *chip)
 	int i, ret = 0;
 
 	/* read OCV */
-	ocv = max17048_read_word(client, MAX17048_OCV);
+	ret = max17048_read_word(client, MAX17048_OCV);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+	ocv = (uint16_t)ret;
 	if (ocv == 0xffff) {
 		dev_err(&client->dev, "%s: Failed in unlocking"
 					"max17048 err: %d\n", __func__, ocv);
@@ -323,7 +360,12 @@ static int max17048_load_model_data(struct max17048_chip *chip)
 	mdelay(200);
 
 	/* Read SOC Register and compare to expected result */
-	soc_tst = max17048_read_word(client, MAX17048_SOC);
+	ret = max17048_read_word(client, MAX17048_SOC);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+	soc_tst = (uint16_t)ret;
 	if (!((soc_tst >> 8) >= mdata->soccheck_A &&
 				(soc_tst >> 8) <=  mdata->soccheck_B)) {
 		dev_err(&client->dev, "%s: soc comparison failed %d\n",
@@ -525,16 +567,34 @@ static int max17048_suspend(struct i2c_client *client,
 		pm_message_t state)
 {
 	struct max17048_chip *chip = i2c_get_clientdata(client);
+	int ret;
 
 	cancel_delayed_work(&chip->work);
+
+	ret = max17048_write_word(client, MAX17048_HIBRT, 0xffff);
+	if (ret < 0) {
+		dev_err(&client->dev, "failed in entering hibernate mode\n");
+		return ret;
+	}
+
 	return 0;
 }
 
 static int max17048_resume(struct i2c_client *client)
 {
 	struct max17048_chip *chip = i2c_get_clientdata(client);
+	int ret;
+	struct max17048_battery_model *mdata = chip->model_data;
 
-	schedule_delayed_work(&chip->work, MAX17048_DELAY);
+	ret = max17048_write_word(client, MAX17048_HIBRT, mdata->hibernate);
+	if (ret < 0) {
+		dev_err(&client->dev, "failed in exiting hibernate mode\n");
+		return ret;
+	}
+
+	update_charger_status();
+
+	schedule_work(&chip->work);
 	return 0;
 }
 

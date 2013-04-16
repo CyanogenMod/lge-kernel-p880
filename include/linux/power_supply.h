@@ -112,6 +112,9 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TEMP_AMBIENT,
+	POWER_SUPPLY_PROP_TEMP_ADC,//            
+	POWER_SUPPLY_PROP_TEMP_CONTROL,//          
+	POWER_SUPPLY_PROP_VALID_BATT_ID,//          
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
@@ -127,10 +130,12 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_BATTERY = 0,
 	POWER_SUPPLY_TYPE_UPS,
 	POWER_SUPPLY_TYPE_MAINS,
+//	POWER_SUPPLY_TYPE_FACTORY,
 	POWER_SUPPLY_TYPE_USB,		/* Standard Downstream Port */
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
+	POWER_SUPPLY_TYPE_FACTORY,	//                                             
 };
 
 union power_supply_propval {

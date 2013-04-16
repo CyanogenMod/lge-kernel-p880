@@ -310,6 +310,8 @@ __ATTR(_name, 0644, show_##_name, store_##_name)
  *********************************************************************/
 int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu);
 int cpufreq_update_policy(unsigned int cpu);
+int cpufreq_set_gov(char *target_gov, unsigned int cpu);
+ssize_t cpufreq_current_gov(char *buf, unsigned int cpu);
 
 #ifdef CONFIG_CPU_FREQ
 /* query the current CPU frequency (in kHz). If zero, cpufreq couldn't detect it */
@@ -368,6 +370,20 @@ extern struct cpufreq_governor cpufreq_gov_interactive;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_interactive)
 #endif
 
+#ifdef CONFIG_CPU_FREQ_GOV_INTERACTIVE
+unsigned long cpufreq_interactive_get_boost_step(void);
+int cpufreq_interactive_set_boost_step(unsigned long val);
+#else
+static inline unsigned long cpufreq_interactive_get_boost_step(void)
+{
+	return 0;
+}
+
+static inline int cpufreq_interactive_set_boost_step(unsigned long val)
+{
+	return 0;
+}
+#endif
 
 /*********************************************************************
  *                     FREQUENCY TABLE HELPERS                       *
@@ -406,6 +422,37 @@ void cpufreq_frequency_table_get_attr(struct cpufreq_frequency_table *table,
 				      unsigned int cpu);
 
 void cpufreq_frequency_table_put_attr(unsigned int cpu);
+//                                                                                     
+/* cpufreq pm qos */
+int cpufreq_set_min_freq(void *data, s32 val);
+int cpufreq_set_max_freq(void *data, s32 val);
+//                                                                                     
+
+/*********************************************************************
+ *                     UNIFIED DEBUG HELPERS                         *
+ *********************************************************************/
+
+#define CPUFREQ_DEBUG_CORE	1
+#define CPUFREQ_DEBUG_DRIVER	2
+#define CPUFREQ_DEBUG_GOVERNOR	4
+
+#ifdef CONFIG_CPU_FREQ_DEBUG
+
+extern void cpufreq_debug_printk(unsigned int type, const char *prefix, 
+				 const char *fmt, ...);
+
+#else
+
+#define cpufreq_debug_printk(msg...) do { } while(0)
+
+#endif /* CONFIG_CPU_FREQ_DEBUG */
+
+//                                                               
+#ifdef CONFIG_ARCH_TEGRA_3x_SOC
+extern unsigned long cpufreq_limited_max_cores_cur;
+extern unsigned long cpufreq_limited_max_cores_expected;
+#endif
+//                                                               
 
 
 #endif /* _LINUX_CPUFREQ_H */

@@ -251,7 +251,9 @@ enum ieee80211_radiotap_type {
 						 * retries */
 #define IEEE80211_RADIOTAP_F_TX_CTS	0x0002	/* used cts 'protection' */
 #define IEEE80211_RADIOTAP_F_TX_RTS	0x0004	/* used rts/cts handshake */
-
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+#define IEEE80211_RADIOTAP_F_TX_NOACK	0x0008	/* don't expect an ack */
+#endif
 
 /* For IEEE80211_RADIOTAP_MCS */
 #define IEEE80211_RADIOTAP_MCS_HAVE_BW		0x01

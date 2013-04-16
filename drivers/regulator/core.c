@@ -91,6 +91,8 @@ struct regulator {
 
 static int _regulator_is_enabled(struct regulator_dev *rdev);
 static int _regulator_disable(struct regulator_dev *rdev);
+static int _regulator_enable(struct regulator_dev *rdev);
+static int _regulator_get_enable_time(struct regulator_dev *rdev);
 static int _regulator_get_voltage(struct regulator_dev *rdev);
 static int _regulator_get_current_limit(struct regulator_dev *rdev);
 static unsigned int _regulator_get_mode(struct regulator_dev *rdev);
@@ -358,7 +360,65 @@ static ssize_t regulator_state_show(struct device *dev,
 
 	return ret;
 }
-static DEVICE_ATTR(state, 0444, regulator_state_show, NULL);
+
+static ssize_t regulator_state_set(struct device *dev,
+		   struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct regulator_dev *rdev = dev_get_drvdata(dev);
+	int ret;
+	bool enabled;
+
+	if ((*buf == 'E') || (*buf == 'e'))
+		enabled = true;
+	else if ((*buf == 'D') || (*buf == 'd'))
+		enabled = false;
+	else
+		return -EINVAL;
+
+	if ((_regulator_is_enabled(rdev) && enabled) ||
+		(!_regulator_is_enabled(rdev) && !enabled))
+		return count;
+
+	mutex_lock(&rdev->mutex);
+	if (enabled) {
+		int delay = 0;
+		if (!rdev->desc->ops->enable) {
+			ret = -EINVAL;
+			goto end;
+		}
+		ret = _regulator_get_enable_time(rdev);
+		if (ret >= 0)
+			delay = ret;
+		ret = rdev->desc->ops->enable(rdev);
+		if (ret < 0) {
+			rdev_warn(rdev, "enable() failed: %d\n", ret);
+			goto end;
+		}
+		if (delay >= 1000) {
+			mdelay(delay / 1000);
+			udelay(delay % 1000);
+		} else if (delay) {
+			udelay(delay);
+		}
+	} else {
+		if (!rdev->desc->ops->disable) {
+			ret = -EINVAL;
+			goto end;
+		}
+		ret = rdev->desc->ops->disable(rdev);
+		if (ret < 0) {
+			rdev_warn(rdev, "disable() failed: %d\n", ret);
+			goto end;
+		}
+	}
+
+end:
+	mutex_unlock(&rdev->mutex);
+	if (ret < 0)
+		return ret;
+	return count;
+}
+static DEVICE_ATTR(state, 0644, regulator_state_show, regulator_state_set);
 
 static ssize_t regulator_status_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
@@ -2594,6 +2654,7 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 	static atomic_t regulator_no = ATOMIC_INIT(0);
 	struct regulator_dev *rdev;
 	int ret, i;
+	const char *supply = NULL;
 
 	if (regulator_desc == NULL)
 		return ERR_PTR(-EINVAL);
@@ -2668,21 +2729,24 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 	if (ret < 0)
 		goto scrub;
 
-	if (init_data->supply_regulator) {
+	if (init_data->supply_regulator)
+		supply = init_data->supply_regulator;
+	else if (regulator_desc->supply_name)
+		supply = regulator_desc->supply_name;
+
+	if (supply) {
 		struct regulator_dev *r;
 		int found = 0;
 
 		list_for_each_entry(r, &regulator_list, list) {
-			if (strcmp(rdev_get_name(r),
-				   init_data->supply_regulator) == 0) {
+			if (strcmp(rdev_get_name(r), supply) == 0) {
 				found = 1;
 				break;
 			}
 		}
 
 		if (!found) {
-			dev_err(dev, "Failed to find supply %s\n",
-				init_data->supply_regulator);
+			dev_err(dev, "Failed to find supply %s\n", supply);
 			ret = -ENODEV;
 			goto scrub;
 		}

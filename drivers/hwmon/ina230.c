@@ -47,6 +47,10 @@
 #include <linux/hwmon.h>
 #include <linux/cpu.h>
 
+#include <linux/regulator/consumer.h>
+
+#define LDO_ON_OFF_SUSPEND_BEDP //                                 
+#define FOR_MONITORING_CURR 1 //                                                                                     
 
 #define DRIVER_NAME "ina230"
 #define MEASURE_BUS_VOLT 0
@@ -101,6 +105,12 @@ struct ina230_data {
 	struct mutex mutex;
 	bool running;
 	struct notifier_block nb;
+#ifdef LDO_ON_OFF_SUSPEND_BEDP
+	struct regulator *ina230_reg;
+#endif //LDO_ON_OFF_SUSPEND_BEDP
+#if FOR_MONITORING_CURR
+	bool ldo_running;
+#endif
 };
 
 
@@ -111,7 +121,45 @@ struct ina230_data {
 #define shuntv_register_to_uv(x) (((x) * 5) >> 1)
 #define uv_to_alert_register(x) (((x) << 1) / 5)
 
+#if FOR_MONITORING_CURR
+static struct ina230_data *ref_data = NULL;
+#endif
 
+#ifdef LDO_ON_OFF_SUSPEND_BEDP
+static void ina230_ldo_power_control(struct i2c_client *client, bool is_enable)
+{
+	struct ina230_data *data = i2c_get_clientdata(client);
+	int ret;
+
+	if (!data->ina230_reg) {
+		data->ina230_reg = regulator_get(&data->client->dev, "vdd_ina230");
+		if (IS_ERR_OR_NULL(data->ina230_reg)) {
+			dev_warn(&data->client->dev, "Error [%d] in"
+				"getting the regulator handle for vdd_ina230 "
+				"of %s\n", (int)data->ina230_reg,
+				dev_name(&data->client->dev));
+			data->ina230_reg = NULL;
+			return;
+		}
+	}
+	if (is_enable)
+		ret = regulator_enable(data->ina230_reg);
+	else
+		ret = regulator_disable(data->ina230_reg);
+
+	if (ret < 0)
+		dev_err(&data->client->dev, "Error in %s rail vdd_ina230, "
+			"error %d\n", (is_enable) ? "enabling" : "disabling",
+			ret);
+	else
+		dev_info(&data->client->dev, "success in %s rail vdd_ina230\n",
+			(is_enable) ? "enabling" : "disabling");
+
+#if FOR_MONITORING_CURR
+	data->ldo_running = is_enable;
+#endif
+}
+#endif //LDO_ON_OFF_SUSPEND_BEDP
 
 static s32 ensure_enabled_start(struct i2c_client *client)
 {
@@ -440,6 +488,56 @@ static struct sensor_device_attribute ina230[] = {
 #endif
 };
 
+#if FOR_MONITORING_CURR
+int get_current_for_log(int *pCurrent_mA)
+{
+	struct i2c_client *client = NULL;
+	struct ina230_data *data = NULL;
+	s32 voltage_uV;
+	s32 current_mA;
+	int retval;
+
+	if (ref_data == NULL)
+	{
+		*pCurrent_mA = -9999;
+		return -1;
+	}
+	else
+	{
+		client = ref_data->client;
+		data = ref_data;
+	}
+
+	if (!ref_data->ldo_running)
+	{
+		*pCurrent_mA = -9998;
+		return -1;
+	}
+
+	mutex_lock(&data->mutex);
+	retval = ensure_enabled_start(client);
+	if (retval < 0) {
+		mutex_unlock(&data->mutex);
+		*pCurrent_mA = 0;
+		return retval;
+	}
+
+	voltage_uV =
+		(s16)be16_to_cpu(i2c_smbus_read_word_data(client,
+							  INA230_SHUNT));
+
+	ensure_enabled_end(client);
+	mutex_unlock(&data->mutex);
+
+	voltage_uV = shuntv_register_to_uv(voltage_uV);
+	current_mA = voltage_uV / data->pdata->resistor;
+
+	*pCurrent_mA = current_mA;
+
+	return 0;
+}
+EXPORT_SYMBOL(get_current_for_log);
+#endif
 
 static int __devinit ina230_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
@@ -461,6 +559,10 @@ static int __devinit ina230_probe(struct i2c_client *client,
 	data->nb.notifier_call = ina230_hotplug_notify;
 	data->client = client;
 	mutex_init(&data->mutex);
+
+#ifdef LDO_ON_OFF_SUSPEND_BEDP
+	ina230_ldo_power_control(client, true);
+#endif //LDO_ON_OFF_SUSPEND_BEDP
 
 	err = i2c_smbus_write_word_data(client, INA230_CONFIG,
 		__constant_cpu_to_be16(INA230_RESET));
@@ -488,6 +590,10 @@ static int __devinit ina230_probe(struct i2c_client *client,
 
 	evaluate_state(client);
 
+#if FOR_MONITORING_CURR
+	ref_data = data;
+#endif
+
 	return 0;
 
 exit_remove:
@@ -513,12 +619,31 @@ static int __devexit ina230_remove(struct i2c_client *client)
 
 static int ina230_suspend(struct i2c_client *client)
 {
-	return power_down_ina230(client);
+	int ret;
+
+	/*                                        
+                                                    
+              
+  */
+	ret = power_down_ina230(client);
+	if (ret < 0) {
+		dev_err(&client->dev, "power_down_ina230() failed\n");
+		return ret;
+	}
+#ifdef LDO_ON_OFF_SUSPEND_BEDP
+	ina230_ldo_power_control(client, false);
+#endif //LDO_ON_OFF_SUSPEND_BEDP
+
+	return 0;
 }
 
 
 static int ina230_resume(struct i2c_client *client)
 {
+
+#ifdef LDO_ON_OFF_SUSPEND_BEDP
+	ina230_ldo_power_control(client, true);
+#endif //LDO_ON_OFF_SUSPEND_BEDP
 	evaluate_state(client);
 	return 0;
 }

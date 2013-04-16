@@ -35,8 +35,15 @@ struct codec_info_s {
 	char *cpu_dai_name;
 	char *codec_name;	/* Name of the Codec Driver */
 	char *name;			/* Name of the Codec-Dai-Link */
+	char *pcm_driver;	/* Name of the PCM driver */
 	enum i2s_data_format i2s_format;
 	int master;			/* Codec is Master or Slave */
+	/* TDM format setttings */
+	int num_slots;		/* Number of TDM slots */
+	int slot_width;		/* Width of each slot */
+	int rx_mask;		/* Number of Rx Enabled slots */
+	int tx_mask;		/* Number of Tx Enabled slots */
+
 };
 
 struct tegra_p1852_platform_data {

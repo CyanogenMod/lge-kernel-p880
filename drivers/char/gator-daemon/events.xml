@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<events>
+  <counter_set name="ARM_ARM11MPCore_cntX">
+    <counter name="ARM_ARM11MPCore_cnt0"/>
+    <counter name="ARM_ARM11MPCore_cnt1"/>
+    <counter name="ARM_ARM11MPCore_cnt2"/>
+  </counter_set>
+  <category name="ARM11MPCore" counter_set="ARM_ARM11MPCore_cntX" per_cpu="yes">
+    <event counter="ARM_ARM11MPCore_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Cache" name="Inst miss" description="Instruction cache miss to a cacheable location, which requires a fetch from external memory"/>
+    <event event="0x01" title="Pipeline" name="Instruction stall" description="Stall because instruction buffer cannot deliver an instruction"/>
+    <event event="0x02" title="Pipeline" name="Data stall" description="Stall because of a data dependency"/>
+    <event event="0x03" title="Cache" name="Inst micro TLB miss" description="Instruction MicroTLB miss (unused on ARM1156)"/>
+    <event event="0x04" title="Cache" name="Data micro TLB miss" description="Data MicroTLB miss (unused on ARM1156)"/>
+    <event event="0x05" title="Branch" name="Instruction executed" description="Branch instructions executed, branch might or might not have changed program flow"/>
+    <event event="0x06" title="Branch" name="Not predicted" description="Branch not predicted"/>
+    <event event="0x07" title="Branch" name="Mispredicted" description="Branch mispredicted"/>
+    <event event="0x08" title="Core" name="Instructions" description="Instructions executed"/>
+    <event event="0x09" title="Core" name="Folded Instructions" description="Folded instructions executed"/>
+    <event event="0x0a" title="Cache" name="Data read access" description="Data cache read access, not including cache operations"/>
+    <event event="0x0b" title="Cache" name="Data read miss" description="Data cache miss, not including Cache Operations"/>
+    <event event="0x0c" title="Cache" name="Data write access" description="Data cache write access"/>
+    <event event="0x0d" title="Cache" name="Data write miss" description="Data cache write miss"/>
+    <event event="0x0e" title="Cache" name="Data line eviction" description="Data cache line eviction, not including cache operations"/>
+    <event event="0x0f" title="Branch" name="PC change w/o mode change" description="Software changed the PC and there is not a mode change"/>
+    <event event="0x10" title="Cache " name="TLB miss" description="Main TLB miss"/>
+    <event event="0x11" title="External" name="External Memory request" description="External memory request (cache refill, noncachable, write-back)"/>
+    <event event="0x12" title="Cache" name="Stall" description="Stall because of Load Store Unit request queue being full"/>
+    <event event="0x13" title="Write Buffer" name="Drains" description="The number of times the Write Buffer was drained because of LSU ordering constraints or CP15 operations (Data Synchronization Barrier command) or Strongly Ordered operation"/>
+    <event event="0x14" title="Write Buffer" name="Write Merges" description="Buffered write merged in a store buffer slot"/>
+    <event event="0xFF" title="Core" name="Cycle counter" description="An increment each cycle"/>
+  </category>  <counter_set name="ARM_ARM11_cntX">
+    <counter name="ARM_ARM11_cnt0"/>
+    <counter name="ARM_ARM11_cnt1"/>
+    <counter name="ARM_ARM11_cnt2"/>
+  </counter_set>
+  <category name="ARM11" counter_set="ARM_ARM11_cntX" per_cpu="yes">
+    <event counter="ARM_ARM11_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Cache" name="Inst miss" description="Instruction cache miss to a cacheable location, which requires a fetch from external memory"/>
+    <event event="0x01" title="Pipeline" name="Instruction stall" description="Stall because instruction buffer cannot deliver an instruction"/>
+    <event event="0x02" title="Pipeline" name="Data stall" description="Stall because of a data dependency"/>
+    <event event="0x03" title="Cache" name="Inst micro TLB miss" description="Instruction MicroTLB miss (unused on ARM1156)"/>
+    <event event="0x04" title="Cache" name="Data micro TLB miss" description="Data MicroTLB miss (unused on ARM1156)"/>
+    <event event="0x05" title="Branch" name="Instruction executed" description="Branch instruction executed, branch might or might not have changed program flow"/>
+    <event event="0x06" title="Branch" name="Mispredicted" description="Branch mis-predicted"/>
+    <event event="0x07" title="Instruction" name="Executed" description="Instructions executed"/>
+    <event event="0x09" title="Cache" name="Data access" description="Data cache access, not including Cache operations"/>
+    <event event="0x0a" title="Cache" name="Data all access" description="Data cache access, not including Cache Operations regardless of whether or not the location is cacheable"/>
+    <event event="0x0b" title="Cache" name="Data miss" description="Data cache miss, not including Cache Operations"/>
+    <event event="0x0c" title="Cache" name="Write-back" description="Data cache write-back"/>
+    <event event="0x0d" title="Program Counter" name="SW change" description="Software changed the PC"/>
+    <event event="0x0f" title="Cache " name="TLB miss" description="Main TLB miss (unused on ARM1156)"/>
+    <event event="0x10" title="External" name="Access" description="Explicit external data or peripheral access"/>
+    <event event="0x11" title="Cache" name="Data miss" description="Stall because of Load Store Unit request queue being full"/>
+    <event event="0x12" title="Write Buffer" name="Drains" description="The number of times the Write Buffer was drained because of a Data Synchronization Barrier command or Strongly Ordered operation"/>
+    <event event="0x13" title="Disable Interrupts" name="FIQ" description="The number of cycles which FIQ interrupts are disabled (ARM1156 only)"/>
+    <event event="0x14" title="Disable Interrupts" name="IRQ" description="The number of cycles which IRQ interrupts are disabled (ARM1156 only)"/>
+    <event event="0x20" title="ETM" name="ETMEXTOUT[0]" description="ETMEXTOUT[0] signal was asserted for a cycle"/>
+    <event event="0x21" title="ETM" name="ETMEXTOUT[1]" description="ETMEXTOUT[1] signal was asserted for a cycle"/>
+    <event event="0x22" title="ETM" name="ETMEXTOUT[0,1]" description="ETMEXTOUT[0] or ETMEXTOUT[1] was asserted"/>
+    <event event="0x23" title="Procedure" name="Calls" description="Procedure call instruction executed"/>
+    <event event="0x24" title="Procedure" name="Returns" description="Procedure return instruction executed"/>
+    <event event="0x25" title="Procedure" name="Return and predicted" description="Procedure return instruction executed and return address predicted"/>
+    <event event="0x26" title="Procedure" name="Return and mispredicted" description="Procedure return instruction executed and return address predicted incorrectly"/>
+    <event event="0x30" title="Cache" name="Inst tag or parity error" description="Instruction cache Tag or Valid RAM parity error (ARM1156 only)"/>
+    <event event="0x31" title="Cache" name="Inst parity error" description="Instruction cache RAM parity error (ARM1156 only)"/>
+    <event event="0x32" title="Cache" name="Data tag or parity error" description="Data cache Tag or Valid RAM parity error (ARM1156 only)"/>
+    <event event="0x33" title="Cache" name="Data parity error" description="Data cache RAM parity error (ARM1156 only)"/>
+    <event event="0x34" title="ITCM" name="Error" description="ITCM error (ARM1156 only)"/>
+    <event event="0x35" title="DTCM" name="Error" description="DTCM error (ARM1156 only)"/>
+    <event event="0x36" title="Procedure" name="Return address pop" description="Procedure return address popped off the return stack (ARM1156 only)"/>
+    <event event="0x37" title="Procedure" name="Return address misprediction" description="Procedure return address popped off the return stack has been incorrectly predicted by the PFU (ARM1156 only)"/>
+    <event event="0x38" title="Cache" name="Data dirty parity error" description="Data cache Dirty RAM parity error (ARM1156 only)"/>
+  </category>
+  <counter_set name="ARM_Cortex-A15_cntX">
+    <counter name="ARM_Cortex-A15_cnt0"/>
+    <counter name="ARM_Cortex-A15_cnt1"/>
+    <counter name="ARM_Cortex-A15_cnt2"/>
+    <counter name="ARM_Cortex-A15_cnt3"/>
+    <counter name="ARM_Cortex-A15_cnt4"/>
+    <counter name="ARM_Cortex-A15_cnt5"/>
+  </counter_set>
+  <category name="Cortex-A15" counter_set="ARM_Cortex-A15_cntX" per_cpu="yes" event_based_sampling="yes">
+    <event counter="ARM_Cortex-A15_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Software" name="Increment" description="Software increment architecturally executed"/>
+    <event event="0x01" title="Cache" name="Instruction refill" description="Instruction fetch that causes a refill of at least the level of instruction or unified cache closest to the processor"/>
+    <event event="0x02" title="Cache" name="Inst TLB refill" description="Instruction fetch that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x03" title="Cache" name="Data refill" description="Memory Read or Write operation that causes a refill of at least the level of data or unified cache closest to the processor"/>
+    <event event="0x04" title="Cache" name="Data access" description="Memory Read or Write operation that causes a cache access to at least the level of data or unified cache closest to the processor"/>
+    <event event="0x05" title="Cache" name="Data TLB refill" description="Memory Read or Write operation that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x08" title="Instruction" name="Executed" description="Instruction architecturally executed"/>
+    <event event="0x09" title="Exception" name="Taken" description="Exceptions taken"/>
+    <event event="0x0a" title="Exception" name="Return" description="Exception return architecturally executed"/>
+    <event event="0x0b" title="Instruction" name="CONTEXTIDR" description="Instruction that writes to the CONTEXTIDR architecturally executed"/>
+    <event event="0x10" title="Branch" name="Mispredicted" description="Branch mispredicted or not predicted"/>
+	<event event="0x11" title="Cycle" name="Cycle" description=""/>
+    <event event="0x12" title="Branch" name="Potential prediction" description="Branch or other change in program flow that could have been predicted by the branch prediction resources of the processor"/>
+    <event event="0x13" title="Memory" name="Memory access" description="Data memory access"/>
+    <event event="0x14" title="Cache" name="L1 inst access" description="Instruction cache access"/>
+    <event event="0x15" title="Cache" name="L1 data write" description="Level 1 data cache Write-Back"/>
+	<event event="0x16" title="Cache" name="L2 data access" description="Level 2 data cache access"/>
+	<event event="0x17" title="Cache" name="L2 data refill" description="Level 2 data cache refill"/>
+	<event event="0x18" title="Cache" name="L2 data write" description="Level 2 data cache Write-Back"/>
+	<event event="0x19" title="Bus" name="Access" description=""/>
+	<event event="0x1a" title="Memory" name="Error" description="Local memory error"/>
+	<event event="0x1b" title="Instruction" name="Speculative" description="Instruction speculatively executed"/>
+	<event event="0x1c" title="Memory" name="Translation table" description="Write to translation table base architecturally executed"/>
+	<event event="0x1d" title="Bus" name="Cycle" description=""/>
+    <event event="0x40" title="Cache" name="L1 data read" description="Level 1 data cache access - Read"/>
+    <event event="0x41" title="Cache" name="L1 data write" description="Level 1 data cache access - Write"/>
+    <event event="0x42" title="Cache" name="L1 data refill read" description="Level 1 data cache refill - Read"/>
+    <event event="0x43" title="Cache" name="L1 data refill write" description="Level 1 data cache refill - Write"/>
+    <event event="0x46" title="Cache" name="L1 data victim" description="Level 1 data cache Write-Back - Victim"/>
+    <event event="0x47" title="Cache" name="L1 data clean" description="Level 1 data cache Write-Back - Cleaning and coherency"/>
+    <event event="0x48" title="Cache" name="L1 data invalidate" description="Level 1 data cache invalidate"/>
+    <event event="0x4c" title="TLB" name="L1 data refill read" description="Level 1 data TLB refill - Read"/>
+    <event event="0x4d" title="TLB" name="L1 data refill write" description="Level 1 data TLB refill - Write"/>
+    <event event="0x50" title="Cache" name="L2 data read" description="Level 2 data cache access - Read"/>
+    <event event="0x51" title="Cache" name="L2 data write" description="Level 2 data cache access - Write"/>
+    <event event="0x52" title="Cache" name="L2 data refill read" description="Level 2 data cache refill - Read"/>
+    <event event="0x53" title="Cache" name="L2 data refill write" description="Level 2 data cache refill - Write"/>
+    <event event="0x56" title="Cache" name="L2 data victim" description="Level 2 data cache Write-Back - Victim"/>
+    <event event="0x57" title="Cache" name="L2 data clean" description="Level 2 data cache Write-Back - Cleaning and coherency"/>
+    <event event="0x58" title="Cache" name="L2 data invalidate" description="Level 2 data cache invalidate"/>
+    <event event="0x60" title="Bus" name="Read" description="Bus access - Read"/>
+    <event event="0x61" title="Bus" name="Write" description="Bus access - Write"/>
+    <event event="0x64" title="Bus" name="Access" description="Bus access - Normal"/>
+    <event event="0x65" title="Bus" name="Peripheral" description="Bus access - Peripheral"/>
+    <event event="0x66" title="Memory" name="Read" description="Data memory access - Read"/>
+    <event event="0x67" title="Memory" name="Write" description="Data memory access - Write"/>
+    <event event="0x68" title="Memory" name="Unaligned Read" description="Unaligned access - Read"/>
+    <event event="0x69" title="Memory" name="Unaligned Write" description="Unaligned access - Write"/>
+	<event event="0x6a" title="Memory" name="Unaligned" description="Unaligned access"/>
+	<event event="0x6c" title="Intrinsic" name="LDREX" description="Exclusive instruction speculatively executed - LDREX"/>
+	<event event="0x6d" title="Intrinsic" name="STREX pass" description="Exclusive instruction speculatively executed - STREX pass"/>
+	<event event="0x6e" title="Intrinsic" name="STREX fail" description="Exclusive instruction speculatively executed - STREX fail"/>
+    <event event="0x70" title="Instructions" name="Load" description="Instruction speculatively executed - Load"/>
+    <event event="0x71" title="Instructions" name="Store" description="Instruction speculatively executed - Store"/>
+    <event event="0x72" title="Instructions" name="Load/Store" description="Instruction speculatively executed - Load or store"/>
+    <event event="0x73" title="Instructions" name="Integer" description="Instruction speculatively executed - Integer data processing"/>
+    <event event="0x74" title="Instructions" name="Advanced SIMD" description="Instruction speculatively executed - Advanced SIMD"/>
+    <event event="0x75" title="Instructions" name="VFP" description="Instruction speculatively executed - VFP"/>
+    <event event="0x76" title="Instructions" name="Software change" description="Instruction speculatively executed - Software change of the PC"/>
+    <event event="0x78" title="Instructions" name="Immediate branch" description="Branch speculatively executed - Immediate branch"/>
+    <event event="0x79" title="Instructions" name="Procedure return" description="Branch speculatively executed - Procedure return"/>
+    <event event="0x7a" title="Instructions" name="Indirect branch" description="Branch speculatively executed - Indirect branch"/>
+    <event event="0x7c" title="Instructions" name="ISB" description="Barrier speculatively executed - ISB"/>
+    <event event="0x7d" title="Instructions" name="DSB" description="Barrier speculatively executed - DSB"/>
+    <event event="0x7e" title="Instructions" name="DMB" description="Barrier speculatively executed - DMB"/>
+  </category>  
+    <counter_set name="ARM_Cortex-A5_cntX">
+    <counter name="ARM_Cortex-A5_cnt0"/>
+    <counter name="ARM_Cortex-A5_cnt1"/>
+  </counter_set>
+  <category name="Cortex-A5" counter_set="ARM_Cortex-A5_cntX" per_cpu="yes" event_based_sampling="yes">
+    <event counter="ARM_Cortex-A5_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Software" name="Increment" description="Incremented only on writes to the Software Increment Register"/>
+    <event event="0x01" title="Cache" name="Instruction refill" description="Instruction fetch that causes a refill of at least the level of instruction or unified cache closest to the processor"/>
+    <event event="0x02" title="Cache" name="Inst TLB refill" description="Instruction fetch that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x03" title="Cache" name="Data refill" description="Memory Read or Write operation that causes a refill of at least the level of data or unified cache closest to the processor"/>
+    <event event="0x04" title="Cache" name="Data access" description="Memory Read or Write operation that causes a cache access to at least the level of data or unified cache closest to the processor"/>
+    <event event="0x05" title="Cache" name="Data TLB refill" description="Memory Read or Write operation that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x06" title="Instruction" name="Memory read" description="Memory-reading instruction architecturally executed"/>
+    <event event="0x07" title="Instruction" name="Memory write" description="Memory-writing instruction architecturally executed"/>
+    <event event="0x08" title="Instruction" name="Executed" description="Instruction architecturally executed"/>
+    <event event="0x09" title="Exception" name="Taken" description="Exceptions taken"/>
+    <event event="0x0a" title="Exception" name="Return" description="Exception return architecturally executed"/>
+    <event event="0x0b" title="Instruction" name="CONTEXTIDR" description="Instruction that writes to the CONTEXTIDR architecturally executed"/>
+    <event event="0x0c" title="Branch" name="PC change" description="Software change of the Program Counter, except by an exception, architecturally executed"/>
+    <event event="0x0d" title="Branch" name="Immediate" description="Immediate branch architecturally executed"/>
+    <event event="0x0e" title="Procedure" name="Return" description="Procedure return, other than exception return, architecturally executed"/>
+    <event event="0x0f" title="Fault" name="Unaligned access" description="Unaligned access architecturally executed"/>
+    <event event="0x10" title="Branch" name="Mispredicted" description="Branch mispredicted or not predicted"/>
+    <event event="0x12" title="Branch" name="Potential prediction" description="Branch or other change in program flow that could have been predicted by the branch prediction resources of the processor"/>
+    <event event="0x13" title="Memory" name="Memory access" description="Data memory access"/>
+    <event event="0x14" title="Cache" name="Instruction access" description="Instruction cache access"/>
+    <event event="0x15" title="Cache" name="Data eviction" description="Data cache eviction"/>
+    <event event="0x86" title="Interrupts" name="IRQ" description="IRQ exception taken"/>
+    <event event="0x87" title="Interrupts" name="FIQ" description="FIQ exception taken"/>
+    <event event="0xC0" title="Memory" name="External request" description="External memory request"/>
+    <event event="0xC1" title="Memory" name="Non-cacheable ext req" description="Non-cacheable external memory request"/>
+    <event event="0xC2" title="Cache" name="Linefill" description="Linefill because of prefetch"/>
+    <event event="0xC3" title="Cache" name="Linefill dropped" description="Prefetch linefill dropped"/>
+    <event event="0xC4" title="Cache" name="Allocate mode enter" description="Entering read allocate mode"/>
+    <event event="0xC5" title="Cache" name="Allocate mode" description="Read allocate mode"/>
+    <event event="0xC7" title="ETM" name="ETM Ext Out[0]" description=""/>
+    <event event="0xC8" title="ETM" name="ETM Ext Out[1]" description=""/>
+    <event event="0xC9" title="Instruction" name="Pipeline stall" description="Data Write operation that stalls the pipeline because the store buffer is full"/>
+  </category>
+  <counter_set name="ARM_Cortex-A8_cntX">
+    <counter name="ARM_Cortex-A8_cnt0"/>
+    <counter name="ARM_Cortex-A8_cnt1"/>
+    <counter name="ARM_Cortex-A8_cnt2"/>
+    <counter name="ARM_Cortex-A8_cnt3"/>
+  </counter_set>
+  <category name="Cortex-A8" counter_set="ARM_Cortex-A8_cntX" per_cpu="yes" event_based_sampling="yes">
+    <event counter="ARM_Cortex-A8_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Software" name="Increment" description="Incremented only on writes to the Software Increment Register"/>
+    <event event="0x01" title="Cache" name="Instruction refill" description="Instruction fetch that causes a refill of at least the level of instruction or unified cache closest to the processor"/>
+    <event event="0x02" title="Cache" name="Inst TLB refill" description="Instruction fetch that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x03" title="Cache" name="Data refill" description="Memory Read or Write operation that causes a refill of at least the level of data or unified cache closest to the processor"/>
+    <event event="0x04" title="Cache" name="Data access" description="Memory Read or Write operation that causes a cache access to at least the level of data or unified cache closest to the processor"/>
+    <event event="0x05" title="Cache" name="Data TLB refill" description="Memory Read or Write operation that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x06" title="Instruction" name="Memory read" description="Memory-reading instruction architecturally executed"/>
+    <event event="0x07" title="Instruction" name="Memory write" description="Memory-writing instruction architecturally executed"/>
+    <event event="0x08" title="Instruction" name="Executed" description="Instruction architecturally executed"/>
+    <event event="0x09" title="Exception" name="Taken" description="Exceptions taken"/>
+    <event event="0x0a" title="Exception" name="Return" description="Exception return architecturally executed"/>
+    <event event="0x0b" title="Instruction" name="CONTEXTIDR" description="Instruction that writes to the CONTEXTIDR architecturally executed"/>
+    <event event="0x0c" title="Branch" name="PC change" description="Software change of the Program Counter, except by an exception, architecturally executed"/>
+    <event event="0x0d" title="Branch" name="Immediate" description="Immediate branch architecturally executed"/>
+    <event event="0x0e" title="Procedure" name="Return" description="Procedure return, other than exception return, architecturally executed"/>
+    <event event="0x0f" title="Fault" name="Unaligned access" description="Unaligned access architecturally executed"/>
+    <event event="0x10" title="Branch" name="Mispredicted" description="Branch mispredicted or not predicted"/>
+    <event event="0x12" title="Branch" name="Potential prediction" description="Branch or other change in program flow that could have been predicted by the branch prediction resources of the processor"/>
+    <event event="0x40" title="Cache" name="Write buffer full" description="Any write buffer full cycle"/>
+    <event event="0x41" title="Cache" name="L2 store" description="Any store that is merged in the L2 memory system"/>
+    <event event="0x42" title="Cache" name="Bufferable transaction" description="Any bufferable store transaction from load/store to L2 cache, excluding eviction or cast out data"/>
+    <event event="0x43" title="Cache" name="L1 miss" description="Any accesses to the L2 cache"/>
+    <event event="0x44" title="Cache" name="L2 miss" description="Any cacheable miss in the L2 cache"/>
+    <event event="0x45" title="AXI" name="Read" description="The number of AXI read data transfers"/>
+    <event event="0x46" title="AXI" name="Write" description="The number of AXI write data transfers"/>
+    <event event="0x47" title="Memory" name="Replay event" description="Any replay event in the memory system"/>
+    <event event="0x48" title="Memory" name="Unaligned access" description="Any unaligned memory access that results in a replay"/>
+    <event event="0x49" title="Cache" name="L1 data miss" description="Any L1 data memory access that misses in the cache as a result of the hashing algorithm"/>
+    <event event="0x4a" title="Cache" name="L1 inst miss" description="Any L1 instruction memory access that misses in the cache as a result of the hashing algorithm"/>
+    <event event="0x4b" title="Cache" name="L1 page coloring" description="Any L1 data memory access in which a page coloring alias occurs"/>
+    <event event="0x4c" title="NEON" name="L1 cache hit" description="Any NEON access that hits in the L1 data cache"/>
+    <event event="0x4d" title="NEON" name="L1 cache access" description="Any NEON cacheable data accesses for L1 data cache"/>
+    <event event="0x4e" title="NEON" name="L2 cache access" description="Any L2 cache accesses as a result of a NEON memory access"/>
+    <event event="0x4f" title="NEON" name="L2 cache hit" description="Any NEON hit in the L2 cache"/>
+    <event event="0x50" title="Cache" name="L1 inst access" description="Any L1 instruction cache access, excluding CP15 cache accesses"/>
+    <event event="0x51" title="Branch" name="Return stack misprediction" description="Any return stack misprediction because of incorrect target address for a taken return stack pop"/>
+    <event event="0x52" title="Branch" name="Direction misprediction" description="Branch direction misprediction"/>
+    <event event="0x53" title="Branch" name="Taken prediction" description="Any predictable branch that is predicted to be taken"/>
+    <event event="0x54" title="Branch" name="Executed and taken prediction" description="Any predictable branch that is executed and taken"/>
+    <event event="0x55" title="Core" name="Operations issued" description="Number of operations issued, where an operation is either: an instruction or one operation in a sequence of operations that make up a multi-cycle instruction"/>
+    <event event="0x56" title="Core" name="No issue cycles" description="Increment for every cycle that no instructions are available for issue"/>
+    <event event="0x57" title="Core" name="Issue cycles" description="For every cycle, this event counts the number of instructions issued in that cycle. Multi-cycle instructions are only counted once"/>
+    <event event="0x58" title="NEON" name="MRC data wait" description="Number of cycles the processor stalls waiting on MRC data from NEON"/>
+    <event event="0x59" title="NEON" name="Full queue" description="Number of cycles that the processor stalls as a result of a full NEON instruction queue or NEON load queue"/>
+    <event event="0x5a" title="NEON" name="Idle" description="Number of cycles that NEON and integer processors are both not idle"/>
+    <event event="0x70" title="External" name="PMUEXTIN[0]" description="Counts any event from external input source PMUEXTIN[0]"/>
+    <event event="0x71" title="External" name="PMUEXTIN[1]" description="Counts any event from external input source PMUEXTIN[1]"/>
+    <event event="0x72" title="External" name="PMUEXTIN[0,1]" description="Counts any event from both external input sources PMUEXTIN[0] and PMUEXTIN[1]"/>
+  </category>
+    <counter_set name="ARM_Cortex-A9_cntX">
+    <counter name="ARM_Cortex-A9_cnt0"/>
+    <counter name="ARM_Cortex-A9_cnt1"/>
+    <counter name="ARM_Cortex-A9_cnt2"/>
+    <counter name="ARM_Cortex-A9_cnt3"/>
+    <counter name="ARM_Cortex-A9_cnt4"/>
+    <counter name="ARM_Cortex-A9_cnt5"/>
+  </counter_set>
+  <category name="Cortex-A9" counter_set="ARM_Cortex-A9_cntX" per_cpu="yes" event_based_sampling="yes">
+    <event counter="ARM_Cortex-A9_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Software" name="Increment" description="Incremented only on writes to the Software Increment Register"/>
+    <event event="0x01" title="Cache" name="Instruction refill" description="Instruction fetch that causes a refill of at least the level of instruction or unified cache closest to the processor"/>
+    <event event="0x02" title="Cache" name="Inst TLB refill" description="Instruction fetch that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x03" title="Cache" name="Data refill" description="Memory Read or Write operation that causes a refill of at least the level of data or unified cache closest to the processor"/>
+    <event event="0x04" title="Cache" name="Data access" description="Memory Read or Write operation that causes a cache access to at least the level of data or unified cache closest to the processor"/>
+    <event event="0x05" title="Cache" name="Data TLB refill" description="Memory Read or Write operation that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x06" title="Instruction" name="Memory read" description="Memory-reading instruction architecturally executed"/>
+    <event event="0x07" title="Instruction" name="Memory write" description="Memory-writing instruction architecturally executed"/>
+    <event event="0x09" title="Exception" name="Taken" description="Exceptions taken"/>
+    <event event="0x0a" title="Exception" name="Return" description="Exception return architecturally executed"/>
+    <event event="0x0b" title="Instruction" name="CONTEXTIDR" description="Instruction that writes to the CONTEXTIDR architecturally executed"/>
+    <event event="0x0c" title="Branch" name="PC change" description="Software change of the Program Counter, except by an exception, architecturally executed"/>
+    <event event="0x0d" title="Branch" name="Immediate" description="Immediate branch architecturally executed"/>
+    <event event="0x0f" title="Fault" name="Unaligned access" description="Unaligned access architecturally executed"/>
+    <event event="0x10" title="Branch" name="Mispredicted" description="Branch mispredicted or not predicted"/>
+    <event event="0x12" title="Branch" name="Potential prediction" description="Branch or other change in program flow that could have been predicted by the branch prediction resources of the processor"/>
+    <event event="0x40" title="Java" name="Bytecode execute" description="Counts the number of Java bytecodes being decoded, including speculative ones"/>
+    <event event="0x41" title="Java" name="SW bytecode execute" description="Counts the number of software java bytecodes being decoded, including speculative ones"/>
+    <event event="0x42" title="Jazelle" name="Backward branch execute" description="Counts the number of Jazelle taken branches being executed"/>
+    <event event="0x50" title="Cache" name="Coherency miss" description="Counts the number of coherent linefill requests performed by the Cortex-A9 processor which also miss in all the other Cortex-A9 processors, meaning that the request is sent to the external memory"/>
+    <event event="0x51" title="Cache" name="Coherency hit" description="Counts the number of coherent linefill requests performed by the Cortex-A9 processor which hit in another Cortex-A9 processor, meaning that the linefill data is fetched directly from the relevant Cortex-A9 cache"/>
+    <event event="0x60" title="Cache" name="Inst dependent stall" description="Counts the number of cycles where the processor is ready to accept new instructions, but does not receive any because of the instruction side not being able to provide any and the instruction cache is currently performing at least one linefill"/>
+    <event event="0x61" title="Cache" name="Data dependent stall" description="Counts the number of cycles where the core has some instructions that it cannot issue to any pipeline, and the Load Store unit has at least one pending linefill request, and no pending TLB requests"/>
+    <event event="0x62" title="Cache" name="TLB stall" description="Counts the number of cycles where the processor is stalled waiting for the completion of translation table walks from the main TLB"/>
+    <event event="0x63" title="Intrinsic" name="STREX pass" description="Counts the number of STREX instructions architecturally executed and passed"/>
+    <event event="0x64" title="Intrinsic" name="STREX fail" description="Counts the number of STREX instructions architecturally executed and failed"/>
+    <event event="0x65" title="Cache" name="Data eviction" description="Counts the number of eviction requests because of a linefill in the data cache"/>
+    <event event="0x66" title="Pipeline" name="Issue stage no dispatch" description="Counts the number of cycles where the issue stage does not dispatch any instruction because it is empty or cannot dispatch any instructions"/>
+    <event event="0x67" title="Pipeline" name="Issue stage empty" description="Counts the number of cycles where the issue stage is empty"/>
+    <event event="0x68" title="Instruction" name="Executed" description="Counts the number of instructions going through the Register Renaming stage. This number is an approximate number of the total number of instructions speculatively executed, and even more approximate of the total number of instructions architecturally executed"/>
+    <event event="0x6E" title="Core" name="Functions" description="Counts the number of procedure returns whose condition codes do not fail, excluding all returns from exception"/>
+    <event event="0x70" title="Instructions" name="Main execution unit" description="Counts the number of instructions being executed in the main execution pipeline of the processor, the multiply pipeline and arithmetic logic unit pipeline"/>
+    <event event="0x71" title="Instructions" name="Second execution unit" description="Counts the number of instructions being executed in the processor second execution pipeline (ALU)"/>
+    <event event="0x72" title="Instructions" name="Load/Store" description="Counts the number of instructions being executed in the Load/Store unit"/>
+    <event event="0x73" title="Instructions" name="Floating point" description="Counts the number of Floating-point instructions going through the Register Rename stage"/>
+    <event event="0x74" title="Instructions" name="NEON" description="Counts the number of NEON instructions going through the Register Rename stage"/>
+    <event event="0x80" title="Stalls" name="PLD" description="Counts the number of cycles where the processor is stalled because PLD slots are all full"/>
+    <event event="0x81" title="Stalls" name="Memory write" description="Counts the number of cycles when the processor is stalled and the data side is stalled too because it is full and executing writes to the external memory"/>
+    <event event="0x82" title="Stalls" name="Inst main TLB miss" description="Counts the number of stall cycles because of main TLB misses on requests issued by the instruction side"/>
+    <event event="0x83" title="Stalls" name="Data main TLB miss" description="Counts the number of stall cycles because of main TLB misses on requests issued by the data side"/>
+    <event event="0x84" title="Stalls" name="Inst micro TLB miss" description="Counts the number of stall cycles because of micro TLB misses on the instruction side"/>
+    <event event="0x85" title="Stalls" name="Data micro TLB miss" description="Counts the number of stall cycles because of micro TLB misses on the data side"/>
+    <event event="0x86" title="Stalls" name="DMB" description="Counts the number of stall cycles because of the execution of a DMB memory barrier"/>
+    <event event="0x8A" title="Clock" name="Integer core" description="Counts the number of cycles during which the integer core clock is enabled"/>
+    <event event="0x8B" title="Clock" name="Data engine" description="Counts the number of cycles during which the Data Engine clock is enabled"/>
+    <event event="0x90" title="Instructions" name="ISB" description="Counts the number of ISB instructions architecturally executed"/>
+    <event event="0x91" title="Instructions" name="DSB" description="Counts the number of DSB instructions architecturally executed"/>
+    <event event="0x92" title="Instructions" name="DMB" description="Counts the number of DMB instructions speculatively executed"/>
+    <event event="0x93" title="External" name="Interrupts" description="Counts the number of external interrupts executed by the processor"/>
+    <event event="0xA0" title="PLE" name="Cache line rq completed" description="Counts the number of PLE cache line requests completed"/>
+    <event event="0xA1" title="PLE" name="Cache line rq skipped" description="Counts the number of PLE cache line requests skipped"/>
+    <event event="0xA2" title="PLE" name="FIFO flush" description="Counts the number of PLE FIFO flush requests"/>
+    <event event="0xA3" title="PLE" name="Request completed" description="Counts the number of PLE FIFO flush completed"/>
+    <event event="0xA4" title="PLE" name="FIFO overflow" description="Counts the number of PLE FIFO flush overflowed"/>
+    <event event="0xA5" title="PLE" name="Request programmed" description="Counts the number of PLE FIFO flush program requests"/>
+  </category>
+    <counter_set name="L2C-310_cntX">
+    <counter name="L2C-310_cnt0"/>
+    <counter name="L2C-310_cnt1"/>
+  </counter_set>
+  <category name="L2C-310" counter_set="L2C-310_cntX" per_cpu="no">
+    <event event="0x1" title="L2Cache" name="CO" description="Eviction, CastOut, of a line from the L2 cache"/>
+    <event event="0x2" title="L2Cache" name="DRH" description="Data read hit"/>
+    <event event="0x3" title="L2Cache" name="DRREQ" description="Data read request"/>
+    <event event="0x4" title="L2Cache" name="DWHIT" description="Data write hit"/>
+    <event event="0x5" title="L2Cache" name="DWREQ" description="Data write request"/>
+    <event event="0x6" title="L2Cache" name="DWTREQ" description="Data write request with write-through attribute"/>
+    <event event="0x7" title="L2Cache" name="IRHIT" description="Instruction read hit"/>
+    <event event="0x8" title="L2Cache" name="IRREQ" description="Instruction read request"/>
+    <event event="0x9" title="L2Cache" name="WA" description="Write allocate"/>
+    <event event="0xa" title="L2Cache" name="IPFALLOC" description="Allocation of a prefetch generated by L2C-310 into the L2 cache"/>
+    <event event="0xb" title="L2Cache" name="EPFHIT" description="Prefetch hint hits in the L2 cache"/>
+    <event event="0xc" title="L2Cache" name="EPFALLOC" description="Prefetch hint allocated into the L2 cache"/>
+    <event event="0xd" title="L2Cache" name="SRRCVD" description="Speculative read received"/>
+    <event event="0xe" title="L2Cache" name="SRCONF" description="Speculative read confirmed"/>
+    <event event="0xf" title="L2Cache" name="EPFRCVD" description="Prefetch hint received"/>
+  </category>
+  <category name="Linux">
+    <event counter="Linux_cpuload_user" title="CPU Load" name="User" per_cpu="yes" description="Scheduler CPU Load of User Application" operation="percentage"/>
+    <event counter="Linux_cpuload_system" title="CPU Load" name="System" per_cpu="yes" description="Scheduler CPU Load of System Behavior" operation="percentage"/>
+    <event counter="Linux_irq_softirq" title="Interrupts" name="SoftIRQ" per_cpu="yes" description="Linux SoftIRQ taken"/>
+    <event counter="Linux_irq_irq" title="Interrupts" name="IRQ" per_cpu="yes" description="Linux IRQ taken"/>
+    <event counter="Linux_block_rq_wr" title="Disk IO" name="Write" description="Disk IO Bytes Written"/>
+    <event counter="Linux_block_rq_rd" title="Disk IO" name="Read" description="Disk IO Bytes Read"/>
+    <event counter="Linux_meminfo_memused" title="Memory" name="Used" description="Total used memory size" operation="maximum"/>
+    <event counter="Linux_meminfo_memfree" title="Memory" name="Free" description="Available memory size" operation="maximum"/>
+    <event counter="Linux_meminfo_bufferram" title="Memory" name="Buffer" description="Memory used by buffers" operation="maximum"/>
+    <event counter="Linux_net_drv" title="Network" name="Gator" description="Network traffic from Gator driver"/>
+    <event counter="Linux_net_rx" title="Network" name="Receive" description="Receive network traffic, excluding effect from Streamline"/>
+    <event counter="Linux_net_tx" title="Network" name="Transmit" description="Transmit network traffic, excluding effect from Streamline"/>
+    <event counter="Linux_sched_switch" title="Scheduler" name="Switch" description="Context switch events"/>
+  </category>
+    <counter_set name="ScorpionMP_cntX">
+    <counter name="ScorpionMP_cnt0"/>
+    <counter name="ScorpionMP_cnt1"/>
+    <counter name="ScorpionMP_cnt2"/>
+    <counter name="ScorpionMP_cnt3"/>
+  </counter_set>
+  <category name="ScorpionMP" counter_set="ScorpionMP_cntX" per_cpu="yes">
+    <event counter="ScorpionMP_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Software" name="Increment" description="Incremented only on writes to the Software Increment Register"/>
+    <event event="0x01" title="Cache" name="Instruction refill" description="Instruction fetch that causes a refill of at least the level of instruction or unified cache closest to the processor"/>
+    <event event="0x02" title="Cache" name="Inst TLB refill" description="Instruction fetch that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x03" title="Cache" name="Data refill" description="Memory Read or Write operation that causes a refill of at least the level of data or unified cache closest to the processor"/>
+    <event event="0x04" title="Cache" name="Data access" description="Memory Read or Write operation that causes a cache access to at least the level of data or unified cache closest to the processor"/>
+    <event event="0x05" title="Cache" name="Data TLB refill" description="Memory Read or Write operation that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x06" title="Instruction" name="Memory read" description="Memory-reading instruction architecturally executed"/>
+    <event event="0x07" title="Instruction" name="Memory write" description="Memory-writing instruction architecturally executed"/>
+	<event event="0x08" title="Instruction" name="Executed" description="Instruction architecturally executed"/>
+    <event event="0x09" title="Exception" name="Taken" description="Exceptions taken"/>
+    <event event="0x0a" title="Exception" name="Return" description="Exception return architecturally executed"/>
+    <event event="0x0b" title="Instruction" name="CONTEXTIDR" description="Instruction that writes to the CONTEXTIDR architecturally executed"/>
+    <event event="0x0c" title="Program Counter" name="SW change" description="Software change of PC, except by an exception, architecturally executed"/>
+    <event event="0x0d" title="Branch" name="Immediate" description="Immediate branch architecturally executed"/>
+    <event event="0x0f" title="Fault" name="Unaligned access" description="Unaligned access architecturally executed"/>
+    <event event="0x10" title="Branch" name="Mispredicted" description="Branch mispredicted or not predicted"/>
+	<event event="0x11" title="Cycle" name="Cycle" description=""/>
+    <event event="0x12" title="Branch" name="Potential prediction" description="Branch or other change in program flow that could have been predicted by the branch prediction resources of the processor"/>
+	<event event="0x4c" title="Scorpion" name="ICACHE_EXPL_INV" description=""/>
+	<event event="0x4d" title="Scorpion" name="ICACHE_MISS" description=""/>
+	<event event="0x4e" title="Scorpion" name="ICACHE_ACCESS" description=""/>
+	<event event="0x4f" title="Scorpion" name="ICACHE_CACHEREQ_L2" description=""/>
+	<event event="0x50" title="Scorpion" name="ICACHE_NOCACHE_L2" description=""/>
+	<event event="0x51" title="Scorpion" name="HIQUP_NOPED" description=""/>
+	<event event="0x52" title="Scorpion" name="DATA_ABORT" description=""/>
+	<event event="0x53" title="Scorpion" name="IRQ" description=""/>
+	<event event="0x54" title="Scorpion" name="FIQ" description=""/>
+	<event event="0x55" title="Scorpion" name="ALL_EXCPT" description=""/>
+	<event event="0x56" title="Scorpion" name="UNDEF" description=""/>
+	<event event="0x57" title="Scorpion" name="SVC" description=""/>
+	<event event="0x58" title="Scorpion" name="SMC" description=""/>
+	<event event="0x59" title="Scorpion" name="PREFETCH_ABORT" description=""/>
+	<event event="0x5a" title="Scorpion" name="INDEX_CHECK" description=""/>
+	<event event="0x5b" title="Scorpion" name="NULL_CHECK" description=""/>
+	<event event="0x5c" title="Scorpion" name="EXPL_ICIALLU" description=""/>
+	<event event="0x5d" title="Scorpion" name="IMPL_ICIALLU" description=""/>
+	<event event="0x5e" title="Scorpion" name="NONICIALLU_BTAC_INV" description=""/>
+	<event event="0x5f" title="Scorpion" name="ICIMVAU_IMPL_ICIALLU" description=""/>
+	<event event="0x60" title="Scorpion" name="SPIPE_ONLY_CYCLES" description=""/>
+	<event event="0x61" title="Scorpion" name="XPIPE_ONLY_CYCLES" description=""/>
+	<event event="0x62" title="Scorpion" name="DUAL_CYCLES" description=""/>
+	<event event="0x63" title="Scorpion" name="DISPATCH_ANY_CYCLES" description=""/>
+	<event event="0x64" title="Scorpion" name="FIFO_FULLBLK_CMT" description=""/>
+	<event event="0x65" title="Scorpion" name="FAIL_COND_INST" description=""/>
+	<event event="0x66" title="Scorpion" name="PASS_COND_INST" description=""/>
+	<event event="0x67" title="Scorpion" name="ALLOW_VU_CLK" description=""/>
+	<event event="0x68" title="Scorpion" name="VU_IDLE" description=""/>
+	<event event="0x69" title="Scorpion" name="ALLOW_L2_CLK" description=""/>
+	<event event="0x6a" title="Scorpion" name="L2_IDLE" description=""/>
+	<event event="0x6b" title="Scorpion" name="DTLB_IMPL_INV_SCTLR_DACR" description=""/>
+	<event event="0x6c" title="Scorpion" name="DTLB_EXPL_INV" description=""/>
+	<event event="0x6d" title="Scorpion" name="DTLB_MISS" description=""/>
+	<event event="0x6e" title="Scorpion" name="DTLB_ACCESS" description=""/>
+	<event event="0x6f" title="Scorpion" name="ITLB_MISS" description=""/>
+	<event event="0x70" title="Scorpion" name="ITLB_IMPL_INV" description=""/>
+	<event event="0x71" title="Scorpion" name="ITLB_EXPL_INV" description=""/>
+	<event event="0x72" title="Scorpion" name="UTLB_D_MISS" description=""/>
+	<event event="0x73" title="Scorpion" name="UTLB_D_ACCESS" description=""/>
+	<event event="0x74" title="Scorpion" name="UTLB_I_MISS" description=""/>
+	<event event="0x75" title="Scorpion" name="UTLB_I_ACCESS" description=""/>
+	<event event="0x76" title="Scorpion" name="UTLB_INV_ASID" description=""/>
+	<event event="0x77" title="Scorpion" name="UTLB_INV_MVA" description=""/>
+	<event event="0x78" title="Scorpion" name="UTLB_INV_ALL" description=""/>
+	<event event="0x79" title="Scorpion" name="S2_HOLD_RDQ_UNAVAIL" description=""/>
+	<event event="0x7a" title="Scorpion" name="S2_HOLD" description=""/>
+	<event event="0x7b" title="Scorpion" name="S2_HOLD_DEV_OP" description=""/>
+	<event event="0x7c" title="Scorpion" name="S2_HOLD_ORDER" description=""/>
+	<event event="0x7d" title="Scorpion" name="S2_HOLD_BARRIER" description=""/>
+	<event event="0x7e" title="Scorpion" name="VIU_DUAL_CYCLE" description=""/>
+	<event event="0x7f" title="Scorpion" name="VIU_SINGLE_CYCLE" description=""/>
+	<event event="0x80" title="Scorpion" name="VX_PIPE_WAR_STALL_CYCLES" description=""/>
+	<event event="0x81" title="Scorpion" name="VX_PIPE_WAW_STALL_CYCLES" description=""/>
+	<event event="0x82" title="Scorpion" name="VX_PIPE_RAW_STALL_CYCLES" description=""/>
+	<event event="0x83" title="Scorpion" name="VX_PIPE_LOAD_USE_STALL" description=""/>
+	<event event="0x84" title="Scorpion" name="VS_PIPE_WAR_STALL_CYCLES" description=""/>
+	<event event="0x85" title="Scorpion" name="VS_PIPE_WAW_STALL_CYCLES" description=""/>
+	<event event="0x86" title="Scorpion" name="VS_PIPE_RAW_STALL_CYCLES" description=""/>
+	<event event="0x87" title="Scorpion" name="EXCEPTIONS_INV_OPERATION" description=""/>
+	<event event="0x88" title="Scorpion" name="EXCEPTIONS_DIV_BY_ZERO" description=""/>
+	<event event="0x89" title="Scorpion" name="COND_INST_FAIL_VX_PIPE" description=""/>
+	<event event="0x8a" title="Scorpion" name="COND_INST_FAIL_VS_PIPE" description=""/>
+	<event event="0x8b" title="Scorpion" name="EXCEPTIONS_OVERFLOW" description=""/>
+	<event event="0x8c" title="Scorpion" name="EXCEPTIONS_UNDERFLOW" description=""/>
+	<event event="0x8d" title="Scorpion" name="EXCEPTIONS_DENORM" description=""/>
+	<event event="0x8e" title="ScorpionMP" name="NUM_BARRIERS" description=""/>
+	<event event="0x8f" title="ScorpionMP" name="BARRIER_CYCLES" description=""/>
+  </category>  
+    <counter_set name="Scorpion_cntX">
+    <counter name="Scorpion_cnt0"/>
+    <counter name="Scorpion_cnt1"/>
+    <counter name="Scorpion_cnt2"/>
+    <counter name="Scorpion_cnt3"/>
+  </counter_set>
+  <category name="Scorpion" counter_set="Scorpion_cntX" per_cpu="yes">
+    <event counter="Scorpion_ccnt" title="Clock" name="Cycles" description="The number of core clock cycles"/>
+    <event event="0x00" title="Software" name="Increment" description="Incremented only on writes to the Software Increment Register"/>
+    <event event="0x01" title="Cache" name="Instruction refill" description="Instruction fetch that causes a refill of at least the level of instruction or unified cache closest to the processor"/>
+    <event event="0x02" title="Cache" name="Inst TLB refill" description="Instruction fetch that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x03" title="Cache" name="Data refill" description="Memory Read or Write operation that causes a refill of at least the level of data or unified cache closest to the processor"/>
+    <event event="0x04" title="Cache" name="Data access" description="Memory Read or Write operation that causes a cache access to at least the level of data or unified cache closest to the processor"/>
+    <event event="0x05" title="Cache" name="Data TLB refill" description="Memory Read or Write operation that causes a TLB refill of at least the level of TLB closest to the processor"/>
+    <event event="0x06" title="Instruction" name="Memory read" description="Memory-reading instruction architecturally executed"/>
+    <event event="0x07" title="Instruction" name="Memory write" description="Memory-writing instruction architecturally executed"/>
+	<event event="0x08" title="Instruction" name="Executed" description="Instruction architecturally executed"/>
+    <event event="0x09" title="Exception" name="Taken" description="Exceptions taken"/>
+    <event event="0x0a" title="Exception" name="Return" description="Exception return architecturally executed"/>
+    <event event="0x0b" title="Instruction" name="CONTEXTIDR" description="Instruction that writes to the CONTEXTIDR architecturally executed"/>
+    <event event="0x0c" title="Program Counter" name="SW change" description="Software change of PC, except by an exception, architecturally executed"/>
+    <event event="0x0d" title="Branch" name="Immediate" description="Immediate branch architecturally executed"/>
+    <event event="0x0f" title="Fault" name="Unaligned access" description="Unaligned access architecturally executed"/>
+    <event event="0x10" title="Branch" name="Mispredicted" description="Branch mispredicted or not predicted"/>
+	<event event="0x11" title="Cycle" name="Cycle" description=""/>
+    <event event="0x12" title="Branch" name="Potential prediction" description="Branch or other change in program flow that could have been predicted by the branch prediction resources of the processor"/>
+	<event event="0x4c" title="Scorpion" name="ICACHE_EXPL_INV" description=""/>
+	<event event="0x4d" title="Scorpion" name="ICACHE_MISS" description=""/>
+	<event event="0x4e" title="Scorpion" name="ICACHE_ACCESS" description=""/>
+	<event event="0x4f" title="Scorpion" name="ICACHE_CACHEREQ_L2" description=""/>
+	<event event="0x50" title="Scorpion" name="ICACHE_NOCACHE_L2" description=""/>
+	<event event="0x51" title="Scorpion" name="HIQUP_NOPED" description=""/>
+	<event event="0x52" title="Scorpion" name="DATA_ABORT" description=""/>
+	<event event="0x53" title="Scorpion" name="IRQ" description=""/>
+	<event event="0x54" title="Scorpion" name="FIQ" description=""/>
+	<event event="0x55" title="Scorpion" name="ALL_EXCPT" description=""/>
+	<event event="0x56" title="Scorpion" name="UNDEF" description=""/>
+	<event event="0x57" title="Scorpion" name="SVC" description=""/>
+	<event event="0x58" title="Scorpion" name="SMC" description=""/>
+	<event event="0x59" title="Scorpion" name="PREFETCH_ABORT" description=""/>
+	<event event="0x5a" title="Scorpion" name="INDEX_CHECK" description=""/>
+	<event event="0x5b" title="Scorpion" name="NULL_CHECK" description=""/>
+	<event event="0x5c" title="Scorpion" name="EXPL_ICIALLU" description=""/>
+	<event event="0x5d" title="Scorpion" name="IMPL_ICIALLU" description=""/>
+	<event event="0x5e" title="Scorpion" name="NONICIALLU_BTAC_INV" description=""/>
+	<event event="0x5f" title="Scorpion" name="ICIMVAU_IMPL_ICIALLU" description=""/>
+	<event event="0x60" title="Scorpion" name="SPIPE_ONLY_CYCLES" description=""/>
+	<event event="0x61" title="Scorpion" name="XPIPE_ONLY_CYCLES" description=""/>
+	<event event="0x62" title="Scorpion" name="DUAL_CYCLES" description=""/>
+	<event event="0x63" title="Scorpion" name="DISPATCH_ANY_CYCLES" description=""/>
+	<event event="0x64" title="Scorpion" name="FIFO_FULLBLK_CMT" description=""/>
+	<event event="0x65" title="Scorpion" name="FAIL_COND_INST" description=""/>
+	<event event="0x66" title="Scorpion" name="PASS_COND_INST" description=""/>
+	<event event="0x67" title="Scorpion" name="ALLOW_VU_CLK" description=""/>
+	<event event="0x68" title="Scorpion" name="VU_IDLE" description=""/>
+	<event event="0x69" title="Scorpion" name="ALLOW_L2_CLK" description=""/>
+	<event event="0x6a" title="Scorpion" name="L2_IDLE" description=""/>
+	<event event="0x6b" title="Scorpion" name="DTLB_IMPL_INV_SCTLR_DACR" description=""/>
+	<event event="0x6c" title="Scorpion" name="DTLB_EXPL_INV" description=""/>
+	<event event="0x6d" title="Scorpion" name="DTLB_MISS" description=""/>
+	<event event="0x6e" title="Scorpion" name="DTLB_ACCESS" description=""/>
+	<event event="0x6f" title="Scorpion" name="ITLB_MISS" description=""/>
+	<event event="0x70" title="Scorpion" name="ITLB_IMPL_INV" description=""/>
+	<event event="0x71" title="Scorpion" name="ITLB_EXPL_INV" description=""/>
+	<event event="0x72" title="Scorpion" name="UTLB_D_MISS" description=""/>
+	<event event="0x73" title="Scorpion" name="UTLB_D_ACCESS" description=""/>
+	<event event="0x74" title="Scorpion" name="UTLB_I_MISS" description=""/>
+	<event event="0x75" title="Scorpion" name="UTLB_I_ACCESS" description=""/>
+	<event event="0x76" title="Scorpion" name="UTLB_INV_ASID" description=""/>
+	<event event="0x77" title="Scorpion" name="UTLB_INV_MVA" description=""/>
+	<event event="0x78" title="Scorpion" name="UTLB_INV_ALL" description=""/>
+	<event event="0x79" title="Scorpion" name="S2_HOLD_RDQ_UNAVAIL" description=""/>
+	<event event="0x7a" title="Scorpion" name="S2_HOLD" description=""/>
+	<event event="0x7b" title="Scorpion" name="S2_HOLD_DEV_OP" description=""/>
+	<event event="0x7c" title="Scorpion" name="S2_HOLD_ORDER" description=""/>
+	<event event="0x7d" title="Scorpion" name="S2_HOLD_BARRIER" description=""/>
+	<event event="0x7e" title="Scorpion" name="VIU_DUAL_CYCLE" description=""/>
+	<event event="0x7f" title="Scorpion" name="VIU_SINGLE_CYCLE" description=""/>
+	<event event="0x80" title="Scorpion" name="VX_PIPE_WAR_STALL_CYCLES" description=""/>
+	<event event="0x81" title="Scorpion" name="VX_PIPE_WAW_STALL_CYCLES" description=""/>
+	<event event="0x82" title="Scorpion" name="VX_PIPE_RAW_STALL_CYCLES" description=""/>
+	<event event="0x83" title="Scorpion" name="VX_PIPE_LOAD_USE_STALL" description=""/>
+	<event event="0x84" title="Scorpion" name="VS_PIPE_WAR_STALL_CYCLES" description=""/>
+	<event event="0x85" title="Scorpion" name="VS_PIPE_WAW_STALL_CYCLES" description=""/>
+	<event event="0x86" title="Scorpion" name="VS_PIPE_RAW_STALL_CYCLES" description=""/>
+	<event event="0x87" title="Scorpion" name="EXCEPTIONS_INV_OPERATION" description=""/>
+	<event event="0x88" title="Scorpion" name="EXCEPTIONS_DIV_BY_ZERO" description=""/>
+	<event event="0x89" title="Scorpion" name="COND_INST_FAIL_VX_PIPE" description=""/>
+	<event event="0x8a" title="Scorpion" name="COND_INST_FAIL_VS_PIPE" description=""/>
+	<event event="0x8b" title="Scorpion" name="EXCEPTIONS_OVERFLOW" description=""/>
+	<event event="0x8c" title="Scorpion" name="EXCEPTIONS_UNDERFLOW" description=""/>
+	<event event="0x8d" title="Scorpion" name="EXCEPTIONS_DENORM" description=""/>
+	<event event="0x8e" title="Scorpion" name="BANK_AB_HIT" description=""/>
+	<event event="0x8f" title="Scorpion" name="BANK_AB_ACCESS" description=""/>
+	<event event="0x90" title="Scorpion" name="BANK_CD_HIT" description=""/>
+	<event event="0x91" title="Scorpion" name="BANK_CD_ACCESS" description=""/>
+	<event event="0x92" title="Scorpion" name="BANK_AB_DSIDE_HIT" description=""/>
+	<event event="0x93" title="Scorpion" name="BANK_AB_DSIDE_ACCESS" description=""/>
+	<event event="0x94" title="Scorpion" name="BANK_CD_DSIDE_HIT" description=""/>
+	<event event="0x95" title="Scorpion" name="BANK_CD_DSIDE_ACCESS" description=""/>
+	<event event="0x96" title="Scorpion" name="BANK_AB_ISIDE_HIT" description=""/>
+	<event event="0x97" title="Scorpion" name="BANK_AB_ISIDE_ACCESS" description=""/>
+	<event event="0x98" title="Scorpion" name="BANK_CD_ISIDE_HIT" description=""/>
+	<event event="0x99" title="Scorpion" name="BANK_CD_ISIDE_ACCESS" description=""/>
+	<event event="0x9a" title="Scorpion" name="ISIDE_RD_WAIT" description=""/>
+	<event event="0x9b" title="Scorpion" name="DSIDE_RD_WAIT" description=""/>
+	<event event="0x9c" title="Scorpion" name="BANK_BYPASS_WRITE" description=""/>
+	<event event="0x9d" title="Scorpion" name="BANK_AB_NON_CASTOUT" description=""/>
+	<event event="0x9e" title="Scorpion" name="BANK_AB_L2_CASTOUT" description=""/>
+	<event event="0x9f" title="Scorpion" name="BANK_CD_NON_CASTOUT" description=""/>
+	<event event="0xa0" title="Scorpion" name="BANK_CD_L2_CASTOUT" description=""/>
+  </category>
+  </events>

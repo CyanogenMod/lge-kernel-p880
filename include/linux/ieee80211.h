@@ -128,8 +128,16 @@
 #define IEEE80211_QOS_CTL_ACK_POLICY_NOACK	0x0020
 #define IEEE80211_QOS_CTL_ACK_POLICY_NO_EXPL	0x0040
 #define IEEE80211_QOS_CTL_ACK_POLICY_BLOCKACK	0x0060
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define IEEE80211_QOS_CTL_ACK_POLICY_MASK	0x0060
+#endif
 /* A-MSDU 802.11n */
 #define IEEE80211_QOS_CTL_A_MSDU_PRESENT	0x0080
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+/* Mesh Control 802.11s */
+#define IEEE80211_QOS_CTL_MESH_CONTROL_PRESENT  0x0100
+#endif
 
 /* U-APSD queue for WMM IEs sent by AP */
 #define IEEE80211_WMM_IE_AP_QOSINFO_UAPSD	(1<<7)
@@ -541,6 +549,17 @@ static inline int ieee80211_is_qos_nullfunc(__le16 fc)
 	       cpu_to_le16(IEEE80211_FTYPE_DATA | IEEE80211_STYPE_QOS_NULLFUNC);
 }
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+/**
+ * ieee80211_is_first_frag - check if IEEE80211_SCTL_FRAG is not set
+ * @seq_ctrl: frame sequence control bytes in little-endian byteorder
+ */
+static inline int ieee80211_is_first_frag(__le16 seq_ctrl)
+{
+	return (seq_ctrl & cpu_to_le16(IEEE80211_SCTL_FRAG)) == 0;
+}
+#endif
+
 struct ieee80211s_hdr {
 	u8 flags;
 	u8 ttl;
@@ -736,6 +755,12 @@ struct ieee80211_mgmt {
 					__le16 params;
 					__le16 reason_code;
 				} __attribute__((packed)) delba;
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE		
+				struct {
+					u8 action_code;
+					u8 variable[0];
+				} __attribute__((packed)) self_prot;
+#else				
 				struct{
 					u8 action_code;
 					/* capab_info for open and confirm,
@@ -749,6 +774,7 @@ struct ieee80211_mgmt {
 					 */
 					u8 variable[0];
 				} __attribute__((packed)) plink_action;
+#endif				
 				struct{
 					u8 action_code;
 					u8 variable[0];
@@ -761,10 +787,23 @@ struct ieee80211_mgmt {
 					u8 action;
 					u8 smps_control;
 				} __attribute__ ((packed)) ht_smps;
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+				struct {
+					u8 action_code;
+					u8 dialog_token;
+					__le16 capability;
+					u8 variable[0];
+				} __packed tdls_discover_resp;
+#endif					
 			} u;
 		} __attribute__ ((packed)) action;
 	} u;
 } __attribute__ ((packed));
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+/* Supported Rates value encodings in 802.11n-2009 7.3.2.2 */
+#define BSS_MEMBERSHIP_SELECTOR_HT_PHY	127
+#endif
 
 /* mgmt header + 1 byte category code */
 #define IEEE80211_MIN_ACTION_SIZE offsetof(struct ieee80211_mgmt, u.action.u)
@@ -778,6 +817,15 @@ struct ieee80211_mmie {
 	u8 sequence_number[6];
 	u8 mic[8];
 } __attribute__ ((packed));
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+struct ieee80211_vendor_ie {
+	u8 element_id;
+	u8 len;
+	u8 oui[3];
+	u8 oui_type;
+} __packed;
+#endif
 
 /* Control frames */
 struct ieee80211_rts {
@@ -800,6 +848,53 @@ struct ieee80211_pspoll {
 	u8 ta[6];
 } __attribute__ ((packed));
 
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+/* Link-id information element */
+struct ieee80211_tdls_lnkie {
+	u8 ie_type; /* Link Identifier IE */
+	u8 ie_len;
+	u8 bssid[6];
+	u8 init_sta[6];
+	u8 resp_sta[6];
+} __packed;
+
+struct ieee80211_tdls_data {
+	u8 da[6];
+	u8 sa[6];
+	__be16 ether_type;
+	u8 payload_type;
+	u8 category;
+	u8 action_code;
+	union {
+		struct {
+			u8 dialog_token;
+			__le16 capability;
+			u8 variable[0];
+		} __packed setup_req;
+		struct {
+			__le16 status_code;
+			u8 dialog_token;
+			__le16 capability;
+			u8 variable[0];
+		} __packed setup_resp;
+		struct {
+			__le16 status_code;
+			u8 dialog_token;
+			u8 variable[0];
+		} __packed setup_cfm;
+		struct {
+			__le16 reason_code;
+			u8 variable[0];
+		} __packed teardown;
+		struct {
+			u8 dialog_token;
+			u8 variable[0];
+		} __packed discover_req;
+	} u;
+} __packed;
+#endif
+
 /**
  * struct ieee80211_bar - HT Block Ack Request
  *
@@ -818,7 +913,11 @@ struct ieee80211_bar {
 /* 802.11 BAR control masks */
 #define IEEE80211_BAR_CTRL_ACK_POLICY_NORMAL     0x0000
 #define IEEE80211_BAR_CTRL_CBMTID_COMPRESSED_BA  0x0004
-
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define IEEE80211_BAR_CTRL_MULTI_TID		0x0002
+#define IEEE80211_BAR_CTRL_TID_INFO_MASK	0xf000
+#define IEEE80211_BAR_CTRL_TID_INFO_SHIFT	12
+#endif
 
 #define IEEE80211_HT_MCS_MASK_LEN		10
 
@@ -1189,6 +1288,10 @@ enum ieee80211_eid {
 	WLAN_EID_TS_DELAY = 43,
 	WLAN_EID_TCLAS_PROCESSING = 44,
 	WLAN_EID_QOS_CAPA = 46,
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+		/* 802.11z */
+	WLAN_EID_LINK_ID = 101,
+#endif
 	/* 802.11s */
 	WLAN_EID_MESH_CONFIG = 113,
 	WLAN_EID_MESH_ID = 114,
@@ -1277,6 +1380,9 @@ enum ieee80211_category {
 	WLAN_CATEGORY_HT = 7,
 	WLAN_CATEGORY_SA_QUERY = 8,
 	WLAN_CATEGORY_PROTECTED_DUAL_OF_ACTION = 9,
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	WLAN_CATEGORY_TDLS = 12,
+#endif	
 	WLAN_CATEGORY_MESH_ACTION = 13,
 	WLAN_CATEGORY_MULTIHOP_ACTION = 14,
 	WLAN_CATEGORY_SELF_PROTECTED = 15,
@@ -1309,6 +1415,18 @@ enum ieee80211_ht_actioncode {
 	WLAN_HT_ACTION_ASEL_IDX_FEEDBACK = 7,
 };
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+/* Self Protected Action codes */
+enum ieee80211_self_protected_actioncode {
+	WLAN_SP_RESERVED = 0,
+	WLAN_SP_MESH_PEERING_OPEN = 1,
+	WLAN_SP_MESH_PEERING_CONFIRM = 2,
+	WLAN_SP_MESH_PEERING_CLOSE = 3,
+	WLAN_SP_MGK_INFORM = 4,
+	WLAN_SP_MGK_ACK = 5,
+};
+#endif
+
 /* Security key length */
 enum ieee80211_key_len {
 	WLAN_KEY_LEN_WEP40 = 5,
@@ -1316,7 +1434,43 @@ enum ieee80211_key_len {
 	WLAN_KEY_LEN_CCMP = 16,
 	WLAN_KEY_LEN_TKIP = 32,
 	WLAN_KEY_LEN_AES_CMAC = 16,
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+	WLAN_KEY_LEN_WAPI_SMS4 = 32,
+#endif	
 };
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE	
+/* Public action codes */
+enum ieee80211_pub_actioncode {
+	WLAN_PUB_ACTION_TDLS_DISCOVER_RES = 14,
+};
+
+/* TDLS action codes */
+enum ieee80211_tdls_actioncode {
+	WLAN_TDLS_SETUP_REQUEST = 0,
+	WLAN_TDLS_SETUP_RESPONSE = 1,
+	WLAN_TDLS_SETUP_CONFIRM = 2,
+	WLAN_TDLS_TEARDOWN = 3,
+	WLAN_TDLS_PEER_TRAFFIC_INDICATION = 4,
+	WLAN_TDLS_CHANNEL_SWITCH_REQUEST = 5,
+	WLAN_TDLS_CHANNEL_SWITCH_RESPONSE = 6,
+	WLAN_TDLS_PEER_PSM_REQUEST = 7,
+	WLAN_TDLS_PEER_PSM_RESPONSE = 8,
+	WLAN_TDLS_PEER_TRAFFIC_RESPONSE = 9,
+	WLAN_TDLS_DISCOVERY_REQUEST = 10,
+};
+
+/*
+ * TDLS capabililites to be enabled in the 5th byte of the
+ * @WLAN_EID_EXT_CAPABILITY information element
+ */
+#define WLAN_EXT_CAPA5_TDLS_ENABLED	BIT(5)
+#define WLAN_EXT_CAPA5_TDLS_PROHIBITED	BIT(6)
+
+/* TDLS specific payload type in the LLC/SNAP header */
+#define WLAN_TDLS_SNAP_RFTYPE	0x2
+#endif
+
 
 /**
  * enum - mesh path selection protocol identifier
@@ -1443,6 +1597,10 @@ enum ieee80211_sa_query_action {
 #define WLAN_CIPHER_SUITE_WEP104	0x000FAC05
 #define WLAN_CIPHER_SUITE_AES_CMAC	0x000FAC06
 
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define WLAN_CIPHER_SUITE_SMS4		0x00147201
+#endif
+
 /* AKM suite selectors */
 #define WLAN_AKM_SUITE_8021X		0x000FAC01
 #define WLAN_AKM_SUITE_PSK		0x000FAC02
@@ -1452,6 +1610,11 @@ enum ieee80211_sa_query_action {
 #define WLAN_MAX_KEY_LEN		32
 
 #define WLAN_PMKID_LEN			16
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+#define WLAN_OUI_WFA			0x506f9a
+#define WLAN_OUI_TYPE_WFA_P2P		9
+#endif
 
 /*
  * WMM/802.11e Tspec Element
@@ -1575,6 +1738,25 @@ static inline bool ieee80211_is_robust_mgmt_frame(struct ieee80211_hdr *hdr)
 
 	return false;
 }
+
+#ifndef CONFIG_WIFI_KERNEL_3_4_DISABLE
+/**
+ * ieee80211_is_public_action - check if frame is a public action frame
+ * @hdr: the frame
+ * @len: length of the frame
+ */
+static inline bool ieee80211_is_public_action(struct ieee80211_hdr *hdr,
+					      size_t len)
+{
+	struct ieee80211_mgmt *mgmt = (void *)hdr;
+
+	if (len < IEEE80211_MIN_ACTION_SIZE)
+		return false;
+	if (!ieee80211_is_action(hdr->frame_control))
+		return false;
+	return mgmt->u.action.category == WLAN_CATEGORY_PUBLIC;
+}
+#endif
 
 /**
  * ieee80211_fhss_chan_to_freq - get channel frequency

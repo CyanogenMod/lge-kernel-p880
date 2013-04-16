@@ -230,12 +230,20 @@ static int pm_op(struct device *dev,
 	switch (state.event) {
 #ifdef CONFIG_SUSPEND
 	case PM_EVENT_SUSPEND:
+#ifdef CONFIG_MACH_X3
+		if(!strcmp(kobject_name(&dev->kobj), "usb1") || !strcmp(kobject_name(&dev->kobj), "1-1") ) 
+			printk("PM: Suspended Driver: %s\n", kobject_name(&dev->kobj)); 
+#endif
 		if (ops->suspend) {
 			error = ops->suspend(dev);
 			suspend_report_result(ops->suspend, error);
 		}
 		break;
 	case PM_EVENT_RESUME:
+#ifdef CONFIG_MACH_X3
+		if(!strcmp(kobject_name(&dev->kobj), "usb1") || !strcmp(kobject_name(&dev->kobj), "1-1")) 
+			printk("PM: Resumed Driver: %s\n", kobject_name(&dev->kobj));
+#endif
 		if (ops->resume) {
 			error = ops->resume(dev);
 			suspend_report_result(ops->resume, error);
@@ -894,7 +902,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	add_timer(&timer);
 
 	if (async_error)
-		return 0;
+		goto Error;
 
 	pm_runtime_get_noresume(dev);
 	if (pm_runtime_barrier(dev) && device_may_wakeup(dev))
@@ -903,7 +911,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	if (pm_wakeup_pending()) {
 		pm_runtime_put_sync(dev);
 		async_error = -EBUSY;
-		return 0;
+		goto Error;
 	}
 
 	device_lock(dev);
@@ -947,6 +955,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	device_unlock(dev);
 
+ Error:
 	del_timer_sync(&timer);
 	destroy_timer_on_stack(&timer);
 

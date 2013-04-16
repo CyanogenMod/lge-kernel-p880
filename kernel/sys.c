@@ -53,6 +53,15 @@
 #include <asm/io.h>
 #include <asm/unistd.h>
 
+//                               
+#include "../arch/arm/mach-tegra/lge/x3/include/lge/board-x3-nv.h"
+#include "../arch/arm/mach-tegra/board.h"
+
+#if defined(CONFIG_MFD_MAX77663)
+#include <linux/mfd/max77663-core.h>
+#endif
+//                               
+
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a,b)	(-EINVAL)
 #endif
@@ -363,6 +372,43 @@ EXPORT_SYMBOL(unregister_reboot_notifier);
  */
 void kernel_restart(char *cmd)
 {
+//                               
+#if defined(CONFIG_MFD_MAX77663_FOR_USED_SCRATCH_REGISTER)
+		max77663_set_ScratchRegister(MAX77663_SCRATCH_REG_RESET);
+#else
+		unsigned char bootcause[1] = {LGE_NVDATA_RESET_CAUSE_VAL_USER_RESET};
+		lge_nvdata_write(LGE_NVDATA_RESET_CAUSE_OFFSET, bootcause,1);
+#endif
+//                               
+
+//             
+#if defined(CONFIG_MACH_X3)  || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+#if 1
+	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
+	max77663_power_rst_wkup(1);
+#else
+	if(is_tegra_bootmode()==0)  //power-off  charging
+	{
+		disable_nonboot_cpus();
+		
+		kernel_restart_prepare(cmd);
+		if (!cmd)
+			printk(KERN_EMERG "Restarting system.\n");
+		else
+			printk(KERN_EMERG "Restarting system with command '%s'.\n", cmd);
+		kmsg_dump(KMSG_DUMP_RESTART);
+		machine_restart(cmd);
+	}
+	else
+	{
+		blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
+		max77663_power_rst_wkup(1);	
+		
+		printk(KERN_EMERG "Enable wkup for power cycle test.\n");
+	}
+#endif
+//             
+#else
 	kernel_restart_prepare(cmd);
 	if (!cmd)
 		printk(KERN_EMERG "Restarting system.\n");
@@ -370,6 +416,7 @@ void kernel_restart(char *cmd)
 		printk(KERN_EMERG "Restarting system with command '%s'.\n", cmd);
 	kmsg_dump(KMSG_DUMP_RESTART);
 	machine_restart(cmd);
+#endif
 }
 EXPORT_SYMBOL_GPL(kernel_restart);
 
@@ -388,11 +435,18 @@ static void kernel_shutdown_prepare(enum system_states state)
  */
 void kernel_halt(void)
 {
+//                    
+#if defined(CONFIG_MACH_X3)
+	blocking_notifier_call_chain(&reboot_notifier_list,SYS_POWER_OFF, NULL);
+	max77663_power_off();
+#else
+
 	kernel_shutdown_prepare(SYSTEM_HALT);
 	syscore_shutdown();
 	printk(KERN_EMERG "System halted.\n");
 	kmsg_dump(KMSG_DUMP_HALT);
 	machine_halt();
+#endif
 }
 
 EXPORT_SYMBOL_GPL(kernel_halt);
@@ -404,6 +458,10 @@ EXPORT_SYMBOL_GPL(kernel_halt);
  */
 void kernel_power_off(void)
 {
+//                    
+#if defined(CONFIG_MACH_X3)
+	kernel_halt();
+#else
 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
 	if (pm_power_off_prepare)
 		pm_power_off_prepare();
@@ -412,6 +470,7 @@ void kernel_power_off(void)
 	printk(KERN_EMERG "Power down.\n");
 	kmsg_dump(KMSG_DUMP_POWEROFF);
 	machine_power_off();
+#endif
 }
 EXPORT_SYMBOL_GPL(kernel_power_off);
 
@@ -430,6 +489,8 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 {
 	char buffer[256];
 	int ret = 0;
+
+	printk("SYSCALL_DEFINE4 [%x][%x][%x] \n", magic1, magic2, cmd);
 
 	/* We only trust the superuser with rebooting the system. */
 	if (!capable(CAP_SYS_BOOT))
@@ -452,6 +513,7 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 	mutex_lock(&reboot_mutex);
 	switch (cmd) {
 	case LINUX_REBOOT_CMD_RESTART:
+		printk("LINUX_REBOOT_CMD_RESTART\n");
 		kernel_restart(NULL);
 		break;
 
@@ -464,23 +526,34 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 		break;
 
 	case LINUX_REBOOT_CMD_HALT:
+		printk("LINUX_REBOOT_CMD_HALT\n");
 		kernel_halt();
 		do_exit(0);
 		panic("cannot halt");
 
 	case LINUX_REBOOT_CMD_POWER_OFF:
+		printk("LINUX_REBOOT_CMD_POWER_OFF\n");
 		kernel_power_off();
 		do_exit(0);
 		break;
 
 	case LINUX_REBOOT_CMD_RESTART2:
+		printk("LINUX_REBOOT_CMD_RESTART2\n");
 		if (strncpy_from_user(&buffer[0], arg, sizeof(buffer) - 1) < 0) {
 			ret = -EFAULT;
 			break;
 		}
 		buffer[sizeof(buffer) - 1] = '\0';
 
+		if(strncmp(buffer, "forcekernelpanic", 16)==0)
+		{
+			printk("%s force kernel panic\n", __func__);
+			BUG();
+		}
+		else
+		{
 		kernel_restart(buffer);
+		}
 		break;
 
 #ifdef CONFIG_KEXEC
@@ -1169,15 +1242,16 @@ DECLARE_RWSEM(uts_sem);
  * Work around broken programs that cannot handle "Linux 3.0".
  * Instead we map 3.x to 2.6.40+x, so e.g. 3.0 would be 2.6.40
  */
-static int override_release(char __user *release, int len)
+static int override_release(char __user *release, size_t len)
 {
 	int ret = 0;
-	char buf[65];
 
 	if (current->personality & UNAME26) {
-		char *rest = UTS_RELEASE;
+		const char *rest = UTS_RELEASE;
+		char buf[65] = { 0 };
 		int ndots = 0;
 		unsigned v;
+		size_t copy;
 
 		while (*rest) {
 			if (*rest == '.' && ++ndots >= 3)
@@ -1187,8 +1261,9 @@ static int override_release(char __user *release, int len)
 			rest++;
 		}
 		v = ((LINUX_VERSION_CODE >> 8) & 0xff) + 40;
-		snprintf(buf, len, "2.6.%u%s", v, rest);
-		ret = copy_to_user(release, buf, len);
+		copy = clamp_t(size_t, len, 1, sizeof(buf));
+		copy = scnprintf(buf, copy, "2.6.%u%s", v, rest);
+		ret = copy_to_user(release, buf, copy + 1);
 	}
 	return ret;
 }

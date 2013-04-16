@@ -38,6 +38,7 @@
 #include "board.h"
 #include "clock.h"
 #include "dvfs.h"
+#include "timer.h"
 
 #define DVFS_RAIL_STATS_BIN	25
 #define DVFS_RAIL_STATS_SCALE	2
@@ -48,6 +49,14 @@ static LIST_HEAD(dvfs_rail_list);
 static DEFINE_MUTEX(dvfs_lock);
 static DEFINE_MUTEX(rail_disable_lock);
 
+#ifdef CONFIG_MACH_X3
+static struct regulator *reg_vdd_rtc;
+static int vdd_rtc_millivolts;
+#define VDD_RTC_MIN		1000	/* mV */
+#define VDD_RTC_NOMINAL		1200	/* mV */
+/* VDD_RTC >= VDD_CORE - RTC_BELOW_CORE */
+#define RTC_BELOW_CORE		200	/* mV */
+#endif
 static int dvfs_rail_update(struct dvfs_rail *rail);
 
 void tegra_dvfs_add_relationships(struct dvfs_relationship *rels, int n)
@@ -308,6 +317,13 @@ static int dvfs_rail_connect_to_regulator(struct dvfs_rail *rail)
 		rail->reg = reg;
 	}
 
+	v = regulator_enable(rail->reg);
+	if (v < 0) {
+		pr_err("tegra_dvfs: failed on enabling regulator %s\n, err %d",
+			rail->reg_id, v);
+		return v;
+	}
+
 	v = regulator_get_voltage(rail->reg);
 	if (v < 0) {
 		pr_err("tegra_dvfs: failed initial get %s voltage\n",
@@ -322,8 +338,7 @@ static int dvfs_rail_connect_to_regulator(struct dvfs_rail *rail)
 
 static inline unsigned long *dvfs_get_freqs(struct dvfs *d)
 {
-	return (d->alt_freqs_state == ALT_FREQS_ENABLED) ?
-		&d->alt_freqs[0] : &d->freqs[0];
+	return d->alt_freqs ? : &d->freqs[0];
 }
 
 static int
@@ -367,26 +382,16 @@ __tegra_dvfs_set_rate(struct dvfs *d, unsigned long rate)
 	return ret;
 }
 
-static inline int dvfs_alt_freqs_set(struct dvfs *d, bool enable)
+int tegra_dvfs_alt_freqs_set(struct dvfs *d, unsigned long *alt_freqs)
 {
-	if (d->alt_freqs_state == ALT_FREQS_NOT_SUPPORTED)
-		return -ENOSYS;
-
-	d->alt_freqs_state = enable ? ALT_FREQS_ENABLED : ALT_FREQS_DISABLED;
-	return 0;
-}
-
-int tegra_dvfs_alt_freqs_set(struct dvfs *d, bool enable)
-{
-	int ret;
-	enum dvfs_alt_freqs old_state;
+	int ret = 0;
 
 	mutex_lock(&dvfs_lock);
 
-	old_state = d->alt_freqs_state;
-	ret = dvfs_alt_freqs_set(d, enable);
-	if (!ret && (old_state != d->alt_freqs_state))
+	if (d->alt_freqs != alt_freqs) {
+		d->alt_freqs = alt_freqs;
 		ret = __tegra_dvfs_set_rate(d, d->cur_rate);
+	}
 
 	mutex_unlock(&dvfs_lock);
 	return ret;
@@ -407,7 +412,7 @@ int tegra_dvfs_predict_millivolts(struct clk *c, unsigned long rate)
 	 * frequency limits. For now, just fail the call for clock that has
 	 * alternative limits initialized.
 	 */
-	if (c->dvfs->alt_freqs_state != ALT_FREQS_NOT_SUPPORTED)
+	if (c->dvfs->alt_freqs)
 		return -ENOSYS;
 
 	for (i = 0; i < c->dvfs->num_freqs; i++) {
@@ -512,6 +517,21 @@ static int tegra_dvfs_suspend_one(void)
 				rail->nominal_millivolts);
 			if (ret)
 				return ret;
+#ifdef CONFIG_MACH_X3
+			if (reg_vdd_rtc && !strcmp(rail->reg_id, "vdd_core")) {
+				int vdd_core_mV = rail->nominal_millivolts;
+				int new_mV = VDD_RTC_MIN;
+
+				if (vdd_core_mV - RTC_BELOW_CORE > VDD_RTC_MIN)
+					new_mV = vdd_core_mV - RTC_BELOW_CORE;
+
+				ret = regulator_set_voltage(reg_vdd_rtc,
+							new_mV * 1000,
+							VDD_RTC_NOMINAL * 1000);
+				if (ret)
+					return ret;
+			}
+#endif
 			rail->suspended = true;
 			return 0;
 		}
@@ -525,7 +545,13 @@ static void tegra_dvfs_resume(void)
 	struct dvfs_rail *rail;
 
 	mutex_lock(&dvfs_lock);
-
+#ifdef CONFIG_MACH_X3
+	if (reg_vdd_rtc) {
+		int new_mV = vdd_rtc_millivolts ? : VDD_RTC_NOMINAL;
+			regulator_set_voltage(reg_vdd_rtc, new_mV * 1000,
+						  VDD_RTC_NOMINAL * 1000);
+	}
+#endif	
 	list_for_each_entry(rail, &dvfs_rail_list, node)
 		rail->suspended = false;
 
@@ -558,6 +584,8 @@ static int tegra_dvfs_suspend(void)
 static int tegra_dvfs_pm_notify(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
+	printk("%s start [%d]\n", __func__, event);  //for debug
+
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
 		if (tegra_dvfs_suspend())
@@ -692,8 +720,12 @@ int __init tegra_dvfs_late_init(void)
 {
 	bool connected = true;
 	struct dvfs_rail *rail;
+	int cur_linear_age = tegra_get_linear_age();
 
 	mutex_lock(&dvfs_lock);
+
+	if (cur_linear_age >= 0)
+		tegra_dvfs_age_cpu(cur_linear_age);
 
 	list_for_each_entry(rail, &dvfs_rail_list, node)
 		if (dvfs_rail_connect_to_regulator(rail))
@@ -704,7 +736,18 @@ int __init tegra_dvfs_late_init(void)
 			dvfs_rail_update(rail);
 		else
 			__tegra_dvfs_rail_disable(rail);
-
+#ifdef CONFIG_MACH_X3
+	reg_vdd_rtc = regulator_get(NULL, "vdd_rtc");
+	if (IS_ERR(reg_vdd_rtc)) {
+		pr_err("tegra_dvfs: failed to get connect vdd_rtc rail\n");
+		reg_vdd_rtc = NULL;
+	} else {
+		vdd_rtc_millivolts = regulator_get_voltage(reg_vdd_rtc);
+		if (vdd_rtc_millivolts < 0)
+			vdd_rtc_millivolts = 0;
+		vdd_rtc_millivolts /= 1000;
+	}
+#endif
 	mutex_unlock(&dvfs_lock);
 
 	register_pm_notifier(&tegra_dvfs_nb);

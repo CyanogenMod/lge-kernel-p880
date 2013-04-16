@@ -422,11 +422,16 @@ int snd_hdmi_get_eld(struct hdmi_eld *eld,
 		hdmi_update_lpcm_sad_eld(codec, nid, eld, size);
 
 	codec->recv_dec_cap = 0;
+	codec->max_pcm_channels = 0;
 	for (i = 0; i < eld->sad_count; i++) {
 		if (eld->sad[i].format == AUDIO_CODING_TYPE_AC3) {
 			codec->recv_dec_cap |= (1 << AUDIO_CODING_TYPE_AC3);
 		} else if (eld->sad[i].format == AUDIO_CODING_TYPE_DTS) {
 			codec->recv_dec_cap |= (1 << AUDIO_CODING_TYPE_DTS);
+		} else if (eld->sad[i].format == AUDIO_CODING_TYPE_LPCM) {
+			codec->max_pcm_channels =
+				eld->sad[i].channels > codec->max_pcm_channels ?
+				eld->sad[i].channels : codec->max_pcm_channels;
 		}
 	}
 
@@ -704,10 +709,11 @@ void snd_hdmi_eld_update_pcm_info(struct hdmi_eld *eld,
 	channels_max = 2;
 	for (i = 0; i < eld->sad_count; i++) {
 		struct cea_sad *a = &eld->sad[i];
+
 		rates |= a->rates;
-		if (a->channels > channels_max)
-			channels_max = a->channels;
 		if (a->format == AUDIO_CODING_TYPE_LPCM) {
+			if (a->channels > channels_max)
+				channels_max = a->channels;
 			if (a->sample_bits & AC_SUPPCM_BITS_20) {
 				formats |= SNDRV_PCM_FMTBIT_S32_LE;
 				if (maxbps < 20)

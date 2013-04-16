@@ -1,7 +1,6 @@
 /*
- * arch/arm/mach-tegra/board-harmony-sdhci.c
- *
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (C) 2010-2012 NVIDIA Corporation.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -108,6 +107,7 @@ static struct resource sdhci_resource3[] = {
 	},
 };
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
 static struct embedded_sdio_data embedded_sdio_data0 = {
 	.cccr   = {
 		.sdio_vsn	= 2,
@@ -122,13 +122,20 @@ static struct embedded_sdio_data embedded_sdio_data0 = {
 		.device 	= 0x4329,
 	},
 };
+#endif
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 	.mmc_data = {
 		.register_status_notify	= ventana_wifi_status_register,
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
 		.embedded_sdio = &embedded_sdio_data0,
-		.built_in = 1,
+#endif
+		.built_in = 0,
+		.ocr_mask = MMC_OCR_1V8_MASK,
 	},
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
+	.pm_flags = MMC_PM_KEEP_POWER,
+#endif
 	.cd_gpio = -1,
 	.wp_gpio = -1,
 	.power_gpio = -1,
@@ -224,6 +231,20 @@ static int ventana_wifi_reset(int on)
 	return 0;
 }
 
+#ifdef CONFIG_TEGRA_PREPOWER_WIFI
+static int __init ventana_wifi_prepower(void)
+{
+	if (!machine_is_ventana())
+		return 0;
+
+	ventana_wifi_power(1);
+
+	return 0;
+}
+
+subsys_initcall_sync(ventana_wifi_prepower);
+#endif
+
 static int __init ventana_wifi_init(void)
 {
 	wifi_32k_clk = clk_get_sys(NULL, "blink");
@@ -235,10 +256,6 @@ static int __init ventana_wifi_init(void)
 	gpio_request(VENTANA_WLAN_PWR, "wlan_power");
 	gpio_request(VENTANA_WLAN_RST, "wlan_rst");
 	gpio_request(VENTANA_WLAN_WOW, "bcmsdh_sdmmc");
-
-	tegra_gpio_enable(VENTANA_WLAN_PWR);
-	tegra_gpio_enable(VENTANA_WLAN_RST);
-	tegra_gpio_enable(VENTANA_WLAN_WOW);
 
 	gpio_direction_output(VENTANA_WLAN_PWR, 0);
 	gpio_direction_output(VENTANA_WLAN_RST, 0);
@@ -253,11 +270,6 @@ static int __init ventana_wifi_init(void)
 }
 int __init ventana_sdhci_init(void)
 {
-	tegra_gpio_enable(tegra_sdhci_platform_data2.power_gpio);
-	tegra_gpio_enable(tegra_sdhci_platform_data2.cd_gpio);
-	tegra_gpio_enable(tegra_sdhci_platform_data2.wp_gpio);
-	tegra_gpio_enable(tegra_sdhci_platform_data3.power_gpio);
-
 	platform_device_register(&tegra_sdhci_device3);
 	platform_device_register(&tegra_sdhci_device2);
 	platform_device_register(&tegra_sdhci_device0);

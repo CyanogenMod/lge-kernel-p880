@@ -27,7 +27,7 @@
 #include <linux/pwm_backlight.h>
 #include <asm/atomic.h>
 #include <linux/nvhost.h>
-#include <mach/nvmap.h>
+#include <linux/nvmap.h>
 #include <mach/irqs.h>
 #include <mach/iomap.h>
 #include <mach/dc.h>
@@ -37,6 +37,7 @@
 #include "board-kai.h"
 #include "devices.h"
 #include "gpio-names.h"
+#include "tegra3_host1x_devices.h"
 
 /* kai default display board pins */
 #define kai_lvds_avdd_en		TEGRA_GPIO_PH6
@@ -67,37 +68,37 @@ static struct regulator *kai_lvds_vdd_panel;
 
 static tegra_dc_bl_output kai_bl_output_measured = {
 	0, 1, 2, 3, 4, 5, 6, 7,
-	8, 9, 10, 11, 12, 13, 14, 15,
-	16, 17, 18, 19, 20, 21, 22, 23,
-	24, 25, 26, 27, 28, 29, 30, 31,
-	32, 33, 34, 35, 36, 37, 38, 39,
-	40, 41, 42, 43, 44, 45, 46, 47,
-	48, 49, 49, 50, 51, 52, 53, 54,
-	55, 56, 57, 58, 59, 60, 61, 62,
-	63, 64, 65, 66, 67, 68, 69, 70,
-	70, 72, 73, 74, 75, 76, 77, 78,
-	79, 80, 81, 82, 83, 84, 85, 86,
-	87, 88, 89, 90, 91, 92, 93, 94,
-	95, 96, 97, 98, 99, 100, 101, 102,
-	103, 104, 105, 106, 107, 108, 110, 111,
-	112, 113, 114, 115, 116, 117, 118, 119,
-	120, 121, 122, 123, 124, 124, 125, 126,
-	127, 128, 129, 130, 131, 132, 133, 133,
+	7, 8, 9, 10, 11, 12, 13, 14,
+	15, 16, 17, 18, 19, 20, 20, 21,
+	22, 23, 24, 25, 26, 27, 28, 29,
+	30, 31, 32, 32, 34, 34, 36, 36,
+	38, 39, 40, 40, 41, 42, 42, 43,
+	44, 44, 45, 46, 46, 47, 48, 48,
+	49, 50, 50, 51, 52, 53, 54, 54,
+	55, 56, 57, 58, 58, 59, 60, 61,
+	62, 63, 64, 65, 66, 67, 68, 69,
+	70, 71, 72, 72, 73, 74, 75, 76,
+	76, 77, 78, 79, 80, 81, 82, 83,
+	85, 86, 87, 89, 90, 91, 92, 92,
+	93, 94, 95, 96, 96, 97, 98, 99,
+	100, 100, 101, 102, 103, 104, 104, 105,
+	106, 107, 108, 108, 109, 110, 112, 114,
+	116, 118, 120, 121, 122, 123, 124, 125,
+	126, 127, 128, 129, 130, 131, 132, 133,
 	134, 135, 136, 137, 138, 139, 140, 141,
-	142, 143, 144, 145, 146, 147, 148, 148,
-	149, 150, 151, 152, 153, 154, 155, 156,
-	157, 158, 159, 160, 161, 162, 163, 164,
-	165, 166, 167, 168, 169, 170, 171, 172,
-	173, 174, 175, 176, 177, 179, 180, 181,
-	182, 184, 185, 186, 187, 188, 189, 190,
-	191, 192, 193, 194, 195, 196, 197, 198,
-	199, 200, 201, 202, 203, 204, 205, 206,
-	207, 208, 209, 211, 212, 213, 214, 215,
-	216, 217, 218, 219, 220, 221, 222, 223,
-	224, 225, 226, 227, 228, 229, 230, 231,
-	232, 233, 234, 235, 236, 237, 238, 239,
-	240, 241, 242, 243, 244, 245, 246, 247,
-	248, 249, 250, 251, 252, 253, 254, 255
+	142, 143, 144, 145, 146, 147, 148, 149,
+	150, 151, 151, 152, 153, 153, 154, 155,
+	155, 156, 157, 157, 158, 159, 159, 160,
+	162, 164, 166, 168, 170, 172, 174, 176,
+	178, 180, 181, 181, 182, 183, 183, 184,
+	185, 185, 186, 187, 187, 188, 189, 189,
+	190, 191, 192, 193, 194, 195, 196, 197,
+	198, 199, 200, 201, 201, 202, 203, 203,
+	204, 205, 205, 206, 207, 207, 208, 209,
+	209, 210, 211, 211, 212, 212, 213, 213,
+	214, 215, 215, 216, 216, 217, 217, 218,
+	219, 219, 220, 222, 226, 230, 232, 234,
+	236, 238, 240, 244, 248, 251, 253, 255
 };
 
 static p_tegra_dc_bl_output bl_output;
@@ -111,8 +112,6 @@ static int kai_backlight_init(struct device *dev)
 	if (WARN_ON(ARRAY_SIZE(kai_bl_output_measured) != 256))
 		pr_err("bl_output array does not have 256 elements\n");
 
-	tegra_gpio_disable(kai_bl_pwm);
-
 	ret = gpio_request(kai_bl_enb, "backlight_enb");
 	if (ret < 0)
 		return ret;
@@ -120,8 +119,6 @@ static int kai_backlight_init(struct device *dev)
 	ret = gpio_direction_output(kai_bl_enb, 1);
 	if (ret < 0)
 		gpio_free(kai_bl_enb);
-	else
-		tegra_gpio_enable(kai_bl_enb);
 
 	return ret;
 };
@@ -132,7 +129,6 @@ static void kai_backlight_exit(struct device *dev)
 	/*ret = gpio_request(kai_bl_enb, "backlight_enb");*/
 	gpio_set_value(kai_bl_enb, 0);
 	gpio_free(kai_bl_enb);
-	tegra_gpio_disable(kai_bl_enb);
 	return;
 }
 
@@ -177,7 +173,7 @@ static struct platform_device kai_backlight_device = {
 	},
 };
 
-static int kai_panel_enable(void)
+static int kai_panel_postpoweron(void)
 {
 	if (kai_lvds_reg == NULL) {
 		kai_lvds_reg = regulator_get(NULL, "vdd_lvds");
@@ -186,15 +182,6 @@ static int kai_panel_enable(void)
 			       __func__, PTR_ERR(kai_lvds_reg));
 		else
 			regulator_enable(kai_lvds_reg);
-	}
-
-	if (kai_lvds_vdd_panel == NULL) {
-		kai_lvds_vdd_panel = regulator_get(NULL, "vdd_lcd_panel");
-		if (WARN_ON(IS_ERR(kai_lvds_vdd_panel)))
-			pr_err("%s: couldn't get regulator vdd_lcd_panel: %ld\n",
-			       __func__, PTR_ERR(kai_lvds_vdd_panel));
-		else
-			regulator_enable(kai_lvds_vdd_panel);
 	}
 
 	mdelay(5);
@@ -212,7 +199,30 @@ static int kai_panel_enable(void)
 	return 0;
 }
 
+static int kai_panel_enable(void)
+{
+	if (kai_lvds_vdd_panel == NULL) {
+		kai_lvds_vdd_panel = regulator_get(NULL, "vdd_lcd_panel");
+		if (WARN_ON(IS_ERR(kai_lvds_vdd_panel)))
+			pr_err("%s: couldn't get regulator vdd_lcd_panel: %ld\n",
+			       __func__, PTR_ERR(kai_lvds_vdd_panel));
+		else
+			regulator_enable(kai_lvds_vdd_panel);
+	}
+
+	return 0;
+}
+
 static int kai_panel_disable(void)
+{
+	regulator_disable(kai_lvds_vdd_panel);
+	regulator_put(kai_lvds_vdd_panel);
+	kai_lvds_vdd_panel = NULL;
+
+	return 0;
+}
+
+static int kai_panel_prepoweroff(void)
 {
 	gpio_set_value(kai_lvds_lr, 0);
 	gpio_set_value(kai_lvds_shutdown, 0);
@@ -226,10 +236,6 @@ static int kai_panel_disable(void)
 	regulator_disable(kai_lvds_reg);
 	regulator_put(kai_lvds_reg);
 	kai_lvds_reg = NULL;
-
-	regulator_disable(kai_lvds_vdd_panel);
-	regulator_put(kai_lvds_vdd_panel);
-	kai_lvds_vdd_panel = NULL;
 
 	return 0;
 }
@@ -530,6 +536,8 @@ static struct tegra_dc_out kai_disp1_out = {
 	.n_modes	= ARRAY_SIZE(kai_panel_modes),
 
 	.enable		= kai_panel_enable,
+	.postpoweron	= kai_panel_postpoweron,
+	.prepoweroff	= kai_panel_prepoweroff,
 	.disable	= kai_panel_disable,
 };
 
@@ -620,27 +628,17 @@ static void kai_panel_early_suspend(struct early_suspend *h)
 		fb_blank(registered_fb[0], FB_BLANK_POWERDOWN);
 	if (num_registered_fb > 1)
 		fb_blank(registered_fb[1], FB_BLANK_NORMAL);
-
 #ifdef CONFIG_TEGRA_CONVSERVATIVE_GOV_ON_EARLYSUPSEND
-	cpufreq_save_default_governor();
-	cpufreq_set_conservative_governor();
-	cpufreq_set_conservative_governor_param("up_threshold",
-			SET_CONSERVATIVE_GOVERNOR_UP_THRESHOLD);
-
-	cpufreq_set_conservative_governor_param("down_threshold",
-			SET_CONSERVATIVE_GOVERNOR_DOWN_THRESHOLD);
-
-	cpufreq_set_conservative_governor_param("freq_step",
-		SET_CONSERVATIVE_GOVERNOR_FREQ_STEP);
+	cpufreq_store_default_gov();
+	cpufreq_change_gov(cpufreq_conservative_gov);
 #endif
-
 }
 
 static void kai_panel_late_resume(struct early_suspend *h)
 {
 	unsigned i;
 #ifdef CONFIG_TEGRA_CONVSERVATIVE_GOV_ON_EARLYSUPSEND
-	cpufreq_restore_default_governor();
+	cpufreq_restore_default_gov();
 #endif
 	for (i = 0; i < num_registered_fb; i++)
 		fb_blank(registered_fb[i], FB_BLANK_UNBLANK);
@@ -661,35 +659,27 @@ int __init kai_panel_init(void)
 #endif
 	gpio_request(kai_lvds_avdd_en, "lvds_avdd_en");
 	gpio_direction_output(kai_lvds_avdd_en, 1);
-	tegra_gpio_enable(kai_lvds_avdd_en);
 
 	gpio_request(kai_lvds_stdby, "lvds_stdby");
 	gpio_direction_output(kai_lvds_stdby, 1);
-	tegra_gpio_enable(kai_lvds_stdby);
 
 	gpio_request(kai_lvds_rst, "lvds_rst");
 	gpio_direction_output(kai_lvds_rst, 1);
-	tegra_gpio_enable(kai_lvds_rst);
 
 	if (board_info.fab == BOARD_FAB_A00) {
 		gpio_request(kai_lvds_rs_a00, "lvds_rs");
 		gpio_direction_output(kai_lvds_rs_a00, 0);
-		tegra_gpio_enable(kai_lvds_rs_a00);
 	} else {
 		gpio_request(kai_lvds_rs, "lvds_rs");
 		gpio_direction_output(kai_lvds_rs, 0);
-		tegra_gpio_enable(kai_lvds_rs);
 	}
 
 	gpio_request(kai_lvds_lr, "lvds_lr");
 	gpio_direction_output(kai_lvds_lr, 1);
-	tegra_gpio_enable(kai_lvds_lr);
 
 	gpio_request(kai_lvds_shutdown, "lvds_shutdown");
 	gpio_direction_output(kai_lvds_shutdown, 1);
-	tegra_gpio_enable(kai_lvds_shutdown);
 
-	tegra_gpio_enable(kai_hdmi_hpd);
 	gpio_request(kai_hdmi_hpd, "hdmi_hpd");
 	gpio_direction_input(kai_hdmi_hpd);
 
@@ -701,7 +691,7 @@ int __init kai_panel_init(void)
 #endif
 
 #ifdef CONFIG_TEGRA_GRHOST
-	err = nvhost_device_register(&tegra_grhost_device);
+	err = tegra3_register_host1x_devices();
 	if (err)
 		return err;
 #endif

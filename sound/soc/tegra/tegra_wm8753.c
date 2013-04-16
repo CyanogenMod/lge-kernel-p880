@@ -12,6 +12,7 @@
  * Author: Graeme Gregory
  *         graeme.gregory@wolfsonmicro.com or linux@wolfsonmicro.com
  *
+ * Copyright (c) 2012, NVIDIA CORPORATION. All rights reserved.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -30,6 +31,7 @@
 
 #include <asm/mach-types.h>
 
+#include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -39,7 +41,7 @@
 #include <linux/switch.h>
 #endif
 
-#include <mach/tegra_wm8753_pdata.h>
+#include <mach/tegra_asoc_pdata.h>
 
 #include <sound/core.h>
 #include <sound/jack.h>
@@ -67,7 +69,7 @@ extern int g_is_call_mode;
 
 struct tegra_wm8753 {
 	struct tegra_asoc_utils_data util_data;
-	struct tegra_wm8753_platform_data *pdata;
+	struct tegra_asoc_platform_data *pdata;
 	struct regulator *audio_reg;
 	int gpio_requested;
 	int is_call_mode;
@@ -83,8 +85,10 @@ static int tegra_wm8753_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = codec->card;
 	struct tegra_wm8753 *machine = snd_soc_card_get_drvdata(card);
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
 	int srate, mclk, i2s_daifmt;
-	int err;
+	int err, rate;
+
 	srate = params_rate(params);
 	switch (srate) {
 	case 8000:
@@ -119,14 +123,38 @@ static int tegra_wm8753_hw_params(struct snd_pcm_substream *substream,
 
 	tegra_asoc_utils_lock_clk_rate(&machine->util_data, 1);
 
-	i2s_daifmt = SND_SOC_DAIFMT_NB_NF |
-		     SND_SOC_DAIFMT_CBS_CFS;
+	rate = clk_get_rate(machine->util_data.clk_cdev1);
+
+	i2s_daifmt = SND_SOC_DAIFMT_NB_NF;
+	i2s_daifmt |= pdata->i2s_param[HIFI_CODEC].is_i2s_master ?
+			SND_SOC_DAIFMT_CBS_CFS : SND_SOC_DAIFMT_CBM_CFM;
 
 	/* Use DSP mode for mono on Tegra20 */
-	if ((params_channels(params) != 2) && machine_is_whistler())
+	if ((params_channels(params) != 2) && machine_is_whistler()) {
 		i2s_daifmt |= SND_SOC_DAIFMT_DSP_A;
-	else
-		i2s_daifmt |= SND_SOC_DAIFMT_I2S;
+	} else {
+		switch (pdata->i2s_param[HIFI_CODEC].i2s_mode) {
+			case TEGRA_DAIFMT_I2S :
+				i2s_daifmt |= SND_SOC_DAIFMT_I2S;
+				break;
+			case TEGRA_DAIFMT_DSP_A :
+				i2s_daifmt |= SND_SOC_DAIFMT_DSP_A;
+				break;
+			case TEGRA_DAIFMT_DSP_B :
+				i2s_daifmt |= SND_SOC_DAIFMT_DSP_B;
+				break;
+			case TEGRA_DAIFMT_LEFT_J :
+				i2s_daifmt |= SND_SOC_DAIFMT_LEFT_J;
+				break;
+			case TEGRA_DAIFMT_RIGHT_J :
+				i2s_daifmt |= SND_SOC_DAIFMT_RIGHT_J;
+				break;
+			default :
+				dev_err(card->dev,
+				"Can't configure i2s format\n");
+				return -EINVAL;
+		}
+	}
 
 	err = snd_soc_dai_set_fmt(codec_dai, i2s_daifmt);
 	if (err < 0) {
@@ -140,8 +168,7 @@ static int tegra_wm8753_hw_params(struct snd_pcm_substream *substream,
 		return err;
 	}
 
-	err = snd_soc_dai_set_sysclk(codec_dai, 0, mclk,
-					SND_SOC_CLOCK_IN);
+	err = snd_soc_dai_set_sysclk(codec_dai, 0, rate, SND_SOC_CLOCK_IN);
 	if (err < 0) {
 		dev_err(card->dev, "codec_dai clock not set\n");
 		return err;
@@ -173,7 +200,8 @@ static int tegra_bt_sco_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = codec->card;
 	struct tegra_wm8753 *machine = snd_soc_card_get_drvdata(card);
-	int srate, mclk, min_mclk;
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
+	int srate, mclk, min_mclk, i2s_daifmt;
 	int err;
 
 	srate = params_rate(params);
@@ -209,10 +237,32 @@ static int tegra_bt_sco_hw_params(struct snd_pcm_substream *substream,
 
 	tegra_asoc_utils_lock_clk_rate(&machine->util_data, 1);
 
-	err = snd_soc_dai_set_fmt(cpu_dai,
-					SND_SOC_DAIFMT_DSP_A |
-					SND_SOC_DAIFMT_NB_NF |
-					SND_SOC_DAIFMT_CBS_CFS);
+	i2s_daifmt = SND_SOC_DAIFMT_NB_NF;
+	i2s_daifmt |= pdata->i2s_param[BT_SCO].is_i2s_master ?
+			SND_SOC_DAIFMT_CBS_CFS : SND_SOC_DAIFMT_CBM_CFM;
+
+	switch (pdata->i2s_param[BT_SCO].i2s_mode) {
+		case TEGRA_DAIFMT_I2S :
+			i2s_daifmt |= SND_SOC_DAIFMT_I2S;
+			break;
+		case TEGRA_DAIFMT_DSP_A :
+			i2s_daifmt |= SND_SOC_DAIFMT_DSP_A;
+			break;
+		case TEGRA_DAIFMT_DSP_B :
+			i2s_daifmt |= SND_SOC_DAIFMT_DSP_B;
+			break;
+		case TEGRA_DAIFMT_LEFT_J :
+			i2s_daifmt |= SND_SOC_DAIFMT_LEFT_J;
+			break;
+		case TEGRA_DAIFMT_RIGHT_J :
+			i2s_daifmt |= SND_SOC_DAIFMT_RIGHT_J;
+			break;
+		default :
+			dev_err(card->dev, "Can't configure i2s format\n");
+			return -EINVAL;
+	}
+
+	err = snd_soc_dai_set_fmt(cpu_dai, i2s_daifmt);
 	if (err < 0) {
 		dev_err(card->dev, "cpu_dai fmt not set\n");
 		return err;
@@ -379,7 +429,6 @@ static int tegra_bt_call_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = codec->card;
 	struct tegra_wm8753 *machine = snd_soc_card_get_drvdata(card);
@@ -614,7 +663,7 @@ static int tegra_wm8753_event_int_spk(struct snd_soc_dapm_widget *w,
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
 	struct tegra_wm8753 *machine = snd_soc_card_get_drvdata(card);
-	struct tegra_wm8753_platform_data *pdata = machine->pdata;
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
 
 	if (!(machine->gpio_requested & GPIO_SPKR_EN))
 		return 0;
@@ -631,7 +680,7 @@ static int tegra_wm8753_event_hp(struct snd_soc_dapm_widget *w,
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
 	struct tegra_wm8753 *machine = snd_soc_card_get_drvdata(card);
-	struct tegra_wm8753_platform_data *pdata = machine->pdata;
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
 
 	if (!(machine->gpio_requested & GPIO_HP_MUTE))
 		return 0;
@@ -687,7 +736,7 @@ static int tegra_wm8753_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_card *card = codec->card;
 	struct tegra_wm8753 *machine = snd_soc_card_get_drvdata(card);
-	struct tegra_wm8753_platform_data *pdata = machine->pdata;
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
 	int ret;
 
 	if (machine_is_whistler()) {
@@ -783,6 +832,10 @@ static int tegra_wm8753_init(struct snd_soc_pcm_runtime *rtd)
 	if (ret < 0)
 		return ret;
 
+	ret = tegra_asoc_utils_register_ctls(&machine->util_data);
+	if (ret < 0)
+		return ret;
+
 	snd_soc_dapm_nc_pin(dapm, "ACIN");
 	snd_soc_dapm_nc_pin(dapm, "ACOP");
 	snd_soc_dapm_nc_pin(dapm, "OUT3");
@@ -854,7 +907,7 @@ static __devinit int tegra_wm8753_driver_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_tegra_wm8753;
 	struct tegra_wm8753 *machine;
-	struct tegra_wm8753_platform_data *pdata;
+	struct tegra_asoc_platform_data *pdata;
 	int ret;
 
 
@@ -870,9 +923,7 @@ static __devinit int tegra_wm8753_driver_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	machine->pdata = pdata;
-
-	ret = tegra_asoc_utils_init(&machine->util_data, &pdev->dev);
+	ret = tegra_asoc_utils_init(&machine->util_data, &pdev->dev, card);
 	if (ret)
 		goto err_free_machine;
 
@@ -901,6 +952,16 @@ static __devinit int tegra_wm8753_driver_probe(struct platform_device *pdev)
 	}
 #endif
 
+#ifndef CONFIG_ARCH_TEGRA_2x_SOC
+	ret = tegra_asoc_utils_set_parent(&machine->util_data,
+				pdata->i2s_param[HIFI_CODEC].is_i2s_master);
+	if (ret) {
+		dev_err(&pdev->dev, "tegra_asoc_utils_set_parent failed (%d)\n",
+			ret);
+		goto err_unregister_card;
+	}
+#endif
+
 	return 0;
 
 err_unregister_card:
@@ -916,7 +977,7 @@ static int __devexit tegra_wm8753_driver_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct tegra_wm8753 *machine = snd_soc_card_get_drvdata(card);
-	struct tegra_wm8753_platform_data *pdata = machine->pdata;
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
 
 	snd_soc_unregister_card(card);
 
