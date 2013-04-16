@@ -1,13 +1,12 @@
 #CHADALYONG
-ANDROID_PATH = $(shell pwd)/../../../../../../
-GATOR_DRIVE_ROOT :=$(ANDROID_PATH)/kernel/drivers/char/gator-driver
+GATOR_DRIVE_ROOT :=$(ANDROID_BUILD_TOP)/$(KERNEL_SRC)/kernel/drivers/char/gator-driver
 #GATOR_KO :=~/nvidia/x3/android/out/target/product/x3/system/lib/modules
 ifneq ($(KERNELRELEASE),)
 
 # Uncomment the following line to enable kernel stack unwinding within gator, or update gator_backtrace.c
 # EXTRA_CFLAGS +=	-DGATOR_KERNEL_STACK_UNWINDING
 
-obj-m := gator.o
+#obj-m := gator.o
 
 gator-y :=	gator_main.o \
 		gator_events_irq.o \
