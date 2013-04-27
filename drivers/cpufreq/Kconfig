@@ -122,6 +122,28 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactive' governor for latency-sensitive workloads.
 
+config CPU_FREQ_DEFAULT_GOV_GAMING
+	bool "gaming"
+	select CPU_FREQ_GOV_GAMING
+	help
+	  Use the CPUFreq governor 'gaming' as default. This allows
+	  you to get a full dynamic cpu frequency capable system, being
+	  improved for gaming.
+	  
+config CPU_FREQ_DEFAULT_GOV_SMARTMAX
+	bool "smartmax"
+	select CPU_FREQ_GOV_SMARTMAX
+	help
+	  Use the CPUFreq governor 'smartmax' as default. This is an improved
+	  version of smartassV2, especially for Tegra 3 devices.
+
+config CPU_FREQ_DEFAULT_GOV_PMC
+	bool "pmc"
+	select CPU_FREQ_GOV_PMC
+	help
+	  Use the CPUFreq governor 'pmx' as default. This Governor is an 
+	  improved Version of ondemand.
+
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -218,6 +240,27 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_GAMING
+	tristate "'gaming' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'gaming' - this driver is made for gaming. It can (and will) improve
+	  the performance, but decrease the batterylife.
+	  
+config CPU_FREQ_GOV_SMARTMAX
+	tristate "'smartmax' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'smartmax' - this driver is a kind of an improved smartassV2 governor,
+	  made for Tegra 3 devices.
+
+config CPU_FREQ_GOV_PMC
+	tristate "'pmc' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'pmc' - this driver is an improved ondemand governor. It will higher
+	  the frequency faster, but also lower it faster.
 
 menu "x86 CPU frequency scaling drivers"
 depends on X86
