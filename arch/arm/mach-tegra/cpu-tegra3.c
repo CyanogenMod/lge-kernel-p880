@@ -45,7 +45,7 @@
 #ifdef CONFIG_MACH_X3
 #define DOWN_DELAY_MS		1000
 #else
-#define DOWN_DELAY_MS		2000
+#define DOWN_DELAY_MS		1000
 #endif
 
 static struct mutex *tegra3_cpu_lock;
