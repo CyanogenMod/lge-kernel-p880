@@ -49,7 +49,7 @@
 #if defined(VIBE_DEBUG) && defined(VIBE_RECORD)
 #include <tspdrvRecorder.c>
 #endif
-
+#include"imm_timed_output.h"
 
 /* Device name and version information */
 #define VERSION_STR " v3.4.55.8\n"                  /* DO NOT CHANGE - this is auto-generated */
@@ -215,6 +215,7 @@ int __init tspdrv_init( void )
     }
     DbgOut((KERN_INFO "tspdrv: init_module exit.\n"));
 
+    ImmVibe_timed_output();
     return 0;
 }
 
