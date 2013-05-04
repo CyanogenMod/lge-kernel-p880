@@ -3,19 +3,30 @@
 #include"../../staging/android/timed_output.h"
 #include<linux/hrtimer.h>
 #include<linux/sched.h>
+<<<<<<< HEAD
 #include<linux/types.h>
+=======
+>>>>>>> ba1f0f0... tspdrv: Add LG's timed_output based interface
 #include"imm_timed_output.h"
 #define max_timeout_ms 15000
 
 static struct hrtimer vib_timer;
+<<<<<<< HEAD
 static atomic_t vib_state = ATOMIC_INIT(0);
+=======
+static unsigned int vib_state;
+>>>>>>> ba1f0f0... tspdrv: Add LG's timed_output based interface
 static struct work_struct vibrator_work;
 extern int32_t ImmVibeSPI_ForceOut_AmpEnable(u_int8_t);
 extern int32_t ImmVibeSPI_ForceOut_AmpDisable(u_int8_t);
 
 static void ImmVibeSPI_Control(struct work_struct *work)
 {
+<<<<<<< HEAD
 	if(atomic_read(&vib_state)) {
+=======
+	if(vib_state) {
+>>>>>>> ba1f0f0... tspdrv: Add LG's timed_output based interface
 		ImmVibeSPI_ForceOut_AmpEnable(0);
 	}
 	else {
@@ -29,8 +40,15 @@ static void tspdrv_vib_enable(struct timed_output_dev *dev, int value)
 	hrtimer_cancel(&vib_timer);
 
 	if(value == 0) {
+<<<<<<< HEAD
 		atomic_set(&vib_state, 0); //Turn Off the vibrator
 		schedule_work(&vibrator_work);
+=======
+                if (vib_state) {
+		    vib_state =  0; //Turn Off the vibrator
+		    schedule_work(&vibrator_work);
+                }
+>>>>>>> ba1f0f0... tspdrv: Add LG's timed_output based interface
  	}
 	else {
 		value = (value > max_timeout_ms ? max_timeout_ms : value);
@@ -39,7 +57,11 @@ static void tspdrv_vib_enable(struct timed_output_dev *dev, int value)
             value = 10;
         /*[LGE_BSP_END][yunmo.yang@lge.com] Unlimit Vibrator Bug fix*/
 
+<<<<<<< HEAD
 		atomic_set(&vib_state, 1);
+=======
+		vib_state = 1;
+>>>>>>> ba1f0f0... tspdrv: Add LG's timed_output based interface
 		schedule_work(&vibrator_work);
 
 		hrtimer_start(&vib_timer,
@@ -62,7 +84,11 @@ static int tspdrv_vib_get_time(struct timed_output_dev *dev)
 
 static enum hrtimer_restart vibrator_timer_func(struct hrtimer *timer)
 {
+<<<<<<< HEAD
 	atomic_set(&vib_state, 0);
+=======
+	vib_state = 0;
+>>>>>>> ba1f0f0... tspdrv: Add LG's timed_output based interface
 	schedule_work(&vibrator_work);
 	return HRTIMER_NORESTART;
 }
@@ -77,7 +103,11 @@ void __init ImmVibe_timed_output(void)
 	INIT_WORK(&vibrator_work, ImmVibeSPI_Control);
 	hrtimer_init(&vib_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	vib_timer.function = vibrator_timer_func;
+<<<<<<< HEAD
 	atomic_set(&vib_state, 0); //Default is Vibrator OFF
+=======
+	vib_state = 0; //Default is Vibrator OFF	
+>>>>>>> ba1f0f0... tspdrv: Add LG's timed_output based interface
 	timed_output_dev_register(&timed_dev);
 }
 
