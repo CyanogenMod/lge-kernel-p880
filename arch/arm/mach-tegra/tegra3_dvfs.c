@@ -58,7 +58,7 @@ static int cpu_below_core = VDD_CPU_BELOW_VDD_CORE;
 
 static struct dvfs_rail tegra3_dvfs_rail_vdd_cpu = {
 	.reg_id = "vdd_cpu",
-	.max_millivolts = 1250,
+	.max_millivolts = 1300,
 #ifdef CONFIG_MACH_X3
 	.min_millivolts = 800,
 #else
@@ -99,8 +99,10 @@ static int tegra3_get_core_floor_mv(int cpu_mv)
 		return 1200;
 	if (cpu_mv < 1100)
 		return 1200;
-	if (cpu_mv <= 1250)
+	if (cpu_mv < 1250)
 		return 1300;
+	if (cpu_mv <= MAX_ALLOWED_VOLT)
+		return MAX_ALLOWED_VOLT;
 	BUG();
 }
 
@@ -314,13 +316,13 @@ static struct dvfs core_dvfs_table[] = {
 	CORE_DVFS("se",     3, 1, KHZ,        1,      1,      1,      1,      1,       1,  625000,  625000,  625000),
 #endif
 
-	CORE_DVFS("host1x", 0, 1, KHZ,        1, 152000, 188000, 222000, 254000,  267000,  267000,  267000,  267000),
-	CORE_DVFS("host1x", 1, 1, KHZ,   100000, 152000, 188000, 222000, 254000,  267000,  267000,  267000,  267000),
-	CORE_DVFS("host1x", 2, 1, KHZ,   100000, 152000, 188000, 222000, 254000,  267000,  267000,  267000,  300000),
+	CORE_DVFS("host1x", 0, 1, KHZ,        1, 152000, 188000, 222000, 254000,  267000,  300000,  300000,  300000),
+	CORE_DVFS("host1x", 1, 1, KHZ,   100000, 152000, 188000, 222000, 254000,  267000,  300000,  300000,  300000),
+	CORE_DVFS("host1x", 2, 1, KHZ,   100000, 152000, 188000, 222000, 254000,  267000,  300000,  300000,  300000),
 #ifdef CONFIG_MACH_X3
 	CORE_DVFS("host1x", 3, 1, KHZ,        1,      1,      1,      1,      1,       1,  300000,  300000,  300000),
 #else
-	CORE_DVFS("host1x", 3, 1, KHZ,        1,      1,      1,      1,      1,       1,  242000,  242000,  242000),
+	CORE_DVFS("host1x", 3, 1, KHZ,        1,      1,      1,      1,      1,       1,  300000,  300000,  300000),
 #endif
 
 	CORE_DVFS("cbus",   0, 1, KHZ,        1, 267000, 304000, 416000, 484000,  520000,  528000,  564000,  600000),
