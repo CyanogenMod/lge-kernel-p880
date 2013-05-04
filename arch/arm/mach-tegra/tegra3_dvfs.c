@@ -44,7 +44,7 @@ static const unsigned int cpu_cold_offs_mhz[MAX_DVFS_FREQS] = {
 	 50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,  50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50,   50};
 
 static const int core_millivolts[MAX_DVFS_FREQS] = {
-	950, 1000, 1050, 1100, 1150, 1200, 1250, 1300, 1350};
+	950, 1000, 1050, 1100, 1150, 1200, 1250, 1300, 1325};
 
 #define KHZ 1000
 #define MHZ 1000000
@@ -99,10 +99,8 @@ static int tegra3_get_core_floor_mv(int cpu_mv)
 		return 1200;
 	if (cpu_mv < 1100)
 		return 1200;
-	if (cpu_mv < 1250)
+	if (cpu_mv <= 1250)
 		return 1300;
-	if (cpu_mv <= MAX_ALLOWED_VOLT)
-		return MAX_ALLOWED_VOLT;
 	BUG();
 }
 
