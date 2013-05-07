@@ -133,6 +133,7 @@ static bool wakeup_pending;
 static bool modem_sleep_flag;
 static spinlock_t xmm_lock;
 static DEFINE_MUTEX(xmm_onoff_mutex);
+static int modem_reset_flag = 0;
 
 static struct workqueue_struct *workqueue_susp;
 static struct work_struct work_shortsusp, work_defaultsusp;
@@ -147,6 +148,9 @@ static bool l2_resume_work_done = false;
 static void baseband_xmm_power_L2_resume(void);
 static int baseband_xmm_power_driver_handle_resume(struct baseband_power_platform_data *data);
 #define CP_RESET_SEQUENCE
+
+extern void tegra_usb_suspend_hsic(void);
+extern void tegra_usb_resume_hsic(void);
 
 static inline void baseband_xmm_power_msleep(u32 t)
 {
@@ -405,6 +409,26 @@ static ssize_t baseband_xmm_onoff_show(struct device *dev,
         onoff = 2;
               
     return sprintf(buf, "%d", onoff);
+}
+
+static ssize_t store_nml_reset_modem(struct device *dev,
+        struct device_attribute *attr,
+        const char *buf, size_t count)
+{
+       int state;
+        struct platform_device *device = to_platform_device(dev);
+
+       sscanf(buf, "%d", &state);
+
+       pr_info("++ nml_reset_modem ++\n");
+       if (state > 0) {
+                baseband_xmm_power_off(device);
+                msleep(50);
+                baseband_xmm_power_on(device);
+                modem_reset_flag = 1;
+       }
+       pr_info("-- nml_reset_modem --\n");
+       return count;
 }
 
 static DEVICE_ATTR(xmm_onoff, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP , baseband_xmm_onoff_show, baseband_xmm_onoff);
@@ -707,11 +731,12 @@ static void baseband_xmm_power_init2_work(struct work_struct *work)
 	/* register usb host controller only once */
 	if (register_hsic_device) {
 		if (data->hsic_register) {
-			data->modem.xmm.hsic_device = data->hsic_register();			
+			data->modem.xmm.hsic_device = data->hsic_register();
 		}
 		else
 			pr_err("%s: hsic_register is missing\n", __func__);		
 		register_hsic_device = false;
+		modem_reset_flag = 0;
 	}
 }
 
