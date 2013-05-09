@@ -41,9 +41,9 @@
 
 #include "clock.h"
 #include "cpu-tegra.h"
-<<<<<<< HEAD
+
 #include "dvfs.h"
-=======
+
 #include "pm.h"
 
 #define BOOST_CPU_FREQ_MIN 1500000
@@ -53,8 +53,6 @@
 extern unsigned long long wake_reason_resume;
 static spinlock_t user_cap_lock;
 struct work_struct htc_suspend_resume_work;
-
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 
 /* tegra throttling and edp governors require frequencies in the table
    to be in ascending order */
@@ -795,8 +793,7 @@ int tegra_update_cpu_speed(unsigned long rate)
 	int ret = 0;
 	struct cpufreq_freqs freqs;
 
-<<<<<<< HEAD
-=======
+
 	u32 ms;
 	u32 output_time;
 	int index = 0;
@@ -807,7 +804,6 @@ int tegra_update_cpu_speed(unsigned long rate)
 	unsigned long rate_save = rate;
 	u32 suspend_ms;
 
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 	freqs.old = tegra_getspeed(0);
 	freqs.new = rate;
 
@@ -818,8 +814,6 @@ int tegra_update_cpu_speed(unsigned long rate)
 	if (freqs.old == freqs.new)
 		return ret;
 
-<<<<<<< HEAD
-=======
 	if (freqs.new < rate_save && rate_save >= 880000) {
 		if (is_lp_cluster()) {
 
@@ -840,7 +834,6 @@ int tegra_update_cpu_speed(unsigned long rate)
 		}
 	}
 
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 	/*
 	 * Vote on memory bus frequency based on cpu frequency
 	 * This sets the minimum frequency, display or avp may request higher
@@ -850,19 +843,13 @@ int tegra_update_cpu_speed(unsigned long rate)
 		if (ret) {
 			pr_err("cpu-tegra: Failed to scale mselect for cpu"
 			       " frequency %u kHz\n", freqs.new);
-<<<<<<< HEAD
 			return ret;
-=======
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 		}
 		ret = clk_set_rate(emc_clk, tegra_emc_to_cpu_ratio(freqs.new));
 		if (ret) {
 			pr_err("cpu-tegra: Failed to scale emc for cpu"
 			       " frequency %u kHz\n", freqs.new);
-<<<<<<< HEAD
 			return ret;
-=======
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 		}
 	}
 
@@ -878,9 +865,7 @@ int tegra_update_cpu_speed(unsigned long rate)
 	if (ret) {
 		pr_err("cpu-tegra: Failed to set cpu frequency to %d kHz\n",
 			freqs.new);
-<<<<<<< HEAD
 		return ret;
-=======
 	}
 
 	rtc_after = tegra_rtc_read_ms();
@@ -913,7 +898,6 @@ int tegra_update_cpu_speed(unsigned long rate)
 		*(bptr-1) = '\0';
 		pr_info("[DVFS] each freq runs (ms): %s\n", buffer);
 		rtc_output = rtc_after;
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 	}
 
 	for_each_online_cpu(freqs.cpu)
@@ -1092,12 +1076,9 @@ _out:
 	return ret;
 }
 
-<<<<<<< HEAD
-=======
 static int enter_early_suspend = 0;
 static int perf_early_suspend = 0;
 static int CAP_CPU_FREQ_TARGET = 1500000;
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 
 static int tegra_pm_notify(struct notifier_block *nb, unsigned long event,
 	void *dummy)
@@ -1209,8 +1190,6 @@ static struct freq_attr *tegra_cpufreq_attr[] = {
 	NULL,
 };
 
-<<<<<<< HEAD
-=======
 static int tegra_cpufreq_suspend(struct cpufreq_policy *policy)
 {
 	mutex_lock(&tegra_cpu_lock);
@@ -1230,7 +1209,6 @@ static int tegra_cpufreq_resume(struct cpufreq_policy *policy)
 	return 0;
 }
 
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 static struct cpufreq_driver tegra_cpufreq_driver = {
 	.verify		= tegra_verify_speed,
 	.target		= tegra_target,
@@ -1239,11 +1217,8 @@ static struct cpufreq_driver tegra_cpufreq_driver = {
 	.exit		= tegra_cpu_exit,
 	.name		= "tegra",
 	.attr		= tegra_cpufreq_attr,
-<<<<<<< HEAD
-=======
 	.suspend	= tegra_cpufreq_suspend,
 	.resume		= tegra_cpufreq_resume,
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 };
 
 static int __init tegra_cpufreq_init(void)

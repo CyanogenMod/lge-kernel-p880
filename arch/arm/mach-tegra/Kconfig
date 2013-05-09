@@ -455,7 +455,7 @@ config TEGRA_EMC_TO_DDR_CLOCK
 	default "2" if ARCH_TEGRA_2x_SOC
 	default "1"
 
-<<<<<<< HEAD
+
 config TEGRA_SE_ON_CBUS
 	bool "To Drive SE clock from cbus"
 	default y
@@ -472,14 +472,13 @@ config TEGRA_CONVSERVATIVE_GOV_ON_EARLYSUPSEND
 	default n
 	help
 	 Also will restore to original cpu frequency governor when device is resumed
-=======
+
 config TEGRA_LEGACY_AUDIO
 	bool "Enable Tegra Legacy Audio APIs"
 	default n
 	help
 	  Say Y if you want to add support legacy (non-ALSA) audio APIs on
 	  Tegra. This will disable ALSA (ASoC) support.
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.
 
 config TEGRA_STAT_MON
         bool "Enable H/W statistics monitor"

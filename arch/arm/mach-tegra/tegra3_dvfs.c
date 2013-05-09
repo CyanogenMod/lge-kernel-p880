@@ -58,17 +58,12 @@ static int cpu_below_core = VDD_CPU_BELOW_VDD_CORE;
 
 static struct dvfs_rail tegra3_dvfs_rail_vdd_cpu = {
 	.reg_id = "vdd_cpu",
-<<<<<<< HEAD
-	.max_millivolts = 1300,
-#ifdef CONFIG_MACH_X3
-	.min_millivolts = 700,
-#else
-	.min_millivolts = 725,
-#endif
-=======
 	.max_millivolts = 1250,
+#ifdef CONFIG_MACH_X3
 	.min_millivolts = 600,
->>>>>>> 2d22fcd... tegra3_dvfs.c: reduce minimum voltage allowed for the CPU from 850mV to 600mV
+#else
+	.min_millivolts = 7600,
+#endif
 	.step = VDD_SAFE_STEP,
 	.jmp_to_zero = true,
 };
@@ -76,12 +71,9 @@ static struct dvfs_rail tegra3_dvfs_rail_vdd_cpu = {
 static struct dvfs_rail tegra3_dvfs_rail_vdd_core = {
 	.reg_id = "vdd_core",
 	.max_millivolts = 1550,
-<<<<<<< HEAD
 #ifdef CONFIG_MACH_X3
 	.min_millivolts = 950,
 #else
-=======
->>>>>>> e44f19c... tegra: decrease GPU clocks to nearly stock values. Also refactor most code to make it simpler. We get rid of the voltages arrays and update the millivolts table dynamically. For that we had to get rid of the const variable type or the compiler wouldn't let it build for obvious reasons. Also changes how to change the frequency of the GPU as it only outputs one value instead of the whole array of frequencies. Makes it much easier for users to use and much easy on the code complexity. Thanks @morfic for the pll_c tables.
 	.min_millivolts = 950,
 #endif
 	.step = VDD_SAFE_STEP,

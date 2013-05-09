@@ -3322,34 +3322,18 @@ static struct clk tegra_pll_ref = {
 };
 
 static struct clk_pll_freq_table tegra_pll_c_freq_table[] = {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e44f19c... tegra: decrease GPU clocks to nearly stock values. Also refactor most code to make it simpler. We get rid of the voltages arrays and update the millivolts table dynamically. For that we had to get rid of the const variable type or the compiler wouldn't let it build for obvious reasons. Also changes how to change the frequency of the GPU as it only outputs one value instead of the whole array of frequencies. Makes it much easier for users to use and much easy on the code complexity. Thanks @morfic for the pll_c tables.
 	{ 12000000, 1500000000, 750,  6, 1, 8},
 	{ 13000000, 1500000000, 750, 13, 2, 8},
 	{ 16800000, 1500000000, 625,  7, 1, 8},
 	{ 19200000, 1500000000, 625,  8, 1, 8},
 	{ 26000000, 1500000000, 750, 13, 1, 8},
-<<<<<<< HEAD
 
-
-=======
->>>>>>> efe7ad4... tegra: clocks: add new pll_c entries if we overclock the GPU further.
-=======
-	
->>>>>>> e44f19c... tegra: decrease GPU clocks to nearly stock values. Also refactor most code to make it simpler. We get rid of the voltages arrays and update the millivolts table dynamically. For that we had to get rid of the const variable type or the compiler wouldn't let it build for obvious reasons. Also changes how to change the frequency of the GPU as it only outputs one value instead of the whole array of frequencies. Makes it much easier for users to use and much easy on the code complexity. Thanks @morfic for the pll_c tables.
 	{ 12000000, 1332000000, 666,  6, 1, 8},
 	{ 13000000, 1332000000, 666, 13, 2, 8},		/* actual: 1199.9 MHz */
 	{ 16800000, 1332000000, 555,  7, 1, 8},
 	{ 19200000, 1332000000, 555,  8, 1, 8},
 	{ 26000000, 1332000000, 666, 13, 1, 8},
-<<<<<<< HEAD
 
-
-=======
-	
->>>>>>> efe7ad4... tegra: clocks: add new pll_c entries if we overclock the GPU further.
 	{ 12000000, 1040000000, 520,  6, 1, 8},
 	{ 13000000, 1040000000, 480,  6, 1, 8},
 	{ 16800000, 1040000000, 495,  8, 1, 8},		/* actual: 1039.5 MHz */
@@ -4842,7 +4826,6 @@ static struct cpufreq_frequency_table freq_table_300MHz[] = {
 };
 
 static struct cpufreq_frequency_table freq_table_1p0GHz[] = {
-<<<<<<< HEAD
 	{ 0,  51000 },
 	{ 1, 102000 },
 	{ 2, 204000 },
@@ -4852,7 +4835,11 @@ static struct cpufreq_frequency_table freq_table_1p0GHz[] = {
 	{ 6, 760000 },
 	{ 7, 816000 },
 	{ 8, 912000 },
-=======
+	{ 9, 1000000 },
+	{10, CPUFREQ_TABLE_END },
+};
+
+static struct cpufreq_frequency_table freq_table_1p0GHz[] = {
 	{ 0, 100000 },
 	{ 1, 200000 },
 	{ 2, 300000 },
@@ -4862,95 +4849,11 @@ static struct cpufreq_frequency_table freq_table_1p0GHz[] = {
 	{ 6, 700000 },
 	{ 7, 800000 },
 	{ 8, 900000 },
->>>>>>> dd1b6d1... tegra3_clocks.c: refactor CPU frequency tables and ajust EMC clock ratios
 	{ 9, 1000000 },
 	{10, CPUFREQ_TABLE_END },
 };
 
 static struct cpufreq_frequency_table freq_table_1p3GHz[] = {
-<<<<<<< HEAD
-<<<<<<< HEAD
-	{ 0,   51000 },
-	{ 1,  102000 },
-	{ 2,  204000 },
-	{ 3,  340000 },
-	{ 4,  475000 },
-	{ 5,  640000 },
-	{ 6,  760000 },
-	{ 7,  860000 },
-	{ 8, 1000000 },
-	{ 9, 1100000 },
-	{10, 1200000 },
-	{11, 1300000 },
-	{12, CPUFREQ_TABLE_END },
-};
-
-static struct cpufreq_frequency_table freq_table_1p4GHz[] = {
-	{ 0,   51000 },
-	{ 1,  102000 },
-	{ 2,  204000 },
-	{ 3,  370000 },
-	{ 4,  475000 },
-	{ 5,  620000 },
-	{ 6,  760000 },
-	{ 7,  860000 },
-	{ 8, 1000000 },
-	{ 9, 1100000 },
-	{10, 1200000 },
-	{11, 1300000 },
-	{12, 1400000 },
-	{13, CPUFREQ_TABLE_END },
-};
-
-static struct cpufreq_frequency_table freq_table_1p5GHz[] = {
-	{ 0,   51000 },
-	{ 1,  102000 },
-	{ 2,  204000 },
-	{ 3,  340000 },
-	{ 4,  475000 },
-	{ 5,  640000 },
-	{ 6,  760000 },
-	{ 7,  860000 },
-	{ 8, 1000000 },
-	{ 9, 1100000 },
-	{10, 1200000 },
-	{11, 1300000 },
-	{12, 1400000 },
-	{13, 1500000 },
-	{14, CPUFREQ_TABLE_END },
-};
-
-static struct cpufreq_frequency_table freq_table_1p7GHz[] = {
-	{ 0,   51000 },
-	{ 1,  102000 },
-	{ 2,  204000 },
-	{ 3,  370000 },
-	{ 4,  475000 },
-	{ 5,  620000 },
-	{ 6,  760000 },
-	{ 7,  910000 },
-	{ 8, 1000000 },
-	{ 9, 1150000 },
-	{10, 1300000 },
-	{11, 1400000 },
-	{12, 1500000 },
-	{13, 1600000 },
-	{14, 1700000 },
-	{15, CPUFREQ_TABLE_END },
-=======
-	{ 0,  102000 },
-	{ 1,  204000 },
-	{ 2,  340000 },
-	{ 3,  475000 },
-	{ 4,  640000 },
-	{ 5,  760000 },
-	{ 6,  860000 },
-	{ 7, 1000000 },
-	{ 8, 1100000 },
-	{ 9, 1200000 },
-	{10, 1300000 },
-	{11, CPUFREQ_TABLE_END },
-=======
 	{ 0, 100000 },
 	{ 1, 200000 },
 	{ 2, 300000 },
@@ -4965,7 +4868,6 @@ static struct cpufreq_frequency_table freq_table_1p7GHz[] = {
 	{11, 1200000 },
 	{12, 1300000 },
 	{13, CPUFREQ_TABLE_END },
->>>>>>> dd1b6d1... tegra3_clocks.c: refactor CPU frequency tables and ajust EMC clock ratios
 };
 
 static struct cpufreq_frequency_table freq_table_1p4GHz[] = {
@@ -5006,23 +4908,6 @@ static struct cpufreq_frequency_table freq_table_1p5GHz[] = {
 };
 
 static struct cpufreq_frequency_table freq_table_1p7GHz[] = {
-<<<<<<< HEAD
-	{ 0,  102000 },
-	{ 1,  204000 },
-	{ 2,  370000 },
-	{ 3,  475000 },
-	{ 4,  620000 },
-	{ 5,  760000 },
-	{ 6,  910000 },
-	{ 7, 1150000 },
-	{ 8, 1300000 },
-	{ 9, 1400000 },
-	{10, 1500000 },
-	{11, 1600000 },
-	{12, 1700000 },
-	{13, CPUFREQ_TABLE_END },
->>>>>>> dfe9ba3... ARM: tegra: dvfs: Update Tegra3 CPU DVFS tables
-=======
 	{ 0, 100000 },
 	{ 1, 200000 },
 	{ 2, 300000 },
@@ -5041,25 +4926,17 @@ static struct cpufreq_frequency_table freq_table_1p7GHz[] = {
 	{15, 1600000 },
 	{16, 1700000 },
 	{17, CPUFREQ_TABLE_END },
->>>>>>> dd1b6d1... tegra3_clocks.c: refactor CPU frequency tables and ajust EMC clock ratios
 };
 
 static struct tegra_cpufreq_table_data cpufreq_tables[] = {
 	{ freq_table_300MHz, 0,  1 },
-<<<<<<< HEAD
-	{ freq_table_1p0GHz, 2,  8 },
-	{ freq_table_1p3GHz, 2, 10 },
-	{ freq_table_1p4GHz, 2, 11 },
-	{ freq_table_1p5GHz, 2, 12 },
-	{ freq_table_1p7GHz, 2, 12 },
-=======
 	{ freq_table_1p0GHz, 2, 11 },
 	{ freq_table_1p3GHz, 2, 14 },
 	{ freq_table_1p4GHz, 2, 15 },
 	{ freq_table_1p5GHz, 2, 16 },
 	{ freq_table_1p7GHz, 2, 18 },
->>>>>>> dd1b6d1... tegra3_clocks.c: refactor CPU frequency tables and ajust EMC clock ratios
 };
+
 
 static int clip_cpu_rate_limits(
 	struct tegra_cpufreq_table_data *data,
@@ -5159,23 +5036,15 @@ unsigned long tegra_emc_to_cpu_ratio(unsigned long cpu_rate)
 
 	/* Vote on memory bus frequency based on cpu frequency;
 	   cpu rate is in kHz, emc rate is in Hz */
-<<<<<<< HEAD
+
 //                
 #if !defined(CONFIG_MACH_X3) &&  !defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
-	if (cpu_rate >= 925000)
-		return emc_max_rate;	/* cpu >= 925 MHz, emc max */
-	else if (cpu_rate >= 450000)
-		return emc_max_rate/2;	/* cpu >= 450 MHz, emc max/2 */
-	else if (cpu_rate >= 250000)
-		return 100000000;	/* cpu >= 250 MHz, emc 100 MHz */
-=======
 	if (cpu_rate >= 900000)
 		return emc_max_rate;	/* cpu >= 900 MHz, emc max */
 	else if (cpu_rate >= 40000)
 		return emc_max_rate/2;	/* cpu >= 400 MHz, emc max/2 */
 	else if (cpu_rate >= 200000)
 		return 100000000;	/* cpu >= 200 MHz, emc 100 MHz */
->>>>>>> dd1b6d1... tegra3_clocks.c: refactor CPU frequency tables and ajust EMC clock ratios
 	else
 		return 0;		/* emc min */
 #else

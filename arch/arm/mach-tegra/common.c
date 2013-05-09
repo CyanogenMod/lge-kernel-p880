@@ -108,15 +108,8 @@ static struct board_info pmu_board_info;
 static struct board_info display_board_info;
 static struct board_info camera_board_info;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
+
 static int pmu_core_edp = 1550;	/* default 1.2V EDP limit */
-=======
-static int pmu_core_edp = 1500;	/* default 1.2V EDP limit */
->>>>>>> 4c8f56b... tegra: add GPU clocks interface.
-=======
-static int pmu_core_edp = 1550;	/* default 1.2V EDP limit */
->>>>>>> e44f19c... tegra: decrease GPU clocks to nearly stock values. Also refactor most code to make it simpler. We get rid of the voltages arrays and update the millivolts table dynamically. For that we had to get rid of the const variable type or the compiler wouldn't let it build for obvious reasons. Also changes how to change the frequency of the GPU as it only outputs one value instead of the whole array of frequencies. Makes it much easier for users to use and much easy on the code complexity. Thanks @morfic for the pll_c tables.
 static int board_panel_type;
 static enum power_supply_type pow_supply_type = POWER_SUPPLY_TYPE_MAINS;
 
@@ -1148,7 +1141,6 @@ void __init tegra_release_bootloader_fb(void)
 						tegra_bootloader_fb_size))
 			pr_err("Failed to free bootloader fb.\n");
 }
-<<<<<<< HEAD
 
 #ifdef CONFIG_TEGRA_CONVSERVATIVE_GOV_ON_EARLYSUPSEND
 char cpufreq_default_gov[CONFIG_NR_CPUS][MAX_GOV_NAME_LEN];
@@ -1213,5 +1205,3 @@ void cpufreq_restore_default_gov(void)
 	}
 }
 #endif /* CONFIG_TEGRA_CONVSERVATIVE_GOV_ON_EARLYSUPSEND */
-=======
->>>>>>> c63ad6c... cpu-tegra.c: we have several changes in here. The first and most notable is the removal of the early_suspend functions that were connected to the governors. What was NVIDIAs idea to have several functions to change governors based on screen on/off? No gain comes from it and it only wastes processing time because the path goes something like this: turn screen off -> save previous governor and its settings in an auxiliary function -> change to low power cpu cluster -> change to interactive/conservative governors based on the config choice. Then the other way around when screen is on... This path is pretty much dumbed down, theres much more going on, so why waste it in this procedure? So this is removed and replaced by two simple early_suspend functions that are tied to the Tegra cpu_driver struct that caps the policy->max to 475Mhz on screen off, and returns max to 1,5Ghz on screen on. This is way cleaner and screams much less problems. I also cleaned up some procedures that didn't make any sense like messing with threads/process priorities. Also did a little policy->max and policy->min settings on cpufreq_init to make sure the device boots with the correct frequencies.

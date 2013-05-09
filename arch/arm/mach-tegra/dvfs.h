@@ -84,12 +84,9 @@ struct dvfs {
 	/* Must be initialized before tegra_dvfs_init */
 	int freqs_mult;
 	unsigned long freqs[MAX_DVFS_FREQS];
-<<<<<<< HEAD
+
 	unsigned long *alt_freqs;
-	const int *millivolts;
-=======
 	unsigned int *millivolts;
->>>>>>> e44f19c... tegra: decrease GPU clocks to nearly stock values. Also refactor most code to make it simpler. We get rid of the voltages arrays and update the millivolts table dynamically. For that we had to get rid of the const variable type or the compiler wouldn't let it build for obvious reasons. Also changes how to change the frequency of the GPU as it only outputs one value instead of the whole array of frequencies. Makes it much easier for users to use and much easy on the code complexity. Thanks @morfic for the pll_c tables.
 	struct dvfs_rail *dvfs_rail;
 	bool auto_dvfs;
 

@@ -889,20 +889,11 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
-<<<<<<< HEAD
 cpufreq_freq_attr_ro(policy_min_freq);
 cpufreq_freq_attr_ro(policy_max_freq);
-=======
 cpufreq_freq_attr_rw(UV_mV_table);
-<<<<<<< HEAD
->>>>>>> b37c44b... cpufreq.c: add userspace voltage control. Original implementation from faux123 (which was based on Michael Huang's OMAP4460 work). Interface cleaned up, made more robust and secure
-=======
 cpufreq_freq_attr_rw(gpu_oc);
-<<<<<<< HEAD
->>>>>>> 4c8f56b... tegra: add GPU clocks interface.
-=======
 cpufreq_freq_attr_rw(cpu_lp_max);
->>>>>>> 6326072... tegra: add CPU_LP max_rate interface.
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -916,20 +907,11 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
-<<<<<<< HEAD
 	&policy_min_freq.attr,
 	&policy_max_freq.attr,
-=======
 	&UV_mV_table.attr,
-<<<<<<< HEAD
->>>>>>> b37c44b... cpufreq.c: add userspace voltage control. Original implementation from faux123 (which was based on Michael Huang's OMAP4460 work). Interface cleaned up, made more robust and secure
-=======
 	&gpu_oc.attr,
-<<<<<<< HEAD
->>>>>>> 4c8f56b... tegra: add GPU clocks interface.
-=======
 	&cpu_lp_max.attr,
->>>>>>> 6326072... tegra: add CPU_LP max_rate interface.
 	NULL
 };
 

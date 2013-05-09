@@ -171,11 +171,6 @@ SYSCALL_DEFINE1(syncfs, int, fd)
  */
 int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 {
-<<<<<<< HEAD
-	if (!file->f_op || !file->f_op->fsync)
-		return -EINVAL;
-	return file->f_op->fsync(file, start, end, datasync);
-=======
 	struct address_space *mapping = file->f_mapping;
 	int err, ret;
 
@@ -201,7 +196,6 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 
 out:
 	return ret;
->>>>>>> 62f674e... sync.c: add fsync() toggle module
 }
 EXPORT_SYMBOL(vfs_fsync_range);
 
