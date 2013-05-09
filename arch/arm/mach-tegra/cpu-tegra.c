@@ -41,18 +41,7 @@
 
 #include "clock.h"
 #include "cpu-tegra.h"
-
 #include "dvfs.h"
-
-#include "pm.h"
-
-#define BOOST_CPU_FREQ_MIN 1500000
-#define CAP_CPU_FREQ_MAX 475000
-
-/* Symbol to store resume resume */
-extern unsigned long long wake_reason_resume;
-static spinlock_t user_cap_lock;
-struct work_struct htc_suspend_resume_work;
 
 /* tegra throttling and edp governors require frequencies in the table
    to be in ascending order */
@@ -793,17 +782,6 @@ int tegra_update_cpu_speed(unsigned long rate)
 	int ret = 0;
 	struct cpufreq_freqs freqs;
 
-
-	u32 ms;
-	u32 output_time;
-	int index = 0;
-	int i;
-	int cpu_online[CPU_NUMBER];
-	char buffer[MAX_LOCAL_BUFFER];
-	char *bptr = buffer;
-	unsigned long rate_save = rate;
-	u32 suspend_ms;
-
 	freqs.old = tegra_getspeed(0);
 	freqs.new = rate;
 
@@ -813,26 +791,6 @@ int tegra_update_cpu_speed(unsigned long rate)
 
 	if (freqs.old == freqs.new)
 		return ret;
-
-	if (freqs.new < rate_save && rate_save >= 880000) {
-		if (is_lp_cluster()) {
-
-			CPU_DEBUG_PRINTK(CPU_DEBUG_HOTPLUG,
-					 " leave LPCPU (%s)", __func__);
-
-			/* set rate to max of LP mode */
-			ret = clk_set_rate(cpu_clk, 475000 * 1000);
-
-			/* change to g mode */
-			clk_set_parent(cpu_clk, cpu_g_clk);
-
-			/* restore the target frequency, and
-			 * let the rest of the function handle
-			 * the frequency scale up
-			 */
-			freqs.new = rate_save;
-		}
-	}
 
 	/*
 	 * Vote on memory bus frequency based on cpu frequency
@@ -866,38 +824,6 @@ int tegra_update_cpu_speed(unsigned long rate)
 		pr_err("cpu-tegra: Failed to set cpu frequency to %d kHz\n",
 			freqs.new);
 		return ret;
-	}
-
-	rtc_after = tegra_rtc_read_ms();
-	ms = rtc_after - rtc_before;
-
-	suspend_ms = get_suspend_time();
-
-	if(suspend_ms && ms >= suspend_ms) {
-		ms -= suspend_ms;
-	}
-
-	for (i = 0; (freq_table[i].frequency != CPUFREQ_TABLE_END); i++) {
-		if (freq_table[i].frequency == freqs.old)
-			index = i;
-	}
-	ms_array[index] += ms;
-
-	for (i = 0; i < CPU_NUMBER; i++) {
-		if (cpu_online[i] == 1)
-			ms_array_pm[i][index] += ms;
-	}
-
-	output_time = rtc_after - rtc_output;
-
-	if (output_time >= OUTPUT_TIME) {
-		for (i = 0; (freq_table[i].frequency != CPUFREQ_TABLE_END); i++) {
-			bptr += sprintf(bptr, "%u,", ms_array[i]);
-			ms_array[i] = 0;
-		}
-		*(bptr-1) = '\0';
-		pr_info("[DVFS] each freq runs (ms): %s\n", buffer);
-		rtc_output = rtc_after;
 	}
 
 	for_each_online_cpu(freqs.cpu)
@@ -1076,9 +1002,6 @@ _out:
 	return ret;
 }
 
-static int enter_early_suspend = 0;
-static int perf_early_suspend = 0;
-static int CAP_CPU_FREQ_TARGET = 1500000;
 
 static int tegra_pm_notify(struct notifier_block *nb, unsigned long event,
 	void *dummy)
@@ -1139,7 +1062,7 @@ static int tegra_cpu_init(struct cpufreq_policy *policy)
 	target_cpu_speed[policy->cpu] = policy->cur;
 
 	/* FIXME: what's the actual transition time? */
-	policy->cpuinfo.transition_latency = 30 * 1000;
+	policy->cpuinfo.transition_latency = 300 * 1000;
 
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	cpumask_copy(policy->related_cpus, cpu_possible_mask);
@@ -1147,9 +1070,6 @@ static int tegra_cpu_init(struct cpufreq_policy *policy)
 	if (policy->cpu == 0) {
 		register_pm_notifier(&tegra_cpu_pm_notifier);
 	}
-	
-	policy->max = 1500 * 1000;
-	policy->min = 340 * 1000;
 
 	return 0;
 }
@@ -1190,25 +1110,6 @@ static struct freq_attr *tegra_cpufreq_attr[] = {
 	NULL,
 };
 
-static int tegra_cpufreq_suspend(struct cpufreq_policy *policy)
-{
-	mutex_lock(&tegra_cpu_lock);
-	policy->max = CAP_CPU_FREQ_MAX;
-	mutex_unlock(&tegra_cpu_lock);
-
-	return 0;
-}
-static int tegra_cpufreq_resume(struct cpufreq_policy *policy)
-{
-	mutex_lock(&tegra_cpu_lock);
-	/*if it's a power key wakeup, uncap the cpu powersave mode for future boost*/
-	if (wake_reason_resume == 0x80)
-		policy->max = 1500000;
-	
-	mutex_unlock(&tegra_cpu_lock);
-	return 0;
-}
-
 static struct cpufreq_driver tegra_cpufreq_driver = {
 	.verify		= tegra_verify_speed,
 	.target		= tegra_target,
@@ -1217,8 +1118,6 @@ static struct cpufreq_driver tegra_cpufreq_driver = {
 	.exit		= tegra_cpu_exit,
 	.name		= "tegra",
 	.attr		= tegra_cpufreq_attr,
-	.suspend	= tegra_cpufreq_suspend,
-	.resume		= tegra_cpufreq_resume,
 };
 
 static int __init tegra_cpufreq_init(void)

@@ -4826,20 +4826,6 @@ static struct cpufreq_frequency_table freq_table_300MHz[] = {
 };
 
 static struct cpufreq_frequency_table freq_table_1p0GHz[] = {
-	{ 0,  51000 },
-	{ 1, 102000 },
-	{ 2, 204000 },
-	{ 3, 312000 },
-	{ 4, 456000 },
-	{ 5, 608000 },
-	{ 6, 760000 },
-	{ 7, 816000 },
-	{ 8, 912000 },
-	{ 9, 1000000 },
-	{10, CPUFREQ_TABLE_END },
-};
-
-static struct cpufreq_frequency_table freq_table_1p0GHz[] = {
 	{ 0, 100000 },
 	{ 1, 200000 },
 	{ 2, 300000 },

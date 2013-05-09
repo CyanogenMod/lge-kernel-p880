@@ -149,8 +149,6 @@ static void to_state_running_locked(struct nvhost_device *dev)
 				return;
 			}
 		}
-		for (i = 0; i < mod->num_clks; i++) 
-			clk_enable(mod->clk[i]);
 
 		/* Invoke callback after enabling clock. This is used for
 		 * re-enabling host1x interrupts. */

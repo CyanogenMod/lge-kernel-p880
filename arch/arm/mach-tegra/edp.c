@@ -368,20 +368,11 @@ void __init tegra_init_cpu_edp_limits(unsigned int regulator_mA)
 		e[j].freq_limits[3] = (unsigned int)(t[i+j].freq_limits[3]+10) * 10000;
         }
 
-	f = kmalloc(sizeof(struct tegra_edp_limits) * edp_limits_size,
-                    GFP_KERNEL);
-	BUG_ON(!f);
+	
+if (edp_limits != edp_default_limits)
+kfree(edp_limits);
 
-	memcpy(f, e, sizeof(struct tegra_edp_limits) * edp_limits_size);
-
-	BUG_ON(MAX_TEGRA_EDP_LIMITS < edp_limits_size);
-
-	memcpy(edp_limits_table, e, sizeof(struct tegra_edp_limits) * edp_limits_size);
-
-	if (edp_limits != edp_default_limits)
-		kfree(edp_limits);
-
-	edp_limits = e;
+edp_limits = e;
 }
 
 
