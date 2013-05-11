@@ -26,31 +26,20 @@
 #include <linux/fs.h>
 #include <linux/usb.h>
 #include <linux/uaccess.h>
-#include <linux/suspend.h>
 #include <linux/platform_data/tegra_usb.h>
 #include <mach/usb_phy.h>
 #include <mach/tegra-bb-power.h>
-// ebs 
-//#include <mach-tegra/gpio-names.h>
-// ebs 
 #include "bb-power.h"
 
-// ebs 
-#define BB_GPIO_MDM4_WDI_TEMP	149//TEGRA_GPIO_PS5
-// ebs 
-
 static struct tegra_bb_callback *callback;
-static int attr_load;
-static int attr_dlevel;
+static int attr_load_val;
 static struct tegra_bb_power_mdata *mdata;
 static bb_get_cblist get_cblist[] = {
 	NULL,
 	NULL,
 	NULL,
 	M7400_CB,
-	MODEM4_CB,
 };
-
 
 static int tegra_bb_power_gpio_init(struct tegra_bb_power_gdata *gdata)
 {
@@ -61,7 +50,6 @@ static int tegra_bb_power_gpio_init(struct tegra_bb_power_gdata *gdata)
 	unsigned long gpio_flags;
 	struct tegra_bb_gpio_data *gpiolist;
 	struct tegra_bb_gpio_irqdata *gpioirq;
-
 
 	gpiolist = gdata->gpio;
 	for (; gpiolist->data.gpio != GPIO_INVALID; ++gpiolist) {
@@ -93,11 +81,9 @@ static int tegra_bb_power_gpio_init(struct tegra_bb_power_gdata *gdata)
 
 	gpioirq = gdata->gpioirq;
 	for (; gpioirq->id != GPIO_INVALID; ++gpioirq) {
+
 		/* Create interrupt handler, if requested */
 		if (gpioirq->handler != NULL) {
-		// ebs 
-			printk("ebs %s, irq->id = %d irq->name = %s\n", __func__, gpioirq->id, gpioirq->name);
-		// ebs 	
 			irq = gpio_to_irq(gpioirq->id);
 			ret = request_threaded_irq(irq, NULL, gpioirq->handler,
 				gpioirq->flags, gpioirq->name, gpioirq->cookie);
@@ -108,7 +94,6 @@ static int tegra_bb_power_gpio_init(struct tegra_bb_power_gdata *gdata)
 			}
 
 			if (gpioirq->wake_capable) {
-                printk("[ebs] %s, id = %d, capable = %d name = %s\n", __func__,  gpioirq->id, gpioirq->wake_capable, gpioirq->name);  
 				ret = enable_irq_wake(irq);
 				if (ret) {
 					pr_err("%s: Error: irqwake req fail.\n",
@@ -118,9 +103,6 @@ static int tegra_bb_power_gpio_init(struct tegra_bb_power_gdata *gdata)
 			}
 		}
 	}
-	#ifdef EBS_TEST
-	gpio_export(144, true); //ebs
-	#endif
 	return 0;
 }
 
@@ -145,7 +127,7 @@ static int tegra_bb_power_gpio_deinit(struct tegra_bb_power_gdata *gdata)
 	return 0;
 }
 
-static ssize_t tegra_bb_load_write(struct device *dev,
+static ssize_t tegra_bb_attr_write(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count)
 {
@@ -154,46 +136,21 @@ static ssize_t tegra_bb_load_write(struct device *dev,
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
-	if (callback && callback->load) {
-		if (!callback->load(dev, val))
-			attr_load = val;
+	if (callback && callback->attrib) {
+		if (!callback->attrib(dev, val))
+			attr_load_val = val;
 	}
 	return count;
 }
 
-static ssize_t tegra_bb_load_read(struct device *dev,
+static ssize_t tegra_bb_attr_read(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d", attr_load);
+	return sprintf(buf, "%d", attr_load_val);
 }
 
-static ssize_t tegra_bb_dlevel_write(struct device *dev,
-			struct device_attribute *attr,
-			const char *buf, size_t count)
-{
-	int val;
-
-	if (sscanf(buf, "%x", &val) != 1)
-		return -EINVAL;
-
-	if ((val >= DLEVEL_INIT) && (val < DLEVEL_MAX)) {
-		attr_dlevel = val;
-		if (callback && callback->dlevel)
-			callback->dlevel(dev, val);
-	}
-	return count;
-}
-
-static ssize_t tegra_bb_dlevel_read(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d", attr_dlevel);
-}
-
-static DEVICE_ATTR(load, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-		tegra_bb_load_read, tegra_bb_load_write);
-static DEVICE_ATTR(dlevel, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-		tegra_bb_dlevel_read, tegra_bb_dlevel_write);
+static DEVICE_ATTR(load, S_IRUSR | S_IWUSR | S_IRGRP,
+		tegra_bb_attr_read, tegra_bb_attr_write);
 
 static void tegra_usbdevice_added(struct usb_device *udev)
 {
@@ -207,8 +164,8 @@ static void tegra_usbdevice_added(struct usb_device *udev)
 			device_set_wakeup_enable(&udev->dev, true);
 		if (mdata->autosuspend_ready)
 			usb_enable_autosuspend(udev);
-		if (callback && callback->usbnotify)
-			callback->usbnotify(udev, true);
+		if (mdata->reg_cb)
+			mdata->reg_cb(udev);
 	}
 }
 
@@ -219,8 +176,6 @@ static void tegra_usbdevice_removed(struct usb_device *udev)
 	if (desc->idVendor == mdata->vid &&
 	    desc->idProduct == mdata->pid) {
 		pr_debug("%s: Device %s removed.\n", udev->product, __func__);
-		if (callback && callback->usbnotify)
-			callback->usbnotify(udev, false);
 	}
 }
 
@@ -241,19 +196,6 @@ static int tegra_usb_notify(struct notifier_block *self, unsigned long action,
 static struct notifier_block tegra_usb_nb = {
 	.notifier_call = tegra_usb_notify,
 };
-
-#ifdef CONFIG_PM_SLEEP
-static int pm_event(struct notifier_block *this, unsigned long event,
-							 void *ptr) {
-	if (callback && callback->pmnotify)
-		return callback->pmnotify(event);
-	return NOTIFY_DONE;
-};
-
-static struct notifier_block tegra_pm_notifier = {
-	.notifier_call = pm_event,
-};
-#endif
 
 static int tegra_bb_power_probe(struct platform_device *device)
 {
@@ -301,28 +243,15 @@ static int tegra_bb_power_probe(struct platform_device *device)
 		pr_err("%s - Error: callback data is empty.\n", __func__);
 		return -ENODEV;
 	}
-	printk("[ebs] %s WDI Status = %d\n", __func__, gpio_get_value(BB_GPIO_MDM4_WDI_TEMP));
-	
+
 	/* Create the control sysfs node */
 	err = device_create_file(dev, &dev_attr_load);
 	if (err < 0) {
 		pr_err("%s - Error: device_create_file failed.\n", __func__);
 		return -ENODEV;
 	}
-	attr_load = 0;
+	attr_load_val = 0;
 
-	/* Create debug level sysfs node */
-	err = device_create_file(dev, &dev_attr_dlevel);
-	if (err < 0) {
-		pr_err("%s - Error: device_create_file failed.\n", __func__);
-		return -ENODEV;
-	}
-	attr_dlevel = DLEVEL_INIT;
-
-#ifdef CONFIG_PM_SLEEP
-	/* Register for PM notifications */
-	register_pm_notifier(&tegra_pm_notifier);
-#endif
 	return 0;
 }
 
@@ -348,80 +277,49 @@ static int tegra_bb_power_remove(struct platform_device *device)
 
 		mdata = data->modem_data;
 		if (mdata && mdata->vid && mdata->pid)
-			/* Unregister notifications from usb core */
+			/* Register to notifications from usb core */
 			usb_unregister_notify(&tegra_usb_nb);
 	}
 
-#ifdef CONFIG_PM_SLEEP
-	/* Unregister PM notifications */
-	unregister_pm_notifier(&tegra_pm_notifier);
-#endif
-	/* Remove sysfs nodes */
+	/* Remove the control sysfs node */
 	device_remove_file(dev, &dev_attr_load);
-	device_remove_file(dev, &dev_attr_dlevel);
 
 	return 0;
 }
 
 #ifdef CONFIG_PM
-static int tegra_bb_driver_suspend(struct device *dev)
-{
-	pr_info("[EBS] %s\n", __func__);
-	/* BB specific callback */
-	if (callback && callback->power)
-		return callback->power(PWRSTATE_L2L3);
-	return 0;
-}
-
-static int tegra_bb_driver_resume(struct device *dev)
-{
-	pr_info("[EBS] %s\n", __func__);
-	/* BB specific callback */
-	if (callback && callback->power)
-		return callback->power(PWRSTATE_L3L0);
-	return 0;
-}
-
-static int tegra_bb_suspend_noirq(struct device *dev)
+static int tegra_bb_power_suspend(struct platform_device *device,
+	pm_message_t state)
 {
 	/* BB specific callback */
 	if (callback && callback->power)
-		return callback->power(PWRSTATE_L2L3_NOIRQ);
+		callback->power(PWRSTATE_L2L3);
 	return 0;
 }
 
-static int tegra_bb_resume_noirq(struct device *dev)
+static int tegra_bb_power_resume(struct platform_device *device)
 {
 	/* BB specific callback */
 	if (callback && callback->power)
-		return callback->power(PWRSTATE_L3L0_NOIRQ);
+		callback->power(PWRSTATE_L3L0);
 	return 0;
 }
-
-static const struct dev_pm_ops tegra_bb_pm_ops = {
-	.suspend_noirq = tegra_bb_suspend_noirq,
-	.resume_noirq = tegra_bb_resume_noirq,
-	.suspend = tegra_bb_driver_suspend,
-	.resume = tegra_bb_driver_resume,
-};
 #endif
 
 static struct platform_driver tegra_bb_power_driver = {
 	.probe = tegra_bb_power_probe,
 	.remove = tegra_bb_power_remove,
+#ifdef CONFIG_PM
+	.suspend = tegra_bb_power_suspend,
+	.resume = tegra_bb_power_resume,
+#endif
 	.driver = {
 		.name = "tegra_baseband_power",
-#ifdef CONFIG_PM
-		.pm   = &tegra_bb_pm_ops,
-#endif
 	},
 };
-//                 
-static char version[] __initdata = KERN_INFO "HSIC PowerMng Ver 20120330 + Modem Crash\n";
-//                 
+
 static int __init tegra_baseband_power_init(void)
 {
-	printk(version);
 	pr_debug("%s\n", __func__);
 	return platform_driver_register(&tegra_bb_power_driver);
 }
