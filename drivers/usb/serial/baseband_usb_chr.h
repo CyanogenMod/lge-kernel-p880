@@ -23,15 +23,19 @@
 #ifndef __BASEBAND_USB_CHR_H__
 #define __BASEBAND_USB_CHR_H__
 
+//                                 
+//#define BASEBAND_USB_CHR_DEV_NAME		"baseband_usb_chr"
+//#define BASEBAND_USB_CHR_DEV_MAJOR		66
 #define BASEBAND_USB_CHR_DEV_NAME		"ttyACMX"
 #define BASEBAND_USB_CHR_DEV_MAJOR		150 //66
+//                                 
 
 #ifndef USB_CHR_RX_BUFSIZ
-#define USB_CHR_RX_BUFSIZ			(128*1024)
+#define USB_CHR_RX_BUFSIZ			(32*1024)
 #endif  /* USB_CHR_RX_BUFSIZ */
 
 #ifndef USB_CHR_TX_BUFSIZ
-#define USB_CHR_TX_BUFSIZ			(128*1024)
+#define USB_CHR_TX_BUFSIZ			(32*1024)
 #endif  /* USB_CHR_TX_BUFSIZ */
 
 #ifndef USB_CHR_TIMEOUT
@@ -39,11 +43,11 @@
 #endif  /* USB_CHR_TIMEOUT */
 
 #ifndef BASEBAND_IPC_NUM_RX_BUF
-#define BASEBAND_IPC_NUM_RX_BUF			32
+#define BASEBAND_IPC_NUM_RX_BUF			1
 #endif  /* BASEBAND_IPC_NUM_RX_BUF */
 
 #ifndef BASEBAND_IPC_NUM_TX_BUF
-#define BASEBAND_IPC_NUM_TX_BUF			16
+#define BASEBAND_IPC_NUM_TX_BUF			1
 #endif  /* BASEBAND_IPC_NUM_TX_BUF */
 
 #ifndef BASEBAND_IPC_BUFSIZ
@@ -85,6 +89,7 @@ struct baseband_ipc_buf {
 
 struct baseband_usb {
 	struct baseband_ipc *ipc;
+	unsigned int ref;
 	struct {
 		struct usb_driver *driver;
 		struct usb_device *device;

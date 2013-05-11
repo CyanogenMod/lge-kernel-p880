@@ -28,10 +28,12 @@
 #include <linux/device.h>
 #include <linux/usb.h>
 #include <linux/wakelock.h>
+#include <linux/platform_data/tegra_usb.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <mach/tegra-bb-power.h>
 #include <mach/usb_phy.h>
+
 #include "bb-power.h"
 
 static struct tegra_bb_gpio_data m7400_gpios[] = {
@@ -45,6 +47,7 @@ static struct tegra_bb_gpio_data m7400_gpios[] = {
 	{ { GPIO_INVALID, 0, NULL }, false },	/* End of table */
 };
 static bool ehci_registered;
+static int modem_status;
 static int gpio_awr;
 static int gpio_cwr;
 static int gpio_arr;
@@ -83,8 +86,9 @@ static int m7400_apup_handshake(bool checkresponse)
 {
 	int retval = 0;
 
-	/* Signal AP ready - Drive AWR high. */
+	/* Signal AP ready - Drive AWR and ARR high. */
 	gpio_set_value(gpio_awr, 1);
+	gpio_set_value(gpio_arr, 1);
 
 	if (checkresponse) {
 		/* Wait for CP ack - by driving CWR high. */
@@ -104,43 +108,70 @@ static void m7400_apdown_handshake(void)
 	gpio_set_value(gpio_awr, 0);
 }
 
-static int m7400_l2_suspend(void)
+static void m7400_l2_suspend(void)
 {
+	/* Gets called for two cases :
+		a) Port suspend.
+		b) Bus suspend. */
+	if (modem_status == BBSTATE_L2)
+		return;
+
 	/* Post bus suspend: Drive ARR low. */
 	gpio_set_value(gpio_arr, 0);
-	return 0;
+	modem_status = BBSTATE_L2;
 }
 
-static int m7400_l2_resume(void)
+static void m7400_l2_resume(void)
 {
+	/* Gets called for two cases :
+		a) L2 resume.
+		b) bus resume phase of L3 resume. */
+	if (modem_status == BBSTATE_L0)
+		return;
+
 	/* Pre bus resume: Drive ARR high. */
 	gpio_set_value(gpio_arr, 1);
 
-	/* Wait for CP ack - by driving CWR high. */
+	/* If host initiated resume - Wait for CP ack (CWR goes high). */
+	/* If device initiated resume - CWR will be already high. */
 	if (gpio_wait_timeout(gpio_cwr, 1, 10) != 0) {
 		pr_info("%s: Error: timeout waiting for modem ack.\n",
 						__func__);
-		return -1;
+		return;
 	}
-	return 0;
+	modem_status = BBSTATE_L0;
 }
 
 static void m7400_l3_suspend(void)
 {
 	m7400_apdown_handshake();
+	modem_status = BBSTATE_L3;
 }
 
 static void m7400_l3_resume(void)
 {
 	m7400_apup_handshake(true);
+	modem_status = BBSTATE_L0;
 }
 
 static irqreturn_t m7400_wake_irq(int irq, void *dev_id)
 {
-	pr_info("%s called.\n", __func__);
+	struct usb_interface *intf;
 
-	/* Resume usb host activity. */
-	/* TBD */
+	switch (modem_status) {
+	case BBSTATE_L2:
+		/* Resume usb host activity. */
+		if (m7400_usb_device) {
+			usb_lock_device(m7400_usb_device);
+			intf = usb_ifnum_to_if(m7400_usb_device, 0);
+			usb_autopm_get_interface(intf);
+			usb_autopm_put_interface(intf);
+			usb_unlock_device(m7400_usb_device);
+		}
+		break;
+	default:
+		break;
+	}
 
 	return IRQ_HANDLED;
 }
@@ -162,20 +193,17 @@ static int m7400_power(int code)
 
 static void m7400_ehci_customize(struct platform_device *pdev)
 {
-	struct tegra_ehci_platform_data *ehci_pdata;
-	struct tegra_uhsic_config *hsic_config;
+	struct tegra_usb_platform_data *ehci_pdata;
 
-	ehci_pdata = (struct tegra_ehci_platform_data *)
+	ehci_pdata = (struct tegra_usb_platform_data *)
 			pdev->dev.platform_data;
-	hsic_config = (struct tegra_uhsic_config *)
-			ehci_pdata->phy_config;
 
 	/* Register PHY callbacks */
-	hsic_config->postsuspend = m7400_l2_suspend;
-	hsic_config->preresume = m7400_l2_resume;
+	ehci_pdata->ops->post_suspend = m7400_l2_suspend;
+	ehci_pdata->ops->pre_resume = m7400_l2_resume;
 
 	/* Override required settings */
-	ehci_pdata->power_down_on_bus_suspend = 0;
+	ehci_pdata->u_data.host.power_off_on_suspend = false;
 }
 
 static int m7400_attrib_write(struct device *dev, int value)
@@ -225,8 +253,8 @@ static int m7400_attrib_write(struct device *dev, int value)
 
 static int m7400_registered(struct usb_device *udev)
 {
-	pr_info("%s called.\n", __func__);
 	m7400_usb_device = udev;
+	modem_status = BBSTATE_L0;
 	return 0;
 }
 
@@ -285,6 +313,7 @@ static void *m7400_init(void *pdata)
 	}
 
 	ehci_registered = false;
+	modem_status = BBSTATE_UNKNOWN;
 	return (void *) &m7400_data;
 }
 
