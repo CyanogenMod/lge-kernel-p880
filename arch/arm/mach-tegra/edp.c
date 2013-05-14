@@ -287,23 +287,23 @@ static struct system_edp_entry __initdata tegra_system_edp_map[] = {
 
 /* {SKU, power-limit (in 100mW), {freq limits (in 10Mhz)} } */
 
-	{  1,  49, {160, 150, 150, 150} },
-	{  1,  44, {160, 150, 150, 140} },
-	{  1,  37, {160, 150, 140, 130} },
-	{  1,  35, {160, 150, 140, 120} },
-	{  1,  29, {160, 150, 140, 110} },
-	{  1,  27, {160, 150, 120, 110} },
-	{  1,  25, {160, 140, 110,  90} },
-	{  1,  21, {160, 130, 110,  70} },
+	{  1,  49, {130, 120, 120, 120} },
+	{  1,  44, {130, 120, 120, 110} },
+	{  1,  37, {130, 120, 110, 100} },
+	{  1,  35, {130, 120, 110,  90} },
+	{  1,  29, {130, 120, 100,  80} },
+	{  1,  27, {130, 120,  90,  80} },
+	{  1,  25, {130, 110,  80,  60} },
+	{  1,  21, {130, 100,  80,  40} },
 
-	{  4,  49, {160, 150, 150, 150} },
-	{  4,  44, {160, 150, 150, 140} },
-	{  4,  37, {160, 150, 140, 130} },
-	{  4,  35, {160, 150, 140, 120} },
-	{  4,  29, {160, 150, 140, 110} },
-	{  4,  27, {160, 150, 120, 110} },
-	{  4,  25, {160, 140, 110,  90} },
-	{  4,  21, {160, 130, 110,  70} },
+	{  4,  49, {130, 120, 120, 120} },
+	{  4,  44, {130, 120, 120, 110} },
+	{  4,  37, {130, 120, 110, 100} },
+	{  4,  35, {130, 120, 110,  90} },
+	{  4,  29, {130, 120, 100,  80} },
+	{  4,  27, {130, 120,  90,  80} },
+	{  4,  25, {130, 110,  80,  60} },
+	{  4,  21, {130, 100,  80,  40} },
 };
 
 /*
@@ -366,12 +366,13 @@ void __init tegra_init_cpu_edp_limits(unsigned int regulator_mA)
 		e[j].freq_limits[1] = (unsigned int)(t[i+j].freq_limits[1]+20) * 10000;
 		e[j].freq_limits[2] = (unsigned int)(t[i+j].freq_limits[2]+20) * 10000;
 		e[j].freq_limits[3] = (unsigned int)(t[i+j].freq_limits[3]+20) * 10000;
-	}
+        }
 
-	if (edp_limits != edp_default_limits)
-		kfree(edp_limits);
+	
+if (edp_limits != edp_default_limits)
+kfree(edp_limits);
 
-	edp_limits = e;
+edp_limits = e;
 }
 
 
@@ -411,10 +412,10 @@ void __init tegra_init_system_edp_limits(unsigned int power_limit_mW)
 	e = kmalloc(sizeof(unsigned int) * 4, GFP_KERNEL);
 	BUG_ON(!e);
 
-	e[0] = (unsigned int)(t[i].freq_limits[0]+10) * 10000;
-	e[1] = (unsigned int)(t[i].freq_limits[1]+20) * 10000;
-	e[2] = (unsigned int)(t[i].freq_limits[2]+20) * 10000;
-	e[3] = (unsigned int)(t[i].freq_limits[3]+20) * 10000;
+	e[0] = (unsigned int)t[i].freq_limits[0] * 10000;
+	e[1] = (unsigned int)t[i].freq_limits[1] * 10000;
+	e[2] = (unsigned int)t[i].freq_limits[2] * 10000;
+	e[3] = (unsigned int)t[i].freq_limits[3] * 10000;
 
 out:
 	kfree(system_edp_limits);
