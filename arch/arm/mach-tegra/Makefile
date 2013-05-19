@@ -222,3 +222,5 @@ obj-$(CONFIG_MACH_VU10)			+= lge/vu10/
 subdir-ccflags-$(CONFIG_MACH_X3)	+= -Iarch/arm/mach-tegra/lge/x3/include
 subdir-ccflags-$(CONFIG_MACH_LX)	+= -Iarch/arm/mach-tegra/lge/lx/include
 subdir-ccflags-$(CONFIG_MACH_VU10)	+= -Iarch/arm/mach-tegra/lge/vu10/include
+
+obj-$(CONFIG_FAST_CHARGE)		+= fastchg.o

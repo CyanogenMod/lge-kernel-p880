@@ -618,3 +618,22 @@ config TEGRA_DC_USE_HW_BPP
 	  Programs platform data to inform DC driver to use current
 	  hardware value for bits per pixel setting.  Useful for
           preserving and displaying framebuffer content from bootloader.
+
+config CPU_OC
+	bool "Allows CPU OC"
+	default y
+	help
+	  If yes, allows CPU OC to 1.6GHz quad core and 1.7GHz single core
+
+config FAST_CHARGE
+	bool "Allows USB to charge as AC"
+	default y
+	help
+	  If yes, USB will be drawn at AC voltage anyway"
+
+config USER_VOLTAGE_CONTROL
+	bool "Allows user voltage control"
+	depends on TEGRA_SILICON_PLATFORM
+	default y
+	help
+	  Enable user voltage control interface
