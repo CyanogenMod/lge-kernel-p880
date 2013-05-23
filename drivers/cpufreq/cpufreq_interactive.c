@@ -78,7 +78,7 @@ static struct kobject *interactive_kobj;
 static unsigned int active_count;
 
 /* Go to max speed when CPU load at or above this value. */
-#define DEFAULT_GO_MAXSPEED_LOAD 65
+#define DEFAULT_GO_MAXSPEED_LOAD 85
 static unsigned long go_maxspeed_load;
 
 /* Base of exponential raise to max speed; if 0 - jump to maximum */
