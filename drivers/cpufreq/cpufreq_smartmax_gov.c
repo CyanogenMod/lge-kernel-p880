@@ -27,10 +27,10 @@
  * lowering the frequency towards the ideal frequency is faster than below it.
  */
 
-#define DEFAULT_SUSPEND_IDEAL_FREQ 475000
+#define DEFAULT_SUSPEND_IDEAL_FREQ 427000
 static unsigned int suspend_ideal_freq;
 
-#define DEFAULT_AWAKE_IDEAL_FREQ 475000
+#define DEFAULT_AWAKE_IDEAL_FREQ 500000
 static unsigned int awake_ideal_freq;
 
 /*
@@ -83,7 +83,7 @@ static unsigned int sampling_rate;
 #define DEFAULT_INPUT_BOOST_DURATION 50000000
 static unsigned int input_boost_duration;
 
-static unsigned int touch_poke_freq = 760000;
+static unsigned int touch_poke_freq = 800000;
 static bool touch_poke = true;
 
 /*
@@ -95,7 +95,7 @@ static bool ramp_up_during_boost = true;
  * external boost interface - boost if duration is written
  * to sysfs for boost_duration
  */
-static unsigned int boost_freq = 760000;
+static unsigned int boost_freq = 800000;
 static bool boost = true;
 
 /* in nsecs */
