@@ -16,6 +16,7 @@ obj-$(CONFIG_CPU_FREQ_GOV_PMC)	+= cpufreq_pmc.o
 obj-$(CONFIG_CPU_FREQ_GOV_ABYSSPLUG)	+= cpufreq_abyssplug.o
 obj-$(CONFIG_CPU_FREQ_GOV_LULZACTIVE)	+= cpufreq_lulzactive.o
 obj-$(CONFIG_CPU_FREQ_GOV_N3OCOLD)	+= cpufreq_n3ocold.o
+obj-$(CONFIG_CPU_FREQ_GOV_PEGASUSQ)	+= cpufreq_pegasusq.o
 
 
 # CPUfreq cross-arch helpers

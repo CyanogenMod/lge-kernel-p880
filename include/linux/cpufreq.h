@@ -383,6 +383,8 @@ extern struct cpufreq_governor cpufreq_gov_lulzactive;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_lulzactive)
 extern struct cpufreq_governor cpufreq_gov_n3ocold;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_n3ocold)
+extern struct cpufreq_governor cpufreq_gov_pegasusq;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_pegasusq)
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_INTERACTIVE
