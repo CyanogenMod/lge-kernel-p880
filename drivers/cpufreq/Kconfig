@@ -175,6 +175,12 @@ config CPU_FREQ_DEFAULT_GOV_SMARTASS
 	help
 	  Use the CPUFreq governor 'smartass' as default.	  
 	  
+config CPU_FREQ_DEFAULT_GOV_SMARTASS2
+	bool "smartass2"
+	select CPU_FREQ_GOV_SMARTASS2
+	help
+	  Use the CPUFreq governor 'smartass2' as default.		  
+	  
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -317,6 +323,10 @@ config CPU_FREQ_GOV_PEGASUSQ
 config CPU_FREQ_GOV_SMARTASS
 	tristate "'smartass' cpufreq governor"
 	depends on CPU_FREQ
+	
+config CPU_FREQ_GOV_SMARTASS2
+	tristate "'smartass2' cpufreq governor"
+	depends on CPU_FREQ	
 	
 menu "x86 CPU frequency scaling drivers"
 depends on X86
