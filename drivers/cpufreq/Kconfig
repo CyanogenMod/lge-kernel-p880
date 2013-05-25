@@ -156,6 +156,12 @@ config CPU_FREQ_DEFAULT_GOV_LULZACTIVE
 	select CPU_FREQ_GOV_LULZACTIVE
 	help
 	  Use the CPUFreq governor 'lulzactive' as default. This Governor is a mix of smartass and interactive.	  
+
+config CPU_FREQ_DEFAULT_GOV_N3OCOLD
+	bool "n3ocold"
+	select CPU_FREQ_GOV_N3OCOLD
+	help
+	  Use the CPUFreq governor 'n3ocold' as default.	
 	  
 endchoice
 
@@ -287,6 +293,10 @@ config CPU_FREQ_GOV_LULZACTIVE
 	depends on CPU_FREQ
 	help
 	  'lulzactive' - this driver is a mix of smartass and interactive.	  
+	  
+config CPU_FREQ_GOV_N3OCOLD
+	tristate "'n3ocold' cpufreq governor"
+	depends on CPU_FREQ		  
 	  
 menu "x86 CPU frequency scaling drivers"
 depends on X86
