@@ -144,6 +144,13 @@ config CPU_FREQ_DEFAULT_GOV_PMC
 	  Use the CPUFreq governor 'pmx' as default. This Governor is an 
 	  improved Version of ondemand.
 
+config CPU_FREQ_DEFAULT_GOV_ABYSSPLUG
+	bool "abyssplug"
+	select CPU_FREQ_GOV_ABYSSPLUG
+	help
+	  Use the CPUFreq governor 'abyssplug' as default. This Governor is an 
+	  improved Version of smartass with better hotplug functionality.
+	  
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -261,6 +268,13 @@ config CPU_FREQ_GOV_PMC
 	help
 	  'pmc' - this driver is an improved ondemand governor. It will higher
 	  the frequency faster, but also lower it faster.
+	  
+config CPU_FREQ_GOV_ABYSSPLUG
+	tristate "'abyssplug' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'abyssplug' - this driver is an improved smartass governor with better
+	  hotplug funtionality.
 
 menu "x86 CPU frequency scaling drivers"
 depends on X86

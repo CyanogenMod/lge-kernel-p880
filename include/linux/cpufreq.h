@@ -377,6 +377,8 @@ extern struct cpufreq_governor cpufreq_gov_smartmax;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_PMC)
 extern struct cpufreq_governor cpufreq_gov_pmc;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_pmc)
+extern struct cpufreq_governor cpufreq_gov_abyssplug;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_abyssplug)
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_INTERACTIVE
