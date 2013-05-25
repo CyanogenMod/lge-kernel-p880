@@ -389,6 +389,8 @@ extern struct cpufreq_governor cpufreq_gov_smartass;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_smartass)
 extern struct cpufreq_governor cpufreq_gov_smartass2;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_smartass2)
+extern struct cpufreq_governor cpufreq_gov_touchdemand;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_touchdemand)
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_INTERACTIVE
