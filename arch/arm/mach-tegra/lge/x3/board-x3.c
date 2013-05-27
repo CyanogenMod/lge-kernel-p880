@@ -83,8 +83,6 @@ void x3_setup_reboot(void) {}
 #ifdef CONFIG_TEGRA_THERMAL_THROTTLE
 static struct throttle_table throttle_freqs_tj[] = {
 	      /*    CPU,    CBUS,    SCLK,     EMC */
-	      { 1300000,  NO_CAP,  NO_CAP,  NO_CAP },
-	      { 1100000,  NO_CAP,  NO_CAP,  NO_CAP },
 	      { 1000000,  NO_CAP,  NO_CAP,  NO_CAP },
 	      {  760000,  NO_CAP,  NO_CAP,  NO_CAP },
 	      {  760000,  NO_CAP,  NO_CAP,  NO_CAP },
@@ -108,8 +106,6 @@ static struct throttle_table throttle_freqs_tj[] = {
 #ifdef CONFIG_TEGRA_SKIN_THROTTLE
 static struct throttle_table throttle_freqs_tskin[] = {
 	      /*    CPU,    CBUS,    SCLK,     EMC */
-	      { 1300000,  NO_CAP,  NO_CAP,  NO_CAP },
-	      { 1100000,  NO_CAP,  NO_CAP,  NO_CAP },
 	      { 1000000,  NO_CAP,  NO_CAP,  NO_CAP },
 	      {  760000,  NO_CAP,  NO_CAP,  NO_CAP },
 	      {  760000,  NO_CAP,  NO_CAP,  NO_CAP },
@@ -150,7 +146,7 @@ static struct balanced_throttle throttle_list[] = {
 /* All units are in millicelsius */
 static struct tegra_thermal_data thermal_data = {
 	.shutdown_device_id = THERMAL_DEVICE_ID_NCT_EXT,
-	.temp_shutdown = 87000,  //default 90000
+	.temp_shutdown = 90000,
 #if defined(CONFIG_TEGRA_EDP_LIMITS) || defined(CONFIG_TEGRA_THERMAL_THROTTLE)
 	.throttle_edp_device_id = THERMAL_DEVICE_ID_NCT_EXT,
 #endif
@@ -159,19 +155,19 @@ static struct tegra_thermal_data thermal_data = {
 	.hysteresis_edp = 3000,
 #endif
 #ifdef CONFIG_TEGRA_THERMAL_THROTTLE
-	.temp_throttle = 83000, //default 85000
+	.temp_throttle = 80000, //default 85000
 	.tc1 = 0,
 	.tc2 = 1,
 	.passive_delay = 2000,
 #endif
 #ifdef CONFIG_TEGRA_SKIN_THROTTLE
 	.skin_device_id = THERMAL_DEVICE_ID_SKIN,
-	.temp_throttle_skin = 50000,
+	.temp_throttle_skin = 43000,
         .tc1_skin = 5,
         .tc2_skin = 1,
-        .passive_delay_skin = 4000,
+        .passive_delay_skin = 5000,
         .skin_temp_offset = 9793,
-        .skin_period = 100,
+        .skin_period = 1100,
 	.skin_devs_size = 2,
         .skin_devs = {
                 {
