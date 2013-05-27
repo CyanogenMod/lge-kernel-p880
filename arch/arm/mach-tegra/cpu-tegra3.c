@@ -39,11 +39,11 @@
 #include "clock.h"
 
 #define INITIAL_STATE		TEGRA_HP_DISABLED
-#define UP2G0_DELAY_MS		200
-#define UP2Gn_DELAY_MS		2000
+#define UP2G0_DELAY_MS		70
+#define UP2Gn_DELAY_MS		100
 //                    
 #ifdef CONFIG_MACH_X3
-#define DOWN_DELAY_MS		3000
+#define DOWN_DELAY_MS		1000
 #else
 #define DOWN_DELAY_MS		1000
 #endif
@@ -75,7 +75,7 @@ module_param(mp_overhead, int, 0644);
 
 //                    
 #ifdef CONFIG_MACH_X3
-static int balance_level = 65;
+static int balance_level = 75;
 #else
 static int balance_level = 60;
 #endif
