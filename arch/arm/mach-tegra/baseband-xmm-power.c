@@ -462,9 +462,9 @@ void baseband_xmm_set_power_status(unsigned int status)
 		}	
 		pr_debug("PM_ST : L0\n");
 		baseband_xmm_powerstate = status;
-//		if (!wake_lock_active(&wakelock))
-//			wake_lock(&wakelock);
-//		value = gpio_get_value(data->modem.xmm.ipc_hsic_active);
+		if (!wake_lock_active(&wakelock))
+			wake_lock(&wakelock);
+		value = gpio_get_value(data->modem.xmm.ipc_hsic_active);
 		//pr_debug("GPIO [R]: before L0 Host_active = %d \n", value); 
 		if (!value) {
 			gpio_set_value(data->modem.xmm.ipc_hsic_active, 1);
@@ -730,8 +730,8 @@ static void baseband_xmm_power_L2_resume(void)
 		return;
 
 	/* claim the wakelock here to avoid any system suspend */
-//	if (!wake_lock_active(&wakelock))
-//		wake_lock(&wakelock);
+	if (!wake_lock_active(&wakelock))
+		wake_lock(&wakelock);
 	modem_sleep_flag = false;
 	spin_lock_irqsave(&xmm_lock, flags);
 	wakeup_pending = false;
