@@ -38,8 +38,9 @@
 #include "clock.h"
 
 #define INITIAL_STATE		TEGRA_CPQ_IDLE
-#define UP_DELAY_MS		70
-#define DOWN_DELAY_MS		2000
+#define UP2G0_DELAY_MS		70
+#define UP2Gn_DELAY_MS		100
+#define DOWN_DELAY_MS		1000
 
 static struct mutex *tegra3_cpu_lock;
 static struct workqueue_struct *cpuquiet_wq;
@@ -50,7 +51,8 @@ static struct kobject *tegra_auto_sysfs_kobject;
 
 static bool no_lp;
 static bool enable;
-static unsigned long up_delay;
+static unsigned long up2g0_delay;
+static unsigned long up2gn_delay;
 static unsigned long down_delay;
 static int mp_overhead = 10;
 static unsigned int idle_top_freq;
@@ -262,6 +264,8 @@ static int max_cpus_notify(struct notifier_block *nb, unsigned long n, void *p)
 
 void tegra_auto_hotplug_governor(unsigned int cpu_freq, bool suspend)
 {
+	unsigned long up_delay, top_freq, bottom_freq;
+
 	if (!is_g_cluster_present())
 		return;
 
@@ -279,7 +283,17 @@ void tegra_auto_hotplug_governor(unsigned int cpu_freq, bool suspend)
 		return;
 	}
 
-	if (is_lp_cluster() && pm_qos_request(PM_QOS_MIN_ONLINE_CPUS) >= 2) {
+	if (is_lp_cluster()) {
+		up_delay = up2g0_delay;
+		top_freq = idle_top_freq;
+		bottom_freq = 0;
+	} else {
+		up_delay = up2gn_delay;
+		top_freq = idle_bottom_freq;
+		bottom_freq = idle_bottom_freq;
+	}
+
+	if (pm_qos_request(PM_QOS_MIN_ONLINE_CPUS) >= 2) {
 		if (cpq_state != TEGRA_CPQ_SWITCH_TO_G) {
 			/* Force switch */
 			cpq_state = TEGRA_CPQ_SWITCH_TO_G;
@@ -289,14 +303,14 @@ void tegra_auto_hotplug_governor(unsigned int cpu_freq, bool suspend)
 		return;
 	}
 
-	if (is_lp_cluster() && (cpu_freq >= idle_top_freq || no_lp)) {
+	if (is_lp_cluster() && (cpu_freq >= top_freq || no_lp)) {
 		cpq_state = TEGRA_CPQ_SWITCH_TO_G;
 		queue_delayed_work(cpuquiet_wq, &cpuquiet_work, up_delay);
 	} else if (!is_lp_cluster() && !no_lp &&
-		   cpu_freq <= idle_bottom_freq) {
+		   cpu_freq <= bottom_freq) {
 		cpq_state = TEGRA_CPQ_SWITCH_TO_LP;
 		queue_delayed_work(cpuquiet_wq, &cpuquiet_work, down_delay);
-	} else {
+	} else if (cpu_freq <= top_freq) {
 		cpq_state = TEGRA_CPQ_IDLE;
 	}
 }
@@ -344,13 +358,15 @@ CPQ_BASIC_ATTRIBUTE(no_lp, 0644, bool);
 CPQ_BASIC_ATTRIBUTE(idle_top_freq, 0644, uint);
 CPQ_BASIC_ATTRIBUTE(idle_bottom_freq, 0644, uint);
 CPQ_BASIC_ATTRIBUTE(mp_overhead, 0644, int);
-CPQ_ATTRIBUTE(up_delay, 0644, ulong, delay_callback);
+CPQ_ATTRIBUTE(up2gn_delay, 0644, ulong, delay_callback);
+CPQ_ATTRIBUTE(up2g0_delay, 0644, ulong, delay_callback);
 CPQ_ATTRIBUTE(down_delay, 0644, ulong, delay_callback);
 CPQ_ATTRIBUTE(enable, 0644, bool, enable_callback);
 
 static struct attribute *tegra_auto_attributes[] = {
 	&no_lp_attr.attr,
-	&up_delay_attr.attr,
+	&up2gn_delay_attr.attr,
+	&up2g0_delay_attr.attr,
 	&down_delay_attr.attr,
 	&idle_top_freq_attr.attr,
 	&idle_bottom_freq_attr.attr,
@@ -415,7 +431,8 @@ int tegra_auto_hotplug_init(struct mutex *cpu_lock)
 	idle_top_freq = clk_get_max_rate(cpu_lp_clk) / 1000;
 	idle_bottom_freq = clk_get_min_rate(cpu_g_clk) / 1000;
 
-	up_delay = msecs_to_jiffies(UP_DELAY_MS);
+	up2g0_delay = msecs_to_jiffies(UP2G0_DELAY_MS);
+	up2gn_delay = msecs_to_jiffies(UP2Gn_DELAY_MS);
 	down_delay = msecs_to_jiffies(DOWN_DELAY_MS);
 	cpumask_clear(&cr_online_requests);
 	tegra3_cpu_lock = cpu_lock;
@@ -449,9 +466,93 @@ int tegra_auto_hotplug_init(struct mutex *cpu_lock)
 	return err;
 }
 
+static struct dentry *hp_debugfs_root;
+
+struct pm_qos_request_list min_cpu_req;
+struct pm_qos_request_list max_cpu_req;
+
+static int min_cpus_get(void *data, u64 *val)
+{
+	*val = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
+	return 0;
+}
+static int min_cpus_set(void *data, u64 val)
+{
+	pm_qos_update_request(&min_cpu_req, (s32)val);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(min_cpus_fops, min_cpus_get, min_cpus_set, "%llu\n");
+
+static int max_cpus_get(void *data, u64 *val)
+{
+	*val = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS);
+	return 0;
+}
+static int max_cpus_set(void *data, u64 val)
+{
+	pm_qos_update_request(&max_cpu_req, (s32)val);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(max_cpus_fops, max_cpus_get, max_cpus_set, "%llu\n");
+//                                                                          
+void tegra_auto_hotplug_set_min_cpus(int num_cpus)
+{
+	if (num_cpus < 0) {
+		pr_err("%s: invalid num_cpus=%d\n", __func__, num_cpus);
+		return;
+	}
+	min_cpus_set(NULL, num_cpus);
+}
+//                                                                          
+
+void tegra_auto_hotplug_set_max_cpus(int num_cpus)
+{
+	if (num_cpus < 0) {
+		pr_err("%s: invalid num_cpus=%d\n", __func__, num_cpus);
+		return;
+	}
+	max_cpus_set(NULL, num_cpus);
+}
+
+static int __init tegra_auto_hotplug_debug_init(void)
+{
+	if (!tegra3_cpu_lock)
+		return -ENOENT;
+
+	hp_debugfs_root = debugfs_create_dir("tegra_hotplug", NULL);
+	if (!hp_debugfs_root)
+		return -ENOMEM;
+
+	pm_qos_add_request(&min_cpu_req, PM_QOS_MIN_ONLINE_CPUS,
+			   PM_QOS_DEFAULT_VALUE);
+	pm_qos_add_request(&max_cpu_req, PM_QOS_MAX_ONLINE_CPUS,
+			   PM_QOS_DEFAULT_VALUE);
+
+	if (!debugfs_create_file(
+		"min_cpus", S_IRUGO, hp_debugfs_root, NULL, &min_cpus_fops))
+		goto err_out;
+
+	if (!debugfs_create_file(
+		"max_cpus", S_IRUGO, hp_debugfs_root, NULL, &max_cpus_fops))
+		goto err_out;
+
+	return 0;
+
+err_out:
+	debugfs_remove_recursive(hp_debugfs_root);
+	pm_qos_remove_request(&min_cpu_req);
+	pm_qos_remove_request(&max_cpu_req);
+	return -ENOMEM;
+}
+
+late_initcall(tegra_auto_hotplug_debug_init);
+
 void tegra_auto_hotplug_exit(void)
 {
 	destroy_workqueue(cpuquiet_wq);
         cpuquiet_unregister_driver(&tegra_cpuquiet_driver);
 	kobject_put(tegra_auto_sysfs_kobject);
+	debugfs_remove_recursive(hp_debugfs_root);
+	pm_qos_remove_request(&min_cpu_req);
+	pm_qos_remove_request(&max_cpu_req);
 }

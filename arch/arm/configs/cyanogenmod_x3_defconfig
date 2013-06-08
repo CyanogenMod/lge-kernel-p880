@@ -48,7 +48,7 @@ CONFIG_KERNEL_GZIP=y
 # CONFIG_KERNEL_LZMA is not set
 # CONFIG_KERNEL_LZO is not set
 CONFIG_DEFAULT_HOSTNAME="(none)"
-# CONFIG_SWAP is not set
+CONFIG_SWAP=n
 # CONFIG_SYSVIPC is not set
 # CONFIG_POSIX_MQUEUE is not set
 # CONFIG_BSD_PROCESS_ACCT is not set
@@ -649,7 +649,7 @@ CONFIG_CPU_IDLE_GOV_MENU=y
 #
 # CPUQUIET Framework
 #
-# CONFIG_CPUQUIET_FRAMEWORK is not set
+CONFIG_CPUQUIET_FRAMEWORK=y
 
 #
 # Floating point emulation

@@ -162,7 +162,7 @@ static struct tegra_thermal_data thermal_data = {
 #endif
 #ifdef CONFIG_TEGRA_SKIN_THROTTLE
 	.skin_device_id = THERMAL_DEVICE_ID_SKIN,
-	.temp_throttle_skin = 45000,  //default 43
+	.temp_throttle_skin = 46000,  //default 43
         .tc1_skin = 5,
         .tc2_skin = 1,
         .passive_delay_skin = 5000,
