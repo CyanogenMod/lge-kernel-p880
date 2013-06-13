@@ -470,8 +470,8 @@ static inline void tegra_camera_do_power_save(struct tegra_camera_dev *dev)
 			(dev->xres == 1440 && dev->yres == 1080) ||
 				(dev->xres == 1920 && dev->yres == 1080)) {
 			cpufreq_set_min_freq(NULL, POWER_SAVE_CPU_FREQ_MIN);
-			tegra_auto_hotplug_set_min_cpus(POWER_SAVE_MIN_CPUS);
-			tegra_auto_hotplug_set_max_cpus(POWER_SAVE_MAX_CPUS);
+//			tegra_auto_hotplug_set_min_cpus(POWER_SAVE_MIN_CPUS);
+//			tegra_auto_hotplug_set_max_cpus(POWER_SAVE_MAX_CPUS);
 		}
 //                                                                                          
 	} else if (preview && !rec) {
@@ -481,13 +481,13 @@ static inline void tegra_camera_do_power_save(struct tegra_camera_dev *dev)
 		#if 0 //kwanghee.choi 20120912 Vu1.0 Global fix the frame drop on Camera by setting full CPU clock(start)
 		cpufreq_set_min_freq(NULL, POWER_SAVE_CPU_FREQ_MIN);
 		cpufreq_set_max_freq(NULL, PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
-		tegra_auto_hotplug_set_min_cpus(0);
-		tegra_auto_hotplug_set_max_cpus(0);
+//		tegra_auto_hotplug_set_min_cpus(0);
+//		tegra_auto_hotplug_set_max_cpus(0);
 		#else
 		cpufreq_set_min_freq(NULL, PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE);
 		cpufreq_set_max_freq(NULL, PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
-		tegra_auto_hotplug_set_min_cpus(0);
-		tegra_auto_hotplug_set_max_cpus(0);
+//		tegra_auto_hotplug_set_min_cpus(0);
+//		tegra_auto_hotplug_set_max_cpus(0);
 		#endif //kwanghee.choi 20120912 Vu1.0 Global fix the frame drop on Camera by setting full CPU clock(end)
 //                                                                                          
 	} else if (!preview && !rec) {
@@ -496,8 +496,8 @@ static inline void tegra_camera_do_power_save(struct tegra_camera_dev *dev)
 //                                                                                          
 		cpufreq_set_min_freq(NULL, PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE);
 		cpufreq_set_max_freq(NULL, PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
-		tegra_auto_hotplug_set_min_cpus(0);
-		tegra_auto_hotplug_set_max_cpus(0);
+//		tegra_auto_hotplug_set_min_cpus(0);
+//		tegra_auto_hotplug_set_max_cpus(0);
 //                                                                                          
 		dev->power_save = false;
 	}

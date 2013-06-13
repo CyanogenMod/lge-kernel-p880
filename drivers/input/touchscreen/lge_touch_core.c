@@ -995,7 +995,7 @@ static void touch_work_func_a(struct work_struct *work)
 	{
 		ts->wait_first_touch_detected = 0;
 		cpufreq_set_max_freq(NULL, LONG_MAX);
-		tegra_auto_hotplug_set_max_cpus(0);
+//		tegra_auto_hotplug_set_max_cpus(0);
 	}
 #endif
 
@@ -1305,7 +1305,7 @@ static void touch_work_func_b(struct work_struct *work)
 	{
 		ts->wait_first_touch_detected = 0;
 		cpufreq_set_max_freq(NULL, LONG_MAX);
-		tegra_auto_hotplug_set_max_cpus(0);
+//		tegra_auto_hotplug_set_max_cpus(0);
 	}
 #endif
 
@@ -1621,7 +1621,7 @@ static void touch_work_func_c(struct work_struct *work)
 	{
 		ts->wait_first_touch_detected = 0;
 		cpufreq_set_max_freq(NULL, LONG_MAX);
-		tegra_auto_hotplug_set_max_cpus(0);
+//		tegra_auto_hotplug_set_max_cpus(0);
 	}
 #endif
 
