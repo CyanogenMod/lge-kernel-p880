@@ -14,10 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 
+ * Foundation, Inc.,
  */
-
-
 
 #include <linux/fs.h>
 #include <linux/i2c.h>
@@ -30,37 +28,32 @@
 #include <linux/gpio.h>
 #include <media/lm3559.h>
 
-#define LM3559_I2C_NAME  				"lm3559"
-
-#if 1 //                 
-#define LGE_X3_LM3559_FLASH_TORCH_CURRENT_FIXED 1
-#endif
+#define LM3559_I2C_NAME			"lm3559"
 
 /* Register Descriptions */
-#define LM3559_REG_ENABLE				      0x10
-#define LM3559_REG_GPIO					      0x20
-#define LM3559_REG_VLED_MONITOR			  0x30
-#define LM3559_REG_ADC_DELAY			    0x31
-#define LM3559_REG_VIN_MONITOR			  0x80
-#define LM3559_REG_LAST_FLASH			    0x81
-#define LM3559_REG_TORCH_BRIGHTNESS	  0xA0
-#define LM3559_REG_FLASH_BRIGHTNESS	  0xB0
-#define LM3559_REG_FLASH_DURATION		  0xC0
-#define LM3559_REG_FLAGS				      0xD0
-#define LM3559_REG_CONFIGURATION1		  0xE0
-#define LM3559_REG_CONFIGURATION2		  0xF0
-#define LM3559_REG_PRIVACY				    0x11
+#define LM3559_REG_ENABLE		0x10
+#define LM3559_REG_GPIO			0x20
+#define LM3559_REG_VLED_MONITOR		0x30
+#define LM3559_REG_ADC_DELAY		0x31
+#define LM3559_REG_VIN_MONITOR		0x80
+#define LM3559_REG_LAST_FLASH		0x81
+#define LM3559_REG_TORCH_BRIGHTNESS	0xA0
+#define LM3559_REG_FLASH_BRIGHTNESS	0xB0
+#define LM3559_REG_FLASH_DURATION	0xC0
+#define LM3559_REG_FLAGS		0xD0
+#define LM3559_REG_CONFIGURATION1	0xE0
+#define LM3559_REG_CONFIGURATION2	0xF0
+#define LM3559_REG_PRIVACY		0x11
 #define LM3559_REG_MESSAGE_INDICATOR	0x12
 #define LM3559_REG_INDICATOR_BLINKING	0x13
-#define LM3559_REG_PRIVACY_PWM			  0x14
+#define LM3559_REG_PRIVACY_PWM		0x14
 
-
-enum{
-   LM3559_LED_OFF,
-   LM3559_LED_LOW,
-   LM3559_LED_HIGH,
-   LM3559_LED_MAX
-}; 
+enum {
+	LM3559_LED_OFF,
+	LM3559_LED_LOW,
+	LM3559_LED_HIGH,
+	LM3559_LED_MAX
+};
 
 struct lm3559_info {
 	struct i2c_client *i2c_client;
@@ -71,10 +64,9 @@ struct lm3559_info {
 static struct lm3559_info *info;
 static int lm3559_onoff_state = LM3559_POWER_OFF;
 
-#ifndef LGE_X3_LM3559_FLASH_TORCH_CURRENT_FIXED
-static unsigned char lm3559_flash_lvl[16] = {  
-		
-      0x00, //0000 0000 
+// TODO: Use finer grading
+static unsigned char lm3559_flash_lvl[16] = {
+      0x00, //0000 0000
       0x11, //0001 0001
       0x22, //0010 0010
       0x33, //0011 0011
@@ -86,60 +78,80 @@ static unsigned char lm3559_flash_lvl[16] = {
       0x99, //1001 1001
       0xaa, //1010 1010
       0xbb, //1011 1011
-      0xcc, //1100 1100 
+      0xcc, //1100 1100
       0xdd, //1101 1101
       0xee, //1110 1110
-      0xff, //1111 1111     
+      0xff, //1111 1111
 };
 
-static unsigned char lm3559_torch_lvl[8] = {  
-		
-      0x00, //000 000 
-      0x09, //001 001
-      0x12, //010 010 
-      0x1b, //011 011
-      0x24, //100 100 -> fixed value
-      0x2d, //101 101
-      0x36, //110 110 
-      0x3f, //111 111
+// [5:0] Register value [5:0]
+// [6] 1 => LED2 on, 0 => LED2 off
+// [7] 1 => Torch, 0 => Privacy
+static u8 lm3559_torch_table[] = {
+	0,	// Off
+	228,	// CM default
+	255,	// CM high
+	24, 24, 24, 24, 24, 24, 24, // Filler
+	24,	// 10
+	120,	// 11
+	26,	// 12
+	121,	// 13
+	28,	// 14
+	122,	// 15
+	30,	// 16
+	123,	// 17
+	124,	// 18
+	125,	// 19
+	126,	// 20
+	127,	// 21
+	192,	// 22
+	200,	// 23
+	201,	// 24
+	209,	// 25
+	210,	// 26
+	218,	// 27
+	219,	// 28
+	227,	// 29
+	228,	// 30 CM default
+	236,	// 31
+	237,	// 32
+	245,	// 33
+	246,	// 34
+	254,	// 35
+	255,	// CM high
 };
-#endif
 
 int lm3559_write_reg(struct i2c_client *client, unsigned char addr, unsigned char data)
 {
-	int err = 0;  
+	int err = 0;
 	int retry = 0;
 
-	unsigned char buf[2] ={0,};
-	
+	u8 buf[2] = {0};
+
 	struct i2c_msg msg[] = {
 		{
-			.addr  = client->addr, 
-			.flags = 0, 
-			.len   = 2, 
-			.buf   = buf, 
+			.addr	= client->addr,
+			.flags	= 0,
+			.len	= 2,
+			.buf	= buf,
 		},
 	};
 
 	buf[0] = addr;
 	buf[1] = data;
 
-#if 0	//                 
-	if ((err = i2c_transfer(client->adapter, &msg[0], 1)) < 0) {
-		dev_err(&client->dev, "i2c write error [%d]\n",err);
-	}
-#else
-  do {
+	do {
 		err = i2c_transfer(client->adapter, &msg[0], 1);
-		if (err == 1)
+		if (err == 1) {
 			return 0;
+		}
 		retry++;
-		pr_err("lm3559: i2c transfer failed, retrying %x %x\n",addr, data);
+		pr_err("lm3559: i2c transfer failed, retrying %x %x\n",
+				addr, data);
 		msleep(1);
-	} while (retry <= 3);
-#endif	
-	return err;
+	} while (retry < 3);
 
+	return err;
 }
 
 int lm3559_read_reg(struct i2c_client *client, unsigned char addr, unsigned char *data)
@@ -169,40 +181,28 @@ int lm3559_read_reg(struct i2c_client *client, unsigned char addr, unsigned char
 }
 
 void lm3559_led_shutdown(struct lm3559_info *info)
-{	
+{
 	lm3559_write_reg(info->i2c_client,LM3559_REG_ENABLE,0x18);
 }
 
-/*	Torch Current
-	 000 : 28.125 mA		100 : 140.625 mA	 
-	 001 : 56.25 mA 		101 : 168.75 mA
-	 010 : 84.375 mA 		110 : 196.875 mA
-	 011 : 112.5mA  		111 : 225 mA
-*/
-void lm3559_enable_torch_mode(struct lm3559_info *info, int state, struct lm3559_param param)
+// Don't use.
+static void lm3559_enable_torch_mode(
+		struct lm3559_info *info, int state, struct lm3559_param param)
 {
-#ifndef LGE_X3_LM3559_FLASH_TORCH_CURRENT_FIXED  
   unsigned char level_value;
-#endif
 
-	//pr_info("%s: state=%d, arg=%d\n",__func__, state, param.value);
-
-#ifdef LGE_X3_LM3559_FLASH_TORCH_CURRENT_FIXED			
-  pr_info("%s:[LGE fixed]  Level: 140.625 (Total 281.25) mA \n",__func__);
-
-  // 0x24 : 100 100 -> 140.625
-  lm3559_write_reg(info->i2c_client,LM3559_REG_TORCH_BRIGHTNESS,0x24);  
-  udelay(10);
-#else
   level_value = (unsigned char)param.value-1;
-  lm3559_write_reg(info->i2c_client,LM3559_REG_TORCH_BRIGHTNESS,lm3559_torch_lvl[level_value]);  
+  if (level_value < 0) {
+    level_value = 0;
+  }
+  if (level_value > 63) {
+    level_value = 63;
+  }
+  lm3559_write_reg(info->i2c_client, LM3559_REG_TORCH_BRIGHTNESS, level_value);
   pr_info("%s: Level: %d \n",__func__, level_value);
-#endif
 
-	lm3559_write_reg(info->i2c_client,LM3559_REG_ENABLE,0x1A);
+lm3559_write_reg(info->i2c_client,LM3559_REG_ENABLE,0x1A);
   udelay(10);
-
-
 }
 
 /*	 Flash Current
@@ -252,23 +252,22 @@ void lm3559_enable_flash_mode(struct lm3559_info *info, int state, struct lm3559
 
 }
 
-void lm3559_power_onoff(struct lm3559_info *info, int onoff){
-
-	if(onoff == LM3559_POWER_OFF){
-		gpio_set_value(info->pdata->gpio_act, 0);		
-    udelay(10);
+static void lm3559_power_onoff(struct lm3559_info *info, int onoff)
+{
+	if (onoff == LM3559_POWER_OFF) {
+		gpio_set_value(info->pdata->gpio_act, 0);
+		udelay(10);
 		gpio_direction_output(info->pdata->gpio_act, 0);
-    pr_info("LM3559_POWER_OFF\n");
+		pr_info("LM3559_POWER_OFF\n");
+	} else {
+		gpio_direction_output(info->pdata->gpio_act, 1);
+		udelay(10);
+		gpio_set_value(info->pdata->gpio_act, 1);
+		pr_info("LM3559_POWER_ON\n");
 	}
-	else{
-    gpio_direction_output(info->pdata->gpio_act, 1);	
-    udelay(10);
-		gpio_set_value(info->pdata->gpio_act, 1);	
-    pr_info("LM3559_POWER_ON\n");
-	}
-  mdelay(1); /* delay for device startup */
-  
-  //pr_info("%s: lm3559_onoff_state=%d, onoff=%d\n",__func__, lm3559_onoff_state, onoff);
+	mdelay(1); /* delay for device startup */
+	//pr_info("%s: lm3559_onoff_state=%d, onoff=%d\n", __func__,
+	//		lm3559_onoff_state, onoff);
 }
 
 //static DEFINE_SPINLOCK(lm3559_spinlock);
@@ -393,28 +392,67 @@ static struct miscdevice lm3559_device = {
 	.fops = &lm3559_fileops,
 };
 
-
-static ssize_t torch_store(struct device* dev,
-		struct device_attribute* attr, const char* buf, size_t count)
+static int torch_apply(struct lm3559_info *info, int level)
 {
+	u8 enable = 0b00001000; // LED1 on
 	int val;
-	sscanf(buf, "%ld", &val );
 
-	if (val <= 0) {
-		lm3559_power_onoff(info, LM3559_POWER_OFF);
-		lm3559_onoff_state = LM3559_POWER_OFF;
-	} else {
-        	struct lm3559_param param;
-		if(lm3559_onoff_state == LM3559_POWER_OFF){    
-			param.param = LM3559_TORCH_LEVEL;
-			param.value = (val == 2 ? 666 : 1);
-			lm3559_power_onoff(info, LM3559_POWER_ON);
-			lm3559_onoff_state = LM3559_POWER_ON;
-			lm3559_enable_torch_mode(info, LM3559_LED_LOW, param);
-		}          
+	pr_info("%s: %d", __func__, level);
+
+	if (level < 0) {
+		return -EINVAL;
+	}
+	if (level >= sizeof(lm3559_torch_table)) {
+		return -EINVAL;
 	}
 
-	return  count;
+	if (level == 0) {
+		lm3559_power_onoff(info, LM3559_POWER_OFF);
+		lm3559_onoff_state = LM3559_POWER_OFF;
+		return 0;
+	}
+
+	val = lm3559_torch_table[level];
+
+	lm3559_power_onoff(info, LM3559_POWER_ON);
+	lm3559_onoff_state = LM3559_POWER_ON;
+
+	if (val & 0b01000000) { // LED2 on
+		enable |= 0b00010000;
+	}
+
+	if (val & 0b10000000) { // Torch
+		lm3559_write_reg(info->i2c_client,
+				LM3559_REG_TORCH_BRIGHTNESS, val & 0b00111111);
+		enable |= 0b00000010; // Torch mode
+		lm3559_write_reg(info->i2c_client,
+				LM3559_REG_ENABLE, enable);
+	} else { // Privacy
+		lm3559_write_reg(info->i2c_client,
+				LM3559_REG_PRIVACY, val & 0b00111111);
+		lm3559_write_reg(info->i2c_client,
+				LM3559_REG_PRIVACY_PWM, 0); // 5.12 ms
+		enable |= 0b00000001; // Privacy mode
+		lm3559_write_reg(info->i2c_client,
+				LM3559_REG_ENABLE, enable);
+	}
+}
+
+static ssize_t torch_store(struct device *dev,
+		struct device_attribute *attr, const char* buf, size_t count)
+{
+	int val;
+	int err = kstrtoint(buf, 0, &val);
+	if (err) {
+		return err;
+	}
+
+	err = torch_apply(info, val); // TODO: Kill global variable.
+	if (err) {
+		return err;
+	}
+
+	return count;
 }
 static DEVICE_ATTR(torch, 0666, NULL, torch_store);
 
