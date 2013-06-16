@@ -283,8 +283,8 @@ static struct dvfs cpu_0_dvfs_table[] = {
 static struct dvfs core_dvfs_table[] = {
 	/* Core voltages (mV):		    950,   1000,   1050,   1100,   1150,    1200,    1250,    1300,    1350 */
 	/* Clock limits for internal blocks, PLLs */
-	CORE_DVFS("cpu_lp", lp_cpu_millivolts, 0, 1, KHZ,        1, 294000, 342000, 427000, 475000,  500000,  500000,  500000,  500000),
-	CORE_DVFS("cpu_lp", lp_cpu_millivolts, 1, 1, KHZ,   204000, 294000, 342000, 427000, 475000,  500000,  500000,  500000,  500000),
+	CORE_DVFS("cpu_lp", lp_cpu_millivolts, 0, 1, KHZ,        1, 294000, 342000, 427000, 475000,  500000,  500000,  620000,  620000),
+	CORE_DVFS("cpu_lp", lp_cpu_millivolts, 1, 1, KHZ,   204000, 294000, 342000, 427000, 475000,  500000,  500000,  620000,  620000),
 	CORE_DVFS("cpu_lp", lp_cpu_millivolts, 2, 1, KHZ,   204000, 295000, 370000, 428000, 475000,  513000,  579000,  620000,  620000),
 	CORE_DVFS("cpu_lp", lp_cpu_millivolts, 3, 1, KHZ,        1,      1,      1,      1,      1,       1,  450000,  450000,  450000),
 
