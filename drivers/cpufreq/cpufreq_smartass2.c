@@ -43,7 +43,7 @@
  * towards the ideal frequency and slower after it has passed it. Similarly,
  * lowering the frequency towards the ideal frequency is faster than below it.
  */
-#define DEFAULT_AWAKE_IDEAL_FREQ 700000
+#define DEFAULT_AWAKE_IDEAL_FREQ 921600
 static unsigned int awake_ideal_freq;
 
 /*
@@ -52,7 +52,7 @@ static unsigned int awake_ideal_freq;
  * that practically when sleep_ideal_freq==0 the awake_ideal_freq is used
  * also when suspended).
  */
-#define DEFAULT_SLEEP_IDEAL_FREQ 204000
+#define DEFAULT_SLEEP_IDEAL_FREQ 614400
 static unsigned int sleep_ideal_freq;
 
 /*
@@ -60,7 +60,7 @@ static unsigned int sleep_ideal_freq;
  * Zero disables and causes to always jump straight to max frequency.
  * When below the ideal freqeuncy we always ramp up to the ideal freq.
  */
-#define DEFAULT_RAMP_UP_STEP 204000
+#define DEFAULT_RAMP_UP_STEP 192000
 static unsigned int ramp_up_step;
 
 /*
@@ -68,13 +68,13 @@ static unsigned int ramp_up_step;
  * Zero disables and will calculate ramp down according to load heuristic.
  * When above the ideal freqeuncy we always ramp down to the ideal freq.
  */
-#define DEFAULT_RAMP_DOWN_STEP 204000
+#define DEFAULT_RAMP_DOWN_STEP 0
 static unsigned int ramp_down_step;
 
 /*
  * CPU freq will be increased if measured load > max_cpu_load;
  */
-#define DEFAULT_MAX_CPU_LOAD 65
+#define DEFAULT_MAX_CPU_LOAD 70
 static unsigned long max_cpu_load;
 
 /*
@@ -87,21 +87,21 @@ static unsigned long min_cpu_load;
  * The minimum amount of time to spend at a frequency before we can ramp up.
  * Notice we ignore this when we are below the ideal frequency.
  */
-#define DEFAULT_UP_RATE_US 48000;
+#define DEFAULT_UP_RATE_US 35000;
 static unsigned long up_rate_us;
 
 /*
  * The minimum amount of time to spend at a frequency before we can ramp down.
  * Notice we ignore this when we are above the ideal frequency.
  */
-#define DEFAULT_DOWN_RATE_US 99000;
+#define DEFAULT_DOWN_RATE_US 75000;
 static unsigned long down_rate_us;
 
 /*
  * The frequency to set when waking up from sleep.
  * When sleep_ideal_freq=0 this will have no effect.
  */
-#define DEFAULT_SLEEP_WAKEUP_FREQ 800000
+#define DEFAULT_SLEEP_WAKEUP_FREQ 998400
 static unsigned int sleep_wakeup_freq;
 
 /*
@@ -836,19 +836,10 @@ static int __init cpufreq_smartass_init(void)
 	}
 
 	// Scale up is high priority
-#if 0
-	up_wq = alloc_workqueue("ksmartass_up", WQ_HIGHPRI, 1);
-	down_wq = alloc_workqueue("ksmartass_down", 0, 1);
+	up_wq = alloc_workqueue("ksmartass2_up", WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+	down_wq = create_workqueue("ksmartass_down");
 	if (!up_wq || !down_wq)
 		return -ENOMEM;
-#endif
-	up_wq = create_workqueue("ksmartass_up");
-	if (!up_wq) return -ENOMEM;
-	down_wq = create_workqueue("ksmartass_down");
-	if (!down_wq){
-		destroy_workqueue(up_wq);
-		return -ENOMEM;
-	}
 
 	INIT_WORK(&freq_scale_work, cpufreq_smartass_freq_change_time_work);
 
@@ -872,6 +863,7 @@ static void __exit cpufreq_smartass_exit(void)
 
 module_exit(cpufreq_smartass_exit);
 
-MODULE_AUTHOR ("laufersteppenwolf");
+MODULE_AUTHOR ("Erasmux");
 MODULE_DESCRIPTION ("'cpufreq_smartass2' - A smart cpufreq governor");
 MODULE_LICENSE ("GPL");
+

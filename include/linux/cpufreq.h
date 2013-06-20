@@ -391,6 +391,12 @@ extern struct cpufreq_governor cpufreq_gov_smartass2;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_smartass2)
 extern struct cpufreq_governor cpufreq_gov_touchdemand;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_touchdemand)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HYPER)
+extern struct cpufreq_governor cpufreq_gov_HYPER;
+#define CPUFREQ_DEFAULT_GOVERNOR (&cpufreq_gov_HYPER)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_WHEATLEY)
+extern struct cpufreq_governor cpufreq_gov_wheatley;
+#define CPUFREQ_DEFAULT_GOVERNOR (&cpufreq_gov_wheatley)
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_INTERACTIVE
