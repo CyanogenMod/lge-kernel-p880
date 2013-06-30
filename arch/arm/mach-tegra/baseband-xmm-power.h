@@ -15,7 +15,7 @@
  */
 
 #ifndef BASEBAND_XMM_POWER_H
-#define BASREBAND_XMM_POWER_H
+#define BASEBAND_XMM_POWER_H
 
 #include <linux/pm.h>
 #include <linux/suspend.h>
