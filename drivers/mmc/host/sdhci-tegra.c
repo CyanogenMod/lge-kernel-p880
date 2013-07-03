@@ -1170,6 +1170,43 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	if (rc)
 		goto err_add_host;
 
+	if (!strcmp(dev_name(mmc_dev(host->mmc)), "sdhci-tegra.3")) {
+	tegra_host->wr_perf_proc = create_proc_entry("emmc_wr_perf", 0444, NULL);
+	if (tegra_host->wr_perf_proc) {
+	tegra_host->wr_perf_proc->read_proc = tegra_sdhci_proc_wperf_show;
+	tegra_host->wr_perf_proc->data = (void *) host->mmc;
+	} else
+	dev_warn(mmc_dev(host->mmc),
+	"Failed to create emmc_wr_perf entry\n");
+
+	tegra_host->burst_proc = create_proc_entry("emmc_burst", 0664, NULL);
+	if (tegra_host->burst_proc) {
+	tegra_host->burst_proc->read_proc = tegra_sdhci_proc_burst_show;
+	tegra_host->burst_proc->write_proc = tegra_sdhci_proc_burst_set;
+	tegra_host->burst_proc->data = (void *) host->mmc;
+	} else
+	dev_warn(mmc_dev(host->mmc),
+	"Failed to create emmc_burst entry\n");
+
+	tegra_host->bkops_proc = create_proc_entry("emmc_bkops", 0664, NULL);
+	if (tegra_host->bkops_proc) {
+	tegra_host->bkops_proc->read_proc = tegra_sdhci_proc_bkops_show;
+	tegra_host->bkops_proc->write_proc = tegra_sdhci_proc_bkops_set;
+	tegra_host->bkops_proc->data = (void *) host->mmc;
+	} else
+	dev_warn(mmc_dev(host->mmc),
+	"Failed to create emmc_bkops entry\n");
+
+
+	printk(KERN_INFO "mmc0: bkops alarm init\n");
+	alarm_init(&htc_mmc_bkops_alarm,
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
+	mmc_bkops_alarm_handler);
+	}
+
+	/* enable async suspend/resume to reduce LP0 latency */
+	device_enable_async_suspend(&pdev->dev);
+
 	return 0;
 
 err_add_host:
