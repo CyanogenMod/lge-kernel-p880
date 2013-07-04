@@ -948,7 +948,7 @@ static ssize_t mass_storage_inquiry_show(struct device *dev,
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
 	struct mass_storage_function_config *config = f->config;
-	return sprintf(buf, "%s\n", config->common->inquiry_string);
+	return snprintf(buf, PAGE_SIZE, "%s\n", config->common->inquiry_string);
 }
 
 static ssize_t mass_storage_inquiry_store(struct device *dev,
