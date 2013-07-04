@@ -43,22 +43,22 @@
 ** This SPI supports only one actuator.
 */
 #define NUM_ACTUATORS 1
-#define ISA1200_I2C_ADDRESS 0x49 /*0x92 when SADD is high*/
-#define SCTRL         (0)     /* 0x0F, System(LDO) Register Group 0*/
-#define HCTRL0     (0x30)     /* 0x09 */ /* Haptic Motor Driver Control Register Group 0*/
-#define HCTRL1     (0x31)     /* 0x4B */ /* Haptic Motor Driver Control Register Group 1*/
-#define HCTRL2     (0x32)     /* 0x00*/ /* Haptic Motor Driver Control Register Group 2*/
-#define HCTRL3     (0x33)     /* 0x13 */ /* Haptic Motor Driver Control Register Group 3*/
-#define HCTRL4     (0x34)     /* 0x00 */ /* Haptic Motor Driver Control Register Group 4*/
-#define HCTRL5     (0x35)     /* 0x6B */ /* Haptic Motor Driver Control Register Group 5*/
-#define HCTRL6     (0x36)     /* 0xD6 */ /* Haptic Motor Driver Control Register Group 6*/
-#define HCTRL7     (0x37)     /* 0x00 */ /* Haptic Motor Driver Control Register Group 7*/
-#define HCTRL8     (0x38)     /* 0x00 */ /* Haptic Motor Driver Control Register Group 8*/
-#define HCTRL9     (0x39)     /* 0x40 */ /* Haptic Motor Driver Control Register Group 9*/
-#define HCTRLA     (0x3A)     /* 0x2C */ /* Haptic Motor Driver Control Register Group A*/
-#define HCTRLB     (0x3B)     /* 0x6B */ /* Haptic Motor Driver Control Register Group B*/
-#define HCTRLC     (0x3C)     /* 0xD6 */ /* Haptic Motor Driver Control Register Group C*/
-#define HCTRLD     (0x3D)     /* 0x19 */ /* Haptic Motor Driver Control Register Group D*/
+#define ISA1200_I2C_ADDRESS 0x49 /* 0x92 when SADD is high */
+#define SCTRL         (0)     /* 0x0F, System(LDO) Register Group 0 */
+#define HCTRL0     (0x30)     /* 0x09, Haptic Motor Driver Control Register Group 0 */
+#define HCTRL1     (0x31)     /* 0x4B, Haptic Motor Driver Control Register Group 1 */
+#define HCTRL2     (0x32)     /* 0x00, Haptic Motor Driver Control Register Group 2 */
+#define HCTRL3     (0x33)     /* 0x13, Haptic Motor Driver Control Register Group 3 */
+#define HCTRL4     (0x34)     /* 0x00, Haptic Motor Driver Control Register Group 4 */
+#define HCTRL5     (0x35)     /* 0x6B, Haptic Motor Driver Control Register Group 5 */
+#define HCTRL6     (0x36)     /* 0xD6, Haptic Motor Driver Control Register Group 6 */
+#define HCTRL7     (0x37)     /* 0x00, Haptic Motor Driver Control Register Group 7 */
+#define HCTRL8     (0x38)     /* 0x00, Haptic Motor Driver Control Register Group 8 */
+#define HCTRL9     (0x39)     /* 0x40, Haptic Motor Driver Control Register Group 9 */
+#define HCTRLA     (0x3A)     /* 0x2C, Haptic Motor Driver Control Register Group A */
+#define HCTRLB     (0x3B)     /* 0x6B, Haptic Motor Driver Control Register Group B */
+#define HCTRLC     (0x3C)     /* 0xD6, Haptic Motor Driver Control Register Group C */
+#define HCTRLD     (0x3D)     /* 0x19, Haptic Motor Driver Control Register Group D */
 
 #define LDO_VOLTAGE_23V 0x08
 #define LDO_VOLTAGE_24V 0x09
@@ -93,19 +93,17 @@ static int status = 0;
 
 #define DEBUG_MSG //printk	// todo - define to something
 
-#define PWM_PERIOD_DEFAULT              44000 //20.3KHz
-//#define PWM_DUTY_DEFAULT              (PWM_PERIOD_DEFAULT >> 1) //50%
-#define PWM_DUTY_DEFAULT              (PWM_PERIOD_DEFAULT *.75 ) //75%
+#define PWM_PERIOD_DEFAULT            44000 //20.3KHz
+//#define PWM_DUTY_DEFAULT            (PWM_PERIOD_DEFAULT >> 1) //50%
+#define PWM_DUTY_DEFAULT              (PWM_PERIOD_DEFAULT *0.75 ) //75%
 
 VibeUInt32 g_nPWM_Freq = PWM_PERIOD_DEFAULT;
 
 #define PWM_CLK_ENABLE tspdrv_control_pwm(1, PWM_DUTY_DEFAULT, PWM_PERIOD_DEFAULT);	// todo - define to something
 #define PWM_CLK_DISABLE tspdrv_control_pwm(0, 0, 0);// todo - define to something
 
-
 #define LDO_VOLTAGE_DEFAULT LDO_VOLTAGE_23V
 VibeUInt32 g_nLDO_Voltage = LDO_VOLTAGE_DEFAULT;
-
 
 IMMVIBESPIAPI VibeStatus SYS_API__I2C__Write( _addr, _data)
 {
@@ -382,11 +380,10 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_Terminate(void)
 /*
 ** Called by the real-time loop to set PWM_MAG duty cycle
 */
-IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex, VibeUInt16 nOutputSignalBitDepth, VibeUInt16 nBufferSizeInBytes, VibeInt8* pForceOutputBuffer)
+/*IMMVIBESPIAPI*/ VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex, VibeUInt16 nOutputSignalBitDepth, VibeUInt16 nBufferSizeInBytes, VibeInt8* pForceOutputBuffer)
 {
     VibeInt8 nForce;
-    int ret = VIBE_S_SUCCESS;
-	int duty_ns;
+    int duty_ns;
 
     switch (nOutputSignalBitDepth)
     {
@@ -423,13 +420,17 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
 	tspdrv_control_pwm(1, duty_ns, g_nPWM_Freq);
     return VIBE_S_SUCCESS;
 }
+EXPORT_SYMBOL(ImmVibeSPI_ForceOut_SetSamples);
+
 /*
 ** Called to set force output frequency parameters
 */
+#if 0
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetFrequency(VibeUInt8 nActuatorIndex, VibeUInt16 nFrequencyParameterID, VibeUInt32 nFrequencyParameterValue)
 {
     return VIBE_S_SUCCESS;
 }
+#endif
 
 /*
 ** Called to get the device name (device name must be returned as ANSI char)
