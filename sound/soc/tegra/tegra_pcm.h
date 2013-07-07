@@ -52,17 +52,8 @@ struct tegra_runtime_data {
 	int dma_req_idx;
 	struct tegra_dma_req dma_req[MAX_DMA_REQ_COUNT];
 	struct tegra_dma_channel *dma_chan;
-
-//                                         
-#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
-    struct timer_list pcm_timeout;
-    unsigned long pcm_timeout_tick;
-    unsigned long callback_time;
-#endif
-//                                         
 	int dma_req_count;
 	int disable_intr;
-	unsigned int avp_dma_addr;
 };
 
 int tegra_pcm_trigger(struct snd_pcm_substream *substream, int cmd);
