@@ -105,6 +105,7 @@ static int tegra_fb_set_par(struct fb_info *info)
 {
 	struct tegra_fb_info *tegra_fb = info->par;
 	struct fb_var_screeninfo *var = &info->var;
+	struct tegra_dc *dc = tegra_fb->win->dc;
 
 	if (var->bits_per_pixel) {
 		/* we only support RGB ordering for now */
@@ -148,17 +149,30 @@ static int tegra_fb_set_par(struct fb_info *info)
 
 	if (var->pixclock) {
 		bool stereo;
+		unsigned old_len = 0;
 		struct fb_videomode m;
+		struct fb_videomode *old_mode = NULL;
 
 		fb_var_to_videomode(&m, var);
 
+	/* Load framebuffer info with new mode details*/
+	old_mode = info->mode;
+	old_len  = info->fix.line_length;
+ 
 		info->mode = (struct fb_videomode *)
 			fb_find_nearest_mode(&m, &info->modelist);
 		if (!info->mode) {
 			dev_warn(&tegra_fb->ndev->dev, "can't match video mode\n");
+			info->mode = old_mode;
 			return -EINVAL;
 		}
 
+	/* Update fix line_length and window stride as per new mode */
+	info->fix.line_length = var->xres * var->bits_per_pixel / 8;
+	info->fix.line_length = round_up(info->fix.line_length,
+		TEGRA_LINEAR_PITCH_ALIGNMENT);
+	tegra_fb->win->stride = info->fix.line_length;
+ 
 		/*
 		 * only enable stereo if the mode supports it and
 		 * client requests it
@@ -170,7 +184,21 @@ static int tegra_fb_set_par(struct fb_info *info)
 					FB_VMODE_STEREO_LEFT_RIGHT);
 #endif
 
-		tegra_dc_set_fb_mode(tegra_fb->win->dc, info->mode, stereo);
+	/* Configure DC with new mode */
+	if (tegra_dc_set_fb_mode(dc, info->mode, stereo)) {
+	/* Error while configuring DC, fallback to old mode */
+	dev_warn(&tegra_fb->ndev->dev, "can't configure dc with mode %ux%u\n",
+	info->mode->xres, info->mode->yres);
+	info->mode = old_mode;
+	info->fix.line_length = old_len;
+	tegra_fb->win->stride = old_len;
+	return -EINVAL;
+	}
+
+	/* Reflect mode chnage on DC HW */
+	if (dc->enabled)
+	tegra_dc_disable(dc);
+	tegra_dc_enable(dc); 
 
 		tegra_fb->win->w.full = dfixed_const(info->mode->xres);
 		tegra_fb->win->h.full = dfixed_const(info->mode->yres);
