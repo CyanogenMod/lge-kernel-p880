@@ -163,6 +163,8 @@ int __init tspdrv_init( void )
 {
     int nRet, i;   /* initialized below */
 
+    create_vibrator_sysfs();
+
     DbgOut((KERN_INFO "tspdrv: init_module. enter\n"));
 
 #ifdef IMPLEMENT_AS_CHAR_DRIVER
