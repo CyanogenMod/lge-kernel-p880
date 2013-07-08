@@ -2,6 +2,7 @@
 #define __KERNEL_PRINTK__
 
 #include <linux/init.h>
+#include <linux/linkage.h>
 
 extern const char linux_banner[];
 extern const char linux_proc_banner[];
