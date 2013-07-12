@@ -27,7 +27,7 @@
 
 /* in kHz */
 #define BOOST_CPU_FREQ_MIN	1300000
-#define CAP_CPU_FREQ_MAX	475000
+#define CAP_CPU_FREQ_MAX	500000
 #define T3_CPU_MIN_FREQ     51000
 
 #define MIN_CPU_MV 725
