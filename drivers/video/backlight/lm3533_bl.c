@@ -50,6 +50,8 @@
 #define LM3533_BL_DEFAULT_MAXCURRENT	19
 #define LM3533_BL_MIN_MAXCURRENT	0
 
+#define LM3533_BL_DEFAULT_HVLED		0
+
 static unsigned char default_160nit_53percent_lut[256]={
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,
 1,1,1,1,1,1,2,2,2,2,2,2,2,3,3,3,3,3,3,4,
@@ -83,6 +85,7 @@ struct lm3533_device {
 	struct mutex 		bl_mutex;
 	struct mutex 		bl_mutex_saved;
 	int			cur_maxcurrent;
+	int			cur_hvled;
 };
 
 struct lm3533_device *lm3533dev;
@@ -179,11 +182,13 @@ static void lm3533_set_main_current_level(struct i2c_client *client, int level)
 			cal_value = LM3533_BL_MIN_BRIGHTNESS;
 		}
 #endif
+		lm3533_bl_write_reg(client, 0x10, dev->cur_hvled);
 		lm3533_bl_write_reg(client, 0x1F, dev->cur_maxcurrent);
 		lm3533_bl_write_reg(client, 0x40, cal_value);
 	}
 	else if(level == 0){
 		cal_value = level;
+		lm3533_bl_write_reg(client, 0x10, dev->cur_hvled);
 		lm3533_bl_write_reg(client, 0x1F, dev->cur_maxcurrent);
 		lm3533_bl_write_reg(client, 0x40, cal_value);
 	}
@@ -198,8 +203,6 @@ static void lm3533_backlight_on(struct i2c_client *client, int level)
 	dev_dbg(&client->dev, "backlight on...\n");
 
 	lm3533_hw_reset(dev);
-
-	lm3533_bl_write_reg(client, 0x10, 0x0); //HVLED 1 & 2 are controlled by Bank A
 
 #if defined(ENABLE_PWM_SIGNAL)        
 	lm3533_bl_write_reg(client, 0x14, 0x1); //                                                                 
@@ -470,6 +473,59 @@ static ssize_t lm3533_bl_store_maxcurrent(struct device *dev,
 DEVICE_ATTR(lm3533_bl_maxcurrent, 0660, lm3533_bl_show_maxcurrent,
 		lm3533_bl_store_maxcurrent);
 
+static void lm3533_lcd_backlight_set_hvled(struct i2c_client *client,
+		int level)
+{
+	struct lm3533_device *dev = i2c_get_clientdata(client);
+
+	if (level > 3)
+		level = 3;
+	if (level < 0)
+		level = 0;
+
+	dev->cur_hvled = level;
+	lm3533_set_main_current_level(client, dev->saved_main_lcd_level);
+}
+
+static ssize_t lm3533_bl_show_hvled(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	int r;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3533_device *lm3533_dev = i2c_get_clientdata(client);
+
+	r = snprintf(buf, PAGE_SIZE,
+			"%d\n",
+			lm3533_dev->cur_hvled);
+
+	return r;
+}
+
+static ssize_t lm3533_bl_store_hvled(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf,
+		size_t count)
+{
+	int level;
+	struct i2c_client *client = to_i2c_client(dev);
+
+	if (!count) {
+		dev_err(&client->dev,
+				"Invalid argument while storing hvled\n");
+		return -EINVAL;
+	}
+
+	level = simple_strtoul(buf, NULL, 10);
+
+	lm3533_lcd_backlight_set_hvled(client, level);
+
+	return count;
+}
+
+DEVICE_ATTR(lm3533_bl_hvled, 0660, lm3533_bl_show_hvled,
+		lm3533_bl_store_hvled);
+
 #ifdef CONFIG_LM3533_LEDS_CLASS
 
 static int lm3533_bl_get_intensity(struct lm3533_device *drvdata)
@@ -562,6 +618,7 @@ static int __devinit lm3533_bl_probe(struct i2c_client *i2c_dev,
 	dev->saved_main_lcd_level= LM3533_BL_DEFAULT_BRIGHTNESS;
 	dev->bl_status = BL_OFF;
 	dev->cur_maxcurrent = LM3533_BL_DEFAULT_MAXCURRENT;
+	dev->cur_hvled = LM3533_BL_DEFAULT_HVLED;
 
 	err = led_classdev_register(&i2c_dev->dev, &lm3533_led_dev);
 	if (err < 0) {
@@ -603,6 +660,11 @@ static int __devinit lm3533_bl_probe(struct i2c_client *i2c_dev,
 		dev_err(&i2c_dev->dev, "device_create_file(maxcurrent) failed\n");
 		goto err_device_create_file_3;
 	}
+	err = device_create_file(&i2c_dev->dev, &dev_attr_lm3533_bl_hvled);
+	if (err < 0) {
+		dev_err(&i2c_dev->dev, "device_create_file(hvled) failed\n");
+		goto err_device_create_file_4;
+	}
 
 	lm3533dev = dev;
 
@@ -612,6 +674,8 @@ static int __devinit lm3533_bl_probe(struct i2c_client *i2c_dev,
 
 	return 0;
 
+err_device_create_file_4:
+	device_remove_file(&i2c_dev->dev, &dev_attr_lm3533_bl_maxcurrent);
 err_device_create_file_3:
 	device_remove_file(&i2c_dev->dev, &dev_attr_lm3533_bl_onoff);
 err_device_create_file_2:
