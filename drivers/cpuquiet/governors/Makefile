@@ -1,1 +1,1 @@
-obj-y += balanced.o userspace.o
+obj-y += balanced.o userspace.o runnable_threads.o
