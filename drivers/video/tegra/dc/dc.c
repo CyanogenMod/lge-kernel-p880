@@ -192,6 +192,27 @@ int dc_set_gamma_rgb(int window_n, int red,int green,int blue)
 	printk("%s end \n" ,__func__);
 	return 0;
 }
+
+void dc_set_gamma_lut(void)
+{
+	int i;
+	struct tegra_dc_win *dcwins[DC_N_WINDOWS];
+
+	printk("%s start \n" ,__func__);
+	for (i = 0; i < DC_N_WINDOWS; i++) {
+		struct tegra_dc_win *win = &tegra_dc_gamma->windows[i];
+		tegra_dc_writel(tegra_dc_gamma, WINDOW_A_SELECT << i,
+				DC_CMD_DISPLAY_WINDOW_HEADER);
+		win->ppflags |= TEGRA_WIN_PPFLAG_CP_ENABLE;
+		memcpy(&tegra_dc_gamma->windows[i].lut, &cmdlineRGBvalue.lut,
+			sizeof(tegra_dc_gamma->windows[i].lut));
+		tegra_dc_set_lut(tegra_dc_gamma, win);
+		dcwins[i] = tegra_dc_get_window(tegra_dc_gamma, i);
+	}
+
+	tegra_dc_update_windows(dcwins, DC_N_WINDOWS);
+	printk("%s end \n" ,__func__);
+}
 #endif
 /*                                 */
 
@@ -1498,6 +1519,11 @@ static int tegra_dc_init(struct tegra_dc *dc)
 				lut->g[j]=(u8)(j);
 				lut->b[j]=(u8)(j);
 			}
+		}
+		else if(cmdlineRGBvalue.table_type==GAMMA_NV_LUT){
+			win->ppflags |= TEGRA_WIN_PPFLAG_CP_ENABLE;
+			memcpy(&dc->windows[i].lut, &cmdlineRGBvalue.lut,
+					sizeof(dc->windows[i].lut));
 		}
 #endif		
 /*                                 */
