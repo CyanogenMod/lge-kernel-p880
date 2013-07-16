@@ -867,8 +867,102 @@ static ssize_t display_gamma_saved_store(struct device *dev,
 
 	return size;
 }
+
+// Scans for a single unsigned integer (at most 3 digits) followed by
+// an optional single space (or new line or NUL).
+// Returns number of bytes consumed (including the space) or -1 on failure.
+// Will read at most 4 bytes into buf.
+static int scan_single_int_and_space(const char *buf, int *out)
+{
+	char c = buf[0];
+	int n = 0;
+
+	// At least 1 digit is mandatory.
+	if (c >= '0' && c <= '9') {
+		n = c - '0';
+	} else {
+		return -1;
+	}
+
+	int i;
+	for (i = 1; i < 4; i++) {
+		c = buf[i];
+		switch (c) {
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			n = 10 * n + c - '0';
+			break;
+		case ' ':
+		case '\n':
+		case '\0':
+			*out = n;
+			return i + 1;
+		default:
+			return -1;
+		}
+	}
+}
+
+static ssize_t display_gamma_lut_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	// Minimum length of 3 * 256 space separated digits
+	if (size < 2 * 3 * 256 - 1) {
+		return -EINVAL;
+	}
+	// Maximum length of 3 * 256 space separated 3 digits with extra space
+	// at end
+	if (size > 4 * 3 * 256) {
+		return - EINVAL;
+	}
+
+	// Include one of the NULs provided by the kernel so that user space
+	// isn't forced to put a space or NUL.
+	size++;
+
+	int i; // Index in lut
+	int j = 0; // Index in buf
+
+	// Write r, g and b contigiously in a single loop.
+	u8 *lut = (u8*) &cmdlineRGBvalue.lut;
+
+	// Make sure we scan at most 4 bytes each iteration (3 digits + space)
+	// to avoid running past the end of buf.
+	for (i = 0; i < 3 * 256; i++) {
+		int n;
+		int bytes_consumed = scan_single_int_and_space(&buf[j], &n);
+		if (bytes_consumed < 0) { // Invalid data
+			return -EINVAL;
+		}
+		j += bytes_consumed;
+		if (j >= size) { // Not enough integers supplied
+			return -EINVAL;
+		}
+		if (n < 0 || n > 255) { // Out of range integer
+			return -EINVAL;
+		}
+		lut[i] = n;
+	}
+
+	cmdlineRGBvalue.table_type = GAMMA_NV_LUT;
+
+	dc_set_gamma_lut();
+
+	return size;
+}
+
 DEVICE_ATTR(gamma_tuning, 0660, NULL, display_gamma_tuning_store);
 DEVICE_ATTR(gamma_saved, 0660, NULL, display_gamma_saved_store);
+DEVICE_ATTR(gamma_lut, 0660, NULL, display_gamma_lut_store);
 DEVICE_ATTR(device_id, 0660, ssd2825_bridge_show_device_id, NULL);
 DEVICE_ATTR(mipi_lp, 0660, ssd2825_bridge_show_mipi_lp, NULL);
 DEVICE_ATTR(mipi_hs, 0660, ssd2825_bridge_show_mipi_hs, NULL);
@@ -1086,6 +1180,7 @@ static int ssd2825_bridge_spi_probe(struct spi_device *spi)
 	err = device_create_file(&spi->dev, &dev_attr_reg_read2);
 	err = device_create_file(&spi->dev, &dev_attr_gamma_tuning);
 	err = device_create_file(&spi->dev, &dev_attr_gamma_saved);
+	err = device_create_file(&spi->dev, &dev_attr_gamma_lut);
 
 	bridge_spi = spi;
 
@@ -1123,6 +1218,7 @@ static int __devexit ssd2825_bridge_spi_remove(struct spi_device *spi)
 	device_remove_file(&spi->dev, &dev_attr_reg_read2);
 	device_remove_file(&spi->dev, &dev_attr_gamma_tuning);
 	device_remove_file(&spi->dev, &dev_attr_gamma_saved);
+	device_remove_file(&spi->dev, &dev_attr_gamma_lut);
 	return 0;
 }
 
