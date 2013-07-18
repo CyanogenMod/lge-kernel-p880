@@ -1,5 +1,6 @@
 GCOV_PROFILE := y
 #subdir-ccflags-y := -Werror
+ccflags-y += -O3
 EXTRA_CFLAGS += -Idrivers/video/tegra/host
 obj-$(CONFIG_TEGRA_GRHOST) += host/
 obj-$(CONFIG_TEGRA_DC) += dc/
