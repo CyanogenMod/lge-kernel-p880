@@ -44,17 +44,10 @@ static struct tegra_wake_info tegra_wake_event_data_t3[] = {
 	{INT_RTC, POLARITY_NONE},				/* wake16 */
 	{INT_KBC, POLARITY_NONE},				/* wake17 */
 	{INT_EXTERNAL_PMU, POLARITY_NONE},			/* wake18 */
-#ifdef CONFIG_MACH_X3 //                                
-	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB1_VBUS, */		/* wake19 */
-	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB2_VBUS, */		/* wake20 */
-	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB1_ID, */		/* wake21 */
-	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB2_ID, */		/* wake22 */
-#else
-	{INT_USB, POLARITY_EDGE_ANY}, /* TEGRA_USB1_VBUS, */		/* wake19 */
-	{-EINVAL, POLARITY_EDGE_ANY}, /* TEGRA_USB2_VBUS, */		/* wake20 */
-	{INT_USB, POLARITY_EDGE_ANY}, /* TEGRA_USB1_ID, */		/* wake21 */
-	{-EINVAL, POLARITY_EDGE_ANY}, /* TEGRA_USB2_ID, */		/* wake22 */
-#endif
+	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB1_VBUS, */	/* wake19 */
+	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB2_VBUS, */	/* wake20 */
+	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB1_ID, */	/* wake21 */
+	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB2_ID, */	/* wake22 */
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PI5), POLARITY_NONE},	/* wake23 */
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PV0), POLARITY_NONE},	/* wake24 */
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PS4), POLARITY_NONE},	/* wake25 */
@@ -71,17 +64,12 @@ static struct tegra_wake_info tegra_wake_event_data_t3[] = {
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PBB1), POLARITY_NONE},	/* wake36 */
 	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB3_VBUS, */		/* wake37 */
 	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB3_ID, */		/* wake38 */
-#ifdef CONFIG_MACH_X3 //                                
-	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB1_UTMIP, */		/* wake39 */  //default: INT_USB, POLARITY_LEVEL_LO
+	{-EINVAL, POLARITY_NONE}, /* TEGRA_USB1_UTMIP, */	/* wake39 */
 	{INT_USB2, POLARITY_LEVEL_LO}, /* TEGRA_USB2_UTMIP, */	/* wake40 */
-#else
-	{INT_USB, POLARITY_LEVEL_HI}, /* TEGRA_USB1_UTMIP, */		/* wake39 */
-	{INT_USB2, POLARITY_LEVEL_HI}, /* TEGRA_USB2_UTMIP, */	/* wake40 */
-#endif
 	{INT_USB3, POLARITY_LEVEL_HI}, /* TEGRA_USB3_UTMIP, */	/* wake41 */
-#if 0 /*                                      */
-	{INT_USB2, POLARITY_LEVEL_HI}, /* TEGRA_USB2_UHSIC, */	/* wake42 */
-#endif	
+	#if 0 /*                                      */
+	{INT_USB2, POLARITY_LEVEL_HI}, /* TEGRA_USB2_UHSIC, */ /* wake42 */
+	#endif 
 };
 
 struct tegra_wake_info *tegra_wake_event_data = tegra_wake_event_data_t3;
