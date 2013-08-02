@@ -34,6 +34,9 @@
 #include "cifsproto.h"
 #include "cifs_debug.h"
 
+/* outsourced to global memory stack */
+struct mid_q_entry *midQ;
+
 extern mempool_t *cifs_mid_poolp;
 
 static void
@@ -649,7 +652,6 @@ SendReceive(const unsigned int xid, struct cifs_ses *ses,
 	    int *pbytes_returned, const int long_op)
 {
 	int rc = 0;
-	struct mid_q_entry *midQ;
 
 	if (ses == NULL) {
 		cERROR(1, "Null smb session");
