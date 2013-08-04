@@ -1,6 +1,6 @@
 
 #include "pn544_lge_hwadapter.h"
-#include <../../arch/arm/mach-tegra/lge/x3/include/lge/board-x3.h>
+#include "../../arch/arm/mach-tegra/lge/x3/include/lge/board-x3.h"
 
 int pn544_get_hw_revision(void)
 {

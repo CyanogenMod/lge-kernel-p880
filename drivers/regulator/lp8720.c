@@ -9,7 +9,7 @@
 #include <linux/string.h>
 #include <asm/gpio.h>
 #include <asm/system.h>
-#include <../../include/linux/regulator/lp8720.h>
+#include "../../include/linux/regulator/lp8720.h"
 
 
 static unsigned char lp8720_output_status = 0x00; //default on 0x3F

@@ -55,7 +55,7 @@
 
 //                                                                
 #if defined(CONFIG_LGE_NFC_PN544)
-#include <board-lge-nfc.h>
+#include "board-lge-nfc.h"
 #endif
 //                                                                
 
