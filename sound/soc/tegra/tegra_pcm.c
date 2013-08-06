@@ -41,7 +41,6 @@
 #include "tegra_pcm.h"
 
 #define DRV_NAME "tegra-pcm-audio"
-#define INT_DURATION_THRESHOLD 32
 
 static const struct snd_pcm_hardware tegra_pcm_hardware = {
 	.info			= SNDRV_PCM_INFO_MMAP |
@@ -49,9 +48,7 @@ static const struct snd_pcm_hardware tegra_pcm_hardware = {
 				  SNDRV_PCM_INFO_PAUSE |
 				  SNDRV_PCM_INFO_RESUME |
 				  SNDRV_PCM_INFO_INTERLEAVED,
-	.formats    = SNDRV_PCM_FMTBIT_S16_LE |
-			SNDRV_PCM_FMTBIT_S24_LE |
-			SNDRV_PCM_FMTBIT_S32_LE,
+	.formats		= SNDRV_PCM_FMTBIT_S16_LE,
 	.channels_min		= 1,
 	.channels_max		= 2,
 	.period_bytes_min	= 128,
