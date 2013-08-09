@@ -831,11 +831,17 @@ static ssize_t ssd2825_bridge_reg_read2(struct device *dev, struct device_attrib
 	return count;
 }
 
+static int red = 255,green = 255,blue = 255;
+static ssize_t display_gamma_tuning_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d,%d,%d",red,green,blue);
+}
+
 static ssize_t display_gamma_tuning_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t size)
 {
-	int red,green,blue;
 	sscanf(buf, "%d,%d,%d",&red,&green,&blue);
 	printk("RED:%d GREEN:%d BLUE:%d\n",red,green,blue);
 	dc_set_gamma_rgb(0,red,green,blue);
@@ -867,7 +873,7 @@ static ssize_t display_gamma_saved_store(struct device *dev,
 
 	return size;
 }
-DEVICE_ATTR(gamma_tuning, 0660, NULL, display_gamma_tuning_store);
+DEVICE_ATTR(gamma_tuning, 0660, display_gamma_tuning_show, display_gamma_tuning_store);
 DEVICE_ATTR(gamma_saved, 0660, NULL, display_gamma_saved_store);
 DEVICE_ATTR(device_id, 0660, ssd2825_bridge_show_device_id, NULL);
 DEVICE_ATTR(mipi_lp, 0660, ssd2825_bridge_show_mipi_lp, NULL);
