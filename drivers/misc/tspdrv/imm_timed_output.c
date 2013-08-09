@@ -12,11 +12,13 @@ static atomic_t vib_state = ATOMIC_INIT(0);
 static struct work_struct vibrator_work;
 extern int32_t ImmVibeSPI_ForceOut_AmpEnable(u_int8_t);
 extern int32_t ImmVibeSPI_ForceOut_AmpDisable(u_int8_t);
+extern int32_t ImmVibeSPI_SetTimedSample();
 
 static void ImmVibeSPI_Control(struct work_struct *work)
 {
 	if(atomic_read(&vib_state)) {
 		ImmVibeSPI_ForceOut_AmpEnable(0);
+		ImmVibeSPI_SetTimedSample();
 	}
 	else {
 		ImmVibeSPI_ForceOut_AmpDisable(0);

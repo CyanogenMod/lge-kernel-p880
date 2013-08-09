@@ -431,6 +431,15 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetFrequency(VibeUInt8 nActuatorInd
     return VIBE_S_SUCCESS;
 }
 
+/* For tuning of the timed interface strength */
+#define DEFAULT_TIMED_STRENGTH 65
+VibeInt8 timedForce = DEFAULT_TIMED_STRENGTH;
+
+VibeStatus ImmVibeSPI_SetTimedSample() {
+    return ImmVibeSPI_ForceOut_SetSamples(0, 8, 1, &timedForce);
+}
+
+
 /*
 ** Called to get the device name (device name must be returned as ANSI char)
 */
