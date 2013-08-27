@@ -24,7 +24,6 @@
 #include "board.h"
 
 static const struct tegra_emc_table x3_emc_tables_k4p8g304eb_533[] =
-{
 	{
 		0x32,       /* Rev 3.2 */
 		12750,      /* SDRAM frequency */
