@@ -507,17 +507,7 @@ static void edp_update_limit(void)
 
 static unsigned int edp_governor_speed(unsigned int requested_speed)
 {
-//                    
-#ifdef CONFIG_MACH_X3
-#ifdef LGE_EDP_ENABLE_CONTROL
-	if(force_disable_edp)
-		return requested_speed;
-#endif
-#endif /* CONFIG_MACH_X3 */
-	if ((!edp_limit) || (requested_speed <= edp_limit))
-		return requested_speed;
-	else
-		return edp_limit;
+	return requested_speed;
 }
 
 int tegra_edp_update_thermal_zone(int temperature)
