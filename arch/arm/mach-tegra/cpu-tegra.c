@@ -84,7 +84,288 @@ static struct kernel_param_ops policy_ops = {
 };
 module_param_cb(force_policy_max, &policy_ops, &force_policy_max, 0644);
 
+//                    
+#ifdef CONFIG_MACH_X3
+#define LGE_EDP_ENABLE_CONTROL 
+#ifdef LGE_EDP_ENABLE_CONTROL
+static bool force_disable_edp = false;
 
+static int force_disable_edp_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+	bool old_disable_edp = force_disable_edp;
+
+	mutex_lock(&tegra_cpu_lock);
+
+	ret = param_set_bool(arg, kp);
+	if ((ret == 0) && (old_disable_edp != force_disable_edp))
+		tegra_cpu_set_speed_cap(NULL);
+
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int force_disable_edp_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_bool(buffer, kp);
+}
+
+static struct kernel_param_ops force_disable_edp_ops = {
+	.set = force_disable_edp_set,
+	.get = force_disable_edp_get,
+};
+module_param_cb(force_disable_edp, &force_disable_edp_ops, &force_disable_edp, 0644);
+#endif
+
+#ifdef LOAD_SHAPER_BY_VOTE_MAX_FREQ
+#define MAX_BUCKET_SIZE 10000
+static int token_in_bucket = MAX_BUCKET_SIZE;
+static long threashold_allowed_clk = 880000;
+static long threashold_limited_clk = 1000000;
+static long threashold_enable_token = 2000;
+static int restore_token = 5;
+static bool is_enable_boost_load_shaper = true;
+
+static long vmf_for_load_shaper = 0;
+static long vmf_for_record = 0;
+static long vmf_for_camera = 0;
+static long vmf_for_player = 0;
+static long vmf_for_network = 0;
+
+static int threashold_allowed_clk_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int threashold_allowed_clk_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+
+static struct kernel_param_ops threashold_allowed_clk_ops = {
+	.set = threashold_allowed_clk_set,
+	.get = threashold_allowed_clk_get,
+};
+module_param_cb(threashold_allowed_clk, &threashold_allowed_clk_ops, &threashold_allowed_clk, 0644);
+
+
+static int threashold_limited_clk_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int threashold_limited_clk_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+static struct kernel_param_ops threashold_limited_clk_ops = {
+	.set = threashold_limited_clk_set,
+	.get = threashold_limited_clk_get,
+};
+module_param_cb(threashold_limited_clk, &threashold_limited_clk_ops, &threashold_limited_clk, 0644);
+
+static int threashold_enable_token_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int threashold_enable_token_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+static struct kernel_param_ops threashold_enable_token_ops = {
+	.set = threashold_enable_token_set,
+	.get = threashold_enable_token_get,
+};
+module_param_cb(threashold_enable_token, &threashold_enable_token_ops, &threashold_enable_token, 0644);
+
+static int restore_token_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+	
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_int(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int restore_token_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_int(buffer, kp);
+}
+
+static struct kernel_param_ops restore_token_ops = {
+	.set = restore_token_set,
+	.get = restore_token_get,
+};
+module_param_cb(restore_token, &restore_token_ops, &restore_token, 0644);
+
+static int is_enable_boost_load_shaper_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_bool(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int is_enable_boost_load_shaper_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_bool(buffer, kp);
+}
+
+static struct kernel_param_ops is_enable_boost_load_shaper_ops = {
+	.set = is_enable_boost_load_shaper_set,
+	.get = is_enable_boost_load_shaper_get,
+};
+module_param_cb(is_enable_boost_load_shaper, &is_enable_boost_load_shaper_ops, &is_enable_boost_load_shaper, 0644);
+
+static int token_in_bucket_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_int(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int token_in_bucket_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_int(buffer, kp);
+}
+
+static struct kernel_param_ops token_in_bucket_ops = {
+	.set = token_in_bucket_set,
+	.get = token_in_bucket_get,
+};
+module_param_cb(token_in_bucket, &token_in_bucket_ops, &token_in_bucket, 0644);
+
+static int vmf_for_load_shaper_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int vmf_for_load_shaper_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+static struct kernel_param_ops vmf_for_load_shaper_ops = {
+	.set = vmf_for_load_shaper_set,
+	.get = vmf_for_load_shaper_get,
+};
+module_param_cb(vmf_for_load_shaper, &vmf_for_load_shaper_ops, &vmf_for_load_shaper, 0644);
+
+static int vmf_for_record_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int vmf_for_record_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+static struct kernel_param_ops vmf_for_record_ops = {
+	.set = vmf_for_record_set,
+	.get = vmf_for_record_get,
+};
+module_param_cb(vmf_for_record, &vmf_for_record_ops, &vmf_for_record, 0644);
+
+static int vmf_for_camera_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int vmf_for_camera_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+static struct kernel_param_ops vmf_for_camera_ops = {
+	.set = vmf_for_camera_set,
+	.get = vmf_for_camera_get,
+};
+module_param_cb(vmf_for_camera, &vmf_for_camera_ops, &vmf_for_camera, 0644);
+
+static int vmf_for_player_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int vmf_for_player_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+static struct kernel_param_ops vmf_for_player_ops = {
+	.set = vmf_for_player_set,
+	.get = vmf_for_player_get,
+};
+module_param_cb(vmf_for_player, &vmf_for_player_ops, &vmf_for_player, 0644);
+
+static int vmf_for_network_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	mutex_lock(&tegra_cpu_lock);
+	ret = param_set_long(arg, kp);
+	mutex_unlock(&tegra_cpu_lock);
+	return ret;
+}
+
+static int vmf_for_network_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_long(buffer, kp);
+}
+
+static struct kernel_param_ops vmf_for_network_ops = {
+	.set = vmf_for_network_set,
+	.get = vmf_for_network_get,
+};
+module_param_cb(vmf_for_network, &vmf_for_network_ops, &vmf_for_network, 0644);
+#endif
+#endif /* CONFIG_MACH_X3 */
 static unsigned int cpu_user_cap;
 
 static inline void _cpu_user_cap_set_locked(void)
@@ -140,6 +421,25 @@ module_param_cb(cpu_user_cap, &cap_ops, &cpu_user_cap, 0644);
 
 static unsigned int user_cap_speed(unsigned int requested_speed)
 {
+//                    
+#ifdef CONFIG_MACH_X3
+#ifdef LOAD_SHAPER_BY_VOTE_MAX_FREQ 
+	if((vmf_for_load_shaper) && requested_speed > vmf_for_load_shaper)
+		requested_speed = vmf_for_load_shaper;
+	
+	if((vmf_for_record) && requested_speed > vmf_for_record)
+			requested_speed = vmf_for_record;
+
+	if((vmf_for_camera) && requested_speed > vmf_for_camera)
+			requested_speed = vmf_for_camera;
+	
+	if((vmf_for_player) && requested_speed > vmf_for_player)
+			requested_speed = vmf_for_player;
+
+	if((vmf_for_network) && requested_speed > vmf_for_network)
+			requested_speed = vmf_for_network;
+#endif
+#endif /* CONFIG_MACH_X3 */
 	if ((cpu_user_cap) && (requested_speed > cpu_user_cap))
 		return cpu_user_cap;
 	return requested_speed;
@@ -207,10 +507,7 @@ static void edp_update_limit(void)
 
 static unsigned int edp_governor_speed(unsigned int requested_speed)
 {
-	if ((!edp_limit) || (requested_speed <= edp_limit))
-		return requested_speed;
-	else
-		return edp_limit;
+	return requested_speed;
 }
 
 int tegra_edp_update_thermal_zone(int temperature)
@@ -576,6 +873,57 @@ unsigned long tegra_cpu_highest_speed(void) {
 	rate = min(rate, policy_max);
 	return rate;
 }
+//                    
+#ifdef CONFIG_MACH_X3
+#ifdef LOAD_SHAPER_BY_VOTE_MAX_FREQ
+void tegra_cpu_check_boost_limit(unsigned int new_speed)
+{
+	long use_token = new_speed - threashold_allowed_clk;
+
+	static bool registered = false;
+
+
+	if(is_enable_boost_load_shaper == false)
+	{
+		vmf_for_load_shaper = 0;
+		registered = false;
+		token_in_bucket = MAX_BUCKET_SIZE;
+		return;
+	}
+
+	use_token = use_token > 0 ? use_token / 100000 : 0;
+
+	if(!use_token)
+	{
+		token_in_bucket += restore_token;	
+		token_in_bucket = token_in_bucket > MAX_BUCKET_SIZE ? MAX_BUCKET_SIZE : token_in_bucket;
+	}
+	else
+		token_in_bucket -= use_token ;
+	
+	token_in_bucket = token_in_bucket > 0 ? token_in_bucket : 0;
+
+	if(token_in_bucket > threashold_enable_token)		
+	{
+		if(registered) {
+			vmf_for_load_shaper = 0;
+			printk("boost load shaper off!\n");
+		}
+		registered = false;
+	}
+	else
+	{
+		if(!registered)	{
+			vmf_for_load_shaper = threashold_limited_clk;
+			printk("boost load shaper triggered!\n");
+		}
+		registered = true;
+	}
+
+
+}
+#endif
+#endif /* CONFIG_MACH_X3 */
 
 int tegra_cpu_set_speed_cap(unsigned int *speed_cap)
 {
@@ -590,6 +938,13 @@ int tegra_cpu_set_speed_cap(unsigned int *speed_cap)
 	new_speed = user_cap_speed(new_speed);
 	if (speed_cap)
 		*speed_cap = new_speed;
+//                    
+#ifdef CONFIG_MACH_X3
+#ifdef LOAD_SHAPER_BY_VOTE_MAX_FREQ
+	tegra_cpu_check_boost_limit(new_speed);
+#endif
+#endif /* CONFIG_MACH_X3 */
+
 
 	ret = tegra_update_cpu_speed(new_speed);
 	if (ret == 0)
@@ -641,6 +996,7 @@ _out:
 static int tegra_pm_notify(struct notifier_block *nb, unsigned long event,
 	void *dummy)
 {
+	printk("%s start [%d]\n", __func__, event);  //for debug
 	mutex_lock(&tegra_cpu_lock);
 	if (event == PM_SUSPEND_PREPARE) {
 		is_suspended = true;
@@ -649,6 +1005,12 @@ static int tegra_pm_notify(struct notifier_block *nb, unsigned long event,
 		tegra_update_cpu_speed(freq_table[suspend_index].frequency);
 		tegra_auto_hotplug_governor(
 			freq_table[suspend_index].frequency, true);
+//                    
+#ifdef CONFIG_MACH_X3
+		#ifdef LOAD_SHAPER_BY_VOTE_MAX_FREQ
+		token_in_bucket = MAX_BUCKET_SIZE;
+		#endif
+#endif /* CONFIG_MACH_X3 */
 	} else if (event == PM_POST_SUSPEND) {
 		unsigned int freq;
 		is_suspended = false;
@@ -690,7 +1052,7 @@ static int tegra_cpu_init(struct cpufreq_policy *policy)
 	target_cpu_speed[policy->cpu] = policy->cur;
 
 	/* FIXME: what's the actual transition time? */
-	policy->cpuinfo.transition_latency = 300 * 1000;
+	policy->cpuinfo.transition_latency = 30 * 1000;
 
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	cpumask_copy(policy->related_cpus, cpu_possible_mask);
