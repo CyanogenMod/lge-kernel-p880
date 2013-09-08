@@ -121,7 +121,7 @@ module_param_cb(force_disable_edp, &force_disable_edp_ops, &force_disable_edp, 0
 #define MAX_BUCKET_SIZE 10000
 static int token_in_bucket = MAX_BUCKET_SIZE;
 static long threashold_allowed_clk = 880000;
-static long threashold_limited_clk = 1000000;
+static long threashold_limited_clk = 1700000;
 static long threashold_enable_token = 2000;
 static int restore_token = 5;
 static bool is_enable_boost_load_shaper = true;
