@@ -57,7 +57,7 @@ static struct timer_list load_timer;
 static bool load_timer_active;
 
 /* configurable parameters */
-static unsigned int  balance_level = 60;
+static unsigned int  balance_level = 70;
 static unsigned int  idle_bottom_freq;
 static unsigned int  idle_top_freq;
 static unsigned long up_delay;
@@ -178,7 +178,7 @@ static unsigned int count_slow_cpus(unsigned int limit)
 #define NR_FSHIFT	2
 static unsigned int nr_run_thresholds[] = {
 /*      1,  2,  3,  4 - on-line cpus target */
-	5,  9, 10, UINT_MAX /* avg run threads * 4 (e.g., 9 = 2.25 threads) */
+	7,  9, 10, UINT_MAX /* avg run threads * 4 (e.g., 9 = 2.25 threads) */
 };
 static unsigned int nr_run_hysteresis = 2;	/* 0.5 thread */
 static unsigned int nr_run_last;
