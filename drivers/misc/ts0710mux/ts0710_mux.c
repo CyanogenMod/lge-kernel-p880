@@ -2902,6 +2902,13 @@ static void ts_ldisc_close(struct tty_struct *tty)
     #if defined(LGE_VT_CALL_SESSION) || defined(VT_MUX12_DEBUG) /* baeyoung.park 2011-02-17 */
     mux_12_open = 0;
     #endif 
+
+    // Cycle the radio
+    baseband_xmm_power_switch(false);
+    msleep(1000);
+    baseband_xmm_power_switch(true);
+   
+
     //                                
 #endif //                      
     //                                                                                                 
