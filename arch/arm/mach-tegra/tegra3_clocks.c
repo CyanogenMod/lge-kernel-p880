@@ -337,7 +337,7 @@ static unsigned long cpu_stay_on_backup_max;
 static struct clk *emc_bridge;
 static struct clk *cpu_mode_sclk;
 
-static bool detach_shared_bus = true;
+static bool detach_shared_bus = false;
 module_param(detach_shared_bus, bool, 0644);
 
 static int skipper_delay = 10;
