@@ -1157,7 +1157,11 @@ static int iucv_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 	struct sk_buff *skb, *rskb, *cskb;
 	int err = 0;
 
+<<<<<<< HEAD
 	if ((sk->sk_state == IUCV_DISCONN || sk->sk_state == IUCV_SEVERED) &&
+=======
+	if ((sk->sk_state == IUCV_DISCONN) &&
+>>>>>>> 18719a4... net: rework recvmsg handler msg_name and msg_namelen logic
 	    skb_queue_empty(&iucv->backlog_skb_q) &&
 	    skb_queue_empty(&sk->sk_receive_queue) &&
 	    list_empty(&iucv->message_q.list))
