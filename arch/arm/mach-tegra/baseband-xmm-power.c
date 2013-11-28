@@ -462,8 +462,8 @@ void baseband_xmm_set_power_status(unsigned int status)
 		}	
 		pr_debug("PM_ST : L0\n");
 		baseband_xmm_powerstate = status;
-		if (!wake_lock_active(&wakelock))
-			wake_lock(&wakelock);
+		//if (!wake_lock_active(&wakelock))
+		//	wake_lock(&wakelock);
 		value = gpio_get_value(data->modem.xmm.ipc_hsic_active);
 		//pr_debug("GPIO [R]: before L0 Host_active = %d \n", value); 
 		if (!value) {
@@ -481,15 +481,15 @@ void baseband_xmm_set_power_status(unsigned int status)
 		pr_debug("PM_ST : L2\n");
 		baseband_xmm_powerstate = status;
 		spin_lock_irqsave(&xmm_lock, flags);
-		if (wakeup_pending) {
+		/*if (wakeup_pending) {
 			spin_unlock_irqrestore(&xmm_lock, flags);
 			baseband_xmm_power_L2_resume();
-		 } else {
-			spin_unlock_irqrestore(&xmm_lock, flags);
-			if (wake_lock_active(&wakelock))
-				wake_unlock(&wakelock);
+		 } else {*/
+		spin_unlock_irqrestore(&xmm_lock, flags);
+		if (wake_lock_active(&wakelock))
+			wake_unlock(&wakelock);
 		modem_sleep_flag = true;
-		}
+		//}
 		if (short_autosuspend && enable_short_autosuspend && &usbdev->dev) {
 			pr_debug("autosuspend delay %d ms, disable short_autosuspend\n",DEFAULT_AUTOSUSPEND_DELAY);
 			queue_work(workqueue_susp, &work_defaultsusp);
@@ -730,9 +730,10 @@ static void baseband_xmm_power_L2_resume(void)
 		return;
 
 	/* claim the wakelock here to avoid any system suspend */
-	if (!wake_lock_active(&wakelock))
-		wake_lock(&wakelock);
-	modem_sleep_flag = false;
+	//if (!wake_lock_active(&wakelock))
+	//	wake_lock(&wakelock);
+	//modem_sleep_flag = false;
+	modem_sleep_flag = true;
 	spin_lock_irqsave(&xmm_lock, flags);
 	wakeup_pending = false;
 	spin_unlock_irqrestore(&xmm_lock, flags);
@@ -1408,14 +1409,6 @@ static int baseband_xmm_power_driver_handle_resume(
 	pr_debug("%s GPIO [R]: Host_wakeup = %d \n",__func__,value); 
 
     if (!data)
-                return 0;
-
-	/* check if modem is on */
-	if (power_onoff == 0) {
-		pr_debug("%s - flight mode - nop\n", __func__);
-		return 0;
-	}
-
 	modem_sleep_flag = false;	
 	spin_lock_irqsave(&xmm_lock, flags);
 	wakeup_pending = false;
@@ -1446,7 +1439,15 @@ static int baseband_xmm_power_driver_handle_resume(
 		pr_debug("PM_ST : CP L3 -> L0\n");
 	}
 	reenable_autosuspend = true; //20120112 - Nv Bug 924425 - L2 Auto Suspend#1
-    
+   
+	/* check if modem is on */
+	if (power_onoff == 0) {
+		pr_debug("%s - flight mode - nop\n", __func__);
+		modem_sleep_flag = true;
+		wake_unlock(&wakelock);
+		
+		baseband_xmm_shutdown_function(); //This line:EXPERIMENTAL!!!
+	}
 	return 0;
 }
 
