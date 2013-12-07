@@ -387,7 +387,6 @@ void kernel_restart(char *cmd)
 
 //             
 #if defined(CONFIG_MACH_X3)  || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
-#if 1
 	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
 	max77663_power_rst_wkup(1);
 #else
