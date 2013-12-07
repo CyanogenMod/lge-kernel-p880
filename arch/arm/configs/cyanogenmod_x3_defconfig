@@ -1373,7 +1373,7 @@ CONFIG_WLAN=y
 CONFIG_BCMDHD=y
 # CONFIG_BCM4330 is not set
 # CONFIG_BCM4334 is not set
-CONFIG_BCMDHD_FW_PATH="/system/etc/firmware/fw_bcmdhd.bin"
+CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
 CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcmdhd.cal"
 CONFIG_LGE_BCM433X_PATCH=y
 CONFIG_BCMDHD_CONFIG_PATH="/data/misc/wifi/config"
