@@ -370,7 +370,7 @@ int tegra_dc_update_windows(struct tegra_dc_win *windows[], int n)
 		} else {
 			tegra_dc_writel(dc, GLOBAL_ALPHA_ENABLE |
 				win->global_alpha, DC_WIN_GLOBAL_ALPHA);
-			win_options |= CP_ENABLE;
+			val |= CP_ENABLE;
 		}
 #endif
 
