@@ -105,7 +105,15 @@ static void x3_usb_hsic_phy_off(void)
 {
 	pr_debug("%s\n", __func__);
 #ifdef CONFIG_TEGRA_BB_XMM_POWER
-	baseband_xmm_set_power_status(BBXMM_PS_L3);
+	baseband_xmm_set_power_status(BBXMM_PS_L2);
+#endif
+}
+
+static void x3_usb_hsic_post_resume(void)
+{
+	pr_debug("%s\n", __func__);
+#ifdef CONFIG_TEGRA_BB_XMM_POWER
+	baseband_xmm_set_power_status(BBXMM_PS_L0);
 #endif
 }
 
@@ -113,7 +121,7 @@ static struct tegra_usb_phy_platform_ops hsic_imc_plat_ops = {
 	.post_suspend = x3_usb_hsic_postsuspend,
 	.pre_resume = x3_usb_hsic_preresume,
 	.port_power = x3_usb_hsic_phy_ready, // How to handle port_power api?  //ebs_wondering
-	.post_phy_on = x3_usb_hsic_phy_ready,	//Nv-1030815_resume_fromLP0.patch
+	.post_resume = x3_usb_hsic_post_resume,
 	.post_phy_off = x3_usb_hsic_phy_off,
 };
 
@@ -166,24 +174,24 @@ static struct tegra_ehci_platform_data tegra_ehci_uhsic_pdata = {
 
 
 
-struct platform_device *tegra_usb_hsic_host_register(void)
+struct platform_device *tegra_usb_hsic_host_register(struct platform_device *ehci_dev)
 {
 	struct platform_device *pdev;
 //	void *platform_data;
 	int val;
 
-	pdev = platform_device_alloc(tegra_ehci2_device.name,
-		tegra_ehci2_device.id);
+	pdev = platform_device_alloc(ehci_dev->name, ehci_dev->id);
+
 	if (!pdev)
 		return NULL;
 
-	val = platform_device_add_resources(pdev, tegra_ehci2_device.resource,
-		tegra_ehci2_device.num_resources);
+	val = platform_device_add_resources(pdev, ehci_dev->resource, ehci_dev->num_resources);
+
 	if (val)
 		goto error;
 
-	pdev->dev.dma_mask =  tegra_ehci2_device.dev.dma_mask;
-	pdev->dev.coherent_dma_mask = tegra_ehci2_device.dev.coherent_dma_mask;
+	pdev->dev.dma_mask =  ehci_dev->dev.dma_mask;
+	pdev->dev.coherent_dma_mask = ehci_dev->dev.coherent_dma_mask;
 
 	val = platform_device_add_data(pdev, &tegra_ehci2_hsic_imc_pdata,
 			sizeof(struct tegra_usb_platform_data));
@@ -224,6 +232,7 @@ static int __init tegra_uhsic_init(void)
 					&tegra_usb_hsic_host_register;
 	tegra_baseband_power_data.hsic_unregister =
 					&tegra_usb_hsic_host_unregister;
+	tegra_baseband_power_data.ehci_device = &tegra_ehci2_device;
 
 	platform_device_register(&tegra_baseband_power_device); 
 //	platform_device_register(&tegra_baseband_power2_device);
