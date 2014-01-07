@@ -1835,8 +1835,8 @@ static __devinit int tegra_max98088_driver_probe(struct platform_device *pdev)
 //                                         
 	for (i = 0; i < NUM_I2S_DEVICES ; i++) {
 #if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
-		machine->codec_info[i].dam_gain[0] = 0x1000;
-		machine->codec_info[i].dam_gain[1] = 0x1000;
+		machine->codec_info[i].dam_gain[0] = 0x1800;
+		machine->codec_info[i].dam_gain[1] = 0x1800;
 #endif
 //                                         
 		machine->codec_info[i].i2s_id =
