@@ -177,7 +177,6 @@ static struct tegra_ehci_platform_data tegra_ehci_uhsic_pdata = {
 struct platform_device *tegra_usb_hsic_host_register(struct platform_device *ehci_dev)
 {
 	struct platform_device *pdev;
-//	void *platform_data;
 	int val;
 
 	pdev = platform_device_alloc(ehci_dev->name, ehci_dev->id);
@@ -210,9 +209,15 @@ error:
 	return NULL;
 }
 
-void tegra_usb_hsic_host_unregister(struct platform_device *pdev)
+void tegra_usb_hsic_host_unregister(struct platform_device **platdev)
 {
-	platform_device_unregister(pdev);
+        struct platform_device *pdev = *platdev;
+
+        if (pdev && &pdev->dev) {
+                platform_device_unregister(pdev);
+                *platdev = NULL;
+        } else
+                pr_err("%s: no platform device\n", __func__);
 }
 
 
@@ -235,7 +240,6 @@ static int __init tegra_uhsic_init(void)
 	tegra_baseband_power_data.ehci_device = &tegra_ehci2_device;
 
 	platform_device_register(&tegra_baseband_power_device); 
-//	platform_device_register(&tegra_baseband_power2_device);
 	return 0;
 }
 
