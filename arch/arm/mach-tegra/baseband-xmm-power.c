@@ -299,6 +299,8 @@ static int xmm_power_off(struct platform_device *device)
 	if (ret < 0)
 		pr_err("%s: disable_irq_wake error\n", __func__);
 
+	flush_workqueue(workqueue);
+
 	/* unregister usb host controller */
 	if (pdata->hsic_unregister)
 		pdata->hsic_unregister(&data->hsic_device);
@@ -385,20 +387,18 @@ static void pm_qos_worker(struct work_struct *work)
 			(s32)PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE);
 }
 
-static ssize_t baseband_xmm_onoff_show(struct device *dev,
+static ssize_t xmm_onoff_show(struct device *dev,
             struct device_attribute *attr,
             char *buf)
 {
     int onoff = power_onoff;
     pr_debug("%s, enum(%d), onoff(%d)\n", __func__, enum_success, power_onoff );
-    if(enum_success)
-        onoff = 2;
-              
+if(enum_success)
+	onoff = 2;
     return sprintf(buf, "%d", onoff);
 }
 
-static DEVICE_ATTR(xmm_onoff, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
-		baseband_xmm_onoff_show, xmm_onoff); /*default is NULL instead of IWGRP */
+static DEVICE_ATTR(xmm_onoff, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP, xmm_onoff_show, xmm_onoff);
 
 void baseband_xmm_power_switch(bool power_on)
 {
@@ -407,7 +407,7 @@ void baseband_xmm_power_switch(bool power_on)
 
 	pr_info("%s {\n", __func__);
 	pr_info("power_on(%d)\n", power_on);
-		
+
 	/* check if enumeration succeeded */
 
 	if (power_onoff == power_on)
@@ -695,7 +695,10 @@ static void xmm_power_init2_work(struct work_struct *work)
 		else
 			pr_err("%s: hsic_register is missing\n", __func__);
 		register_hsic_device = false;
+
 	}
+
+	enum_success = true;
 }
 
 static void xmm_power_autopm_resume(struct work_struct *work)
@@ -912,8 +915,6 @@ static int xmm_power_driver_probe(struct platform_device *device)
 	int err;
 
 	pr_debug("%s\n", __func__);
-
-	enum_success = true;
 
 	/* check for platform data */
 	if (!pdata)
