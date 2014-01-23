@@ -707,7 +707,7 @@ static void apds990x_change_ps_threshold(struct i2c_client *client)
 		/* FAR-to-NEAR */
 		data->ps_detection = 1;
 
-		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 3);/* FAR-to-NEAR detection */	
+		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 0);/* FAR-to-NEAR detection */	
 		input_sync(data->input_dev_ps);
 
 		apds990x_set_pilt(client, data->ps_hysteresis_threshold);
