@@ -84,3 +84,6 @@ GTAGS
 *.orig
 *~
 \#*#
+
+# output dir
+out
