@@ -53,19 +53,15 @@ static struct tegra_kbc_wake_key x3_wake_cfg[] = {
 		.row = 0,
 		.col = 0,
 	},
-	[1] = {
-		.row = 1,
-		.col = 0,
-	},
 };
 
 static struct tegra_kbc_platform_data x3_kbc_platform_data = {
-	.debounce_cnt = 20 * 32, /* 20 ms debaunce time */
+	.debounce_cnt = 20 * 32, /* 20 ms debounce time */
 	.repeat_cnt = 1,
 	.scan_count = 30,
 	.wakeup = true,
 	.keymap_data = &keymap_data,
-	.wake_cnt = 4,
+	.wake_cnt = 1,
 	.wake_cfg = &x3_wake_cfg[0],
 };
 
