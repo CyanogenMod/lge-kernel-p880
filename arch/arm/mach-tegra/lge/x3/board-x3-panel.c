@@ -319,7 +319,7 @@ static int x3_hdmi_disable(void)
 	printk("################HDMI LS Output Disable by Heebae?###########\n");
 	regulator_disable(x3_hdmi_reg);
 	regulator_put(x3_hdmi_reg);
-	x3_hdmi_pll = NULL;
+	x3_hdmi_reg = NULL;
 
 	regulator_disable(x3_hdmi_pll);
 	regulator_put(x3_hdmi_pll);
