@@ -67,8 +67,8 @@
 //#define APDS990x_INT		IRQ_EINT20
 
 //Proximity Distance : 4.5Cm
-#define APDS990x_PS_DETECTION_THRESHOLD						900
-#define APDS990x_PS_HSYTERESIS_THRESHOLD					820
+#define APDS990x_PS_DETECTION_THRESHOLD						800
+#define APDS990x_PS_HSYTERESIS_THRESHOLD					700
 
 #define APDS990x_PS_DEFAULT_PPCOUNT_REV_B					0x07			// 7-Pulse for proximity 
 #define APDS990x_PS_DEFAULT_CROSSTALK_VAL_REV_B				150
@@ -707,7 +707,7 @@ static void apds990x_change_ps_threshold(struct i2c_client *client)
 		/* FAR-to-NEAR */
 		data->ps_detection = 1;
 
-		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 3);/* FAR-to-NEAR detection */	
+		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 0);/* 0cm when near */
 		input_sync(data->input_dev_ps);
 
 		apds990x_set_pilt(client, data->ps_hysteresis_threshold);
@@ -722,7 +722,7 @@ static void apds990x_change_ps_threshold(struct i2c_client *client)
 		/* NEAR-to-FAR */
 		data->ps_detection = 0;
 
-		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 10);/* NEAR-to-FAR detection */	
+		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 10);/* fix to 10cm when far */	
 		input_sync(data->input_dev_ps);
 
 		apds990x_set_pilt(client, 0);
@@ -1617,7 +1617,7 @@ static ssize_t apds990x_store_proxidata(struct device *dev, struct device_attrib
         struct apds990x_data *data = i2c_get_clientdata(client);
         unsigned long val = simple_strtoul(buf, NULL, 10);
 
-	input_report_abs(data->input_dev_ps, ABS_DISTANCE, val);        /* NEAR-to-FAR detection. 3: Near, 10: FAR */	
+	input_report_abs(data->input_dev_ps, ABS_DISTANCE, val);        /* NEAR-to-FAR detection. 0: Near, 10: FAR */
 	input_sync(data->input_dev_ps);
 
 	return count;
@@ -1987,7 +1987,7 @@ static int __devinit apds990x_probe(struct i2c_client *client,
 	set_bit(EV_ABS, data->input_dev_ps->evbit);
 
 	input_set_abs_params(data->input_dev_als, ABS_MISC, 0, 10000, 0, 0);
-	input_set_abs_params(data->input_dev_ps, ABS_DISTANCE, 0, 1, 0, 0);
+	input_set_abs_params(data->input_dev_ps, ABS_DISTANCE, 0, 10, 0, 0);
 
 	data->input_dev_als->name = "light";
 	data->input_dev_ps->name = "proximity";
