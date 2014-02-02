@@ -60,8 +60,6 @@ static struct regulator *x3_hdmi_reg = NULL;
 static struct regulator *x3_hdmi_pll = NULL;
 static struct regulator *x3_hdmi_vddio = NULL;
 
-//static struct regulator *x3_lgit_hdmi_pll = NULL;
-
 static atomic_t sd_brightness = ATOMIC_INIT(255);
 
 unsigned long long wake_status_backup=0; //                                                                  
@@ -285,6 +283,19 @@ static int x3_hdmi_enable(void)
 	int ret;
 
 	printk("################HDMI LS Output Enable by Heebae##############\n");
+	if (!x3_hdmi_reg) {
+		x3_hdmi_reg = regulator_get(NULL, "avdd_hdmi");
+		if (IS_ERR_OR_NULL(x3_hdmi_reg)) {
+			pr_err("hdmi: couldn't get regulator avdd_hdmi\n");
+			x3_hdmi_reg = NULL;
+			return PTR_ERR(x3_hdmi_reg);
+		}
+	}
+	ret = regulator_enable(x3_hdmi_reg);
+	if (ret < 0) {
+		pr_err("hdmi: couldn't enable regulator avdd_hdmi\n");
+		return ret;
+	}
 	if (!x3_hdmi_pll) {
 		x3_hdmi_pll = regulator_get(NULL, "avdd_hdmi_pll");
 		if (IS_ERR_OR_NULL(x3_hdmi_pll)) {
@@ -305,7 +316,11 @@ static int x3_hdmi_enable(void)
 
 static int x3_hdmi_disable(void)
 {
-	printk("################HDMI LS Output Disable by Heebae##############\n");
+	printk("################HDMI LS Output Disable by Heebae############\n");
+	regulator_disable(x3_hdmi_reg);
+	regulator_put(x3_hdmi_reg);
+	x3_hdmi_reg = NULL;
+
 	regulator_disable(x3_hdmi_pll);
 	regulator_put(x3_hdmi_pll);
 	x3_hdmi_pll = NULL;
@@ -415,7 +430,7 @@ static struct tegra_dc_out_pin ssd2825_dc_out_pins[] = {
 
 static struct tegra_dc_sd_settings x3_sd_settings = {
 	.enable = 1, /* Normal mode operation */
-	.use_auto_pwm = true,
+	.use_auto_pwm = false,
 	.hw_update_delay = 0,
 	.bin_width = -1,
 	.aggressiveness = 1,
@@ -584,14 +599,13 @@ int ssd2825_bridge_enable_queue(void)
 static struct tegra_dc_out x3_disp1_out = {
 	.align		= TEGRA_DC_ALIGN_MSB,
 	.order		= TEGRA_DC_ORDER_RED_BLUE,
-        .sd_settings    = &x3_sd_settings,
-//                                                                       
-	.height 		= 105,//                                              
-	.width		= 59,//                                              
+
+	.height 	= 105,
+	.width		= 59,
 
 	.type		= TEGRA_DC_OUT_RGB,
-	.parent_clk 	= "pll_p",//"pll_d_out0",
-	//.depth		= 24,
+	.parent_clk 	= "pll_p", //"pll_d_out0",
+	//.depth	= 24,
 
 	.modes	 	= x3_panel_modes,
 	.n_modes 	= ARRAY_SIZE(x3_panel_modes),
@@ -604,6 +618,9 @@ static struct tegra_dc_out x3_disp1_out = {
 	.postsuspend	= x3_panel_postsuspend,
 	.prepoweron	= ssd2825_bridge_enable_queue,
 	.postpoweron	= x3_postpoweron,
+
+	/* SmartDimmer */
+	.sd_settings    = &x3_sd_settings,
 };
 
 static struct tegra_dc_platform_data x3_disp1_pdata = {
