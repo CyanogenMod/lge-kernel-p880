@@ -121,10 +121,10 @@ static int x3_wakeup_key(void)
 
 static struct gpio_keys_button x3_keys[] = {
 #if defined(CONFIG_PMIC_POWERKEY)
-	[0] = GPIO_KEY(KEY_VOLUMEUP, PO7, 0),
+	[0] = GPIO_KEY(KEY_VOLUMEUP, PO7, 1),
 	[1] = GPIO_KEY(KEY_VOLUMEDOWN, PO4, 1),
 #else
-	[0] = GPIO_KEY(KEY_VOLUMEUP, PO7, 0),
+	[0] = GPIO_KEY(KEY_VOLUMEUP, PO7, 1),
 	[1] = GPIO_KEY(KEY_VOLUMEDOWN, PO4, 1),
 	[2] = GPIO_KEY(KEY_POWER, PC7, 1),
 #endif
