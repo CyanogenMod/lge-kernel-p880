@@ -134,7 +134,7 @@ static void apply_core_config(void)
 
 static void tegra_cpuquiet_work_func(struct work_struct *work)
 {
-	bool state_changed = false;
+	int device_busy = -1;
 
 	mutex_lock(tegra3_cpu_lock);
 
@@ -148,7 +148,7 @@ static void tegra_cpuquiet_work_func(struct work_struct *work)
 					/*catch-up with governor target speed */
 					tegra_cpu_set_speed_cap(NULL);
 					/* process pending core requests*/
-					state_changed = true;
+					device_busy = 0;
 				}
 			}
 			break;
@@ -159,7 +159,7 @@ static void tegra_cpuquiet_work_func(struct work_struct *work)
 				if (!clk_set_parent(cpu_clk, cpu_lp_clk)) {
 					/*catch-up with governor target speed*/
 					tegra_cpu_set_speed_cap(NULL);
-					state_changed = true;
+					device_busy = 1;
 				}
 			}
 			break;
@@ -170,9 +170,9 @@ static void tegra_cpuquiet_work_func(struct work_struct *work)
 
 	mutex_unlock(tegra3_cpu_lock);
 
-	if (state_changed && cpq_state == TEGRA_CPQ_SWITCH_TO_LP) {
+	if (device_busy == 1) {
 		cpuquiet_device_busy();
-	} else if (state_changed && cpq_state == TEGRA_CPQ_SWITCH_TO_G) {
+	} else if (!device_busy) {
 		apply_core_config();
 		cpuquiet_device_free();
 	}
@@ -187,9 +187,6 @@ static void min_max_constraints_workfunc(struct work_struct *work)
 	int nr_cpus = num_online_cpus();
 	int max_cpus = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS) ? : 4;
 	int min_cpus = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
-
-	if (cpq_state == TEGRA_CPQ_DISABLED)
-		return;
 
 	if (is_lp_cluster())
 		return;
@@ -222,14 +219,10 @@ static int min_cpus_notify(struct notifier_block *nb, unsigned long n, void *p)
 {
 	bool g_cluster = false;
 
-	if (cpq_state == TEGRA_CPQ_DISABLED)
-		return NOTIFY_OK;
-
 	mutex_lock(tegra3_cpu_lock);
 
 	if ((n >= 1) && is_lp_cluster()) {
-		/* make sure cpu rate is within g-mode
-		 * range before switching */
+		/* make sure cpu rate is within g-mode range before switching */
 		unsigned long speed = max((unsigned long)tegra_getspeed(0),
 					clk_get_min_rate(cpu_g_clk) / 1000);
 		tegra_update_cpu_speed(speed);
@@ -251,9 +244,6 @@ static int min_cpus_notify(struct notifier_block *nb, unsigned long n, void *p)
 
 static int max_cpus_notify(struct notifier_block *nb, unsigned long n, void *p)
 {
-	if (cpq_state == TEGRA_CPQ_DISABLED)
-		return NOTIFY_OK;
-
 	if (n < num_online_cpus())
 		schedule_work(&minmax_work);
 
