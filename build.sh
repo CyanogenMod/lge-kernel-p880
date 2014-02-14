@@ -20,6 +20,7 @@ cp drivers/scsi/scsi_wait_scan.ko out/scsi_wait_scan.ko
 cp drivers/usb/serial/baseband_usb_chr.ko out/baseband_usb_chr.ko
 cp crypto/tcrypt.ko out/tcrypt.ko
 cp drivers/net/usb/raw_ip_net.ko out/raw_ip_net.ko
+cp out/* ~/smb/kernel/out/
 echo 'done'
 echo ''
 echo '#############'
