@@ -179,7 +179,66 @@ static int extend_or_restart_transaction(handle_t *handle, int thresh)
 }
 
 /*
- * Set up the block and inode bitmaps, and the inode table for the new group.
+ * set_flexbg_block_bitmap() mark @count blocks starting from @block used.
+ *
+ * Helper function for ext4_setup_new_group_blocks() which set .
+ *
+ * @sb: super block
+ * @handle: journal handle
+ * @flex_gd: flex group data
+ */
+static int set_flexbg_block_bitmap(struct super_block *sb, handle_t *handle,
+			struct ext4_new_flex_group_data *flex_gd,
+			ext4_fsblk_t block, ext4_group_t count)
+{
+	ext4_group_t count2;
+
+	ext4_debug("mark blocks [%llu/%u] used\n", block, count);
+	for (count2 = count; count > 0; count -= count2, block += count2) {
+		ext4_fsblk_t start;
+		struct buffer_head *bh;
+		ext4_group_t group;
+		int err;
+
+		ext4_get_group_no_and_offset(sb, block, &group, NULL);
+		start = ext4_group_first_block_no(sb, group);
+		group -= flex_gd->groups[0].group;
+
+		count2 = EXT4_BLOCKS_PER_GROUP(sb) - (block - start);
+		if (count2 > count)
+			count2 = count;
+
+		if (flex_gd->bg_flags[group] & EXT4_BG_BLOCK_UNINIT) {
+			BUG_ON(flex_gd->count > 1);
+			continue;
+		}
+
+		err = extend_or_restart_transaction(handle, 1);
+		if (err)
+			return err;
+
+		bh = sb_getblk(sb, flex_gd->groups[group].block_bitmap);
+		if (!bh)
+			return -EIO;
+
+		err = ext4_journal_get_write_access(handle, bh);
+		if (err)
+			return err;
+		ext4_debug("mark block bitmap %#04llx (+%llu/%u)\n", block,
+			   block - start, count2);
+		ext4_set_bits(bh->b_data, block - start, count2);
+
+		err = ext4_handle_dirty_metadata(handle, NULL, bh);
+		if (unlikely(err))
+			return err;
+		brelse(bh);
+	}
+
+	return 0;
+}
+
+/*
+ * Set up the block and inode bitmaps, and the inode table for the new groups.
  * This doesn't need to be part of the main transaction, since we are only
  * changing blocks outside the actual filesystem.  We still do journaling to
  * ensure the recovery is correct in case of a failure just after resize.
