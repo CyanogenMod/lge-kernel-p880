@@ -46,7 +46,7 @@ static struct workqueue_struct *runnables_wq;
 #define NR_FSHIFT	(1 << NR_FSHIFT_EXP)
 /* avg run threads * 8 (e.g., 11 = 1.375 threads) */
 static unsigned int default_thresholds[] = {
-	9, 17, 25, UINT_MAX
+	11, 17, 25, UINT_MAX
 };
 
 static unsigned int nr_run_last;
