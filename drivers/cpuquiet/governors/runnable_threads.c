@@ -26,6 +26,9 @@
 #include <linux/cpu.h>
 #include <linux/sched.h>
 
+#include <linux/clk.h>
+#include "../arch/arm/mach-tegra/clock.h"
+
 typedef enum {
 	DISABLED,
 	IDLE,
@@ -37,6 +40,9 @@ static struct delayed_work runnables_work;
 static struct kobject *runnables_kobject;
 
 /* configurable parameters */
+#define DEBUG 			(0)
+#define MIN_UP_FREQ		(900	* 1000000)	// Freq in MHz
+
 static unsigned int sample_rate = 20;		/* msec */
 
 static RUNNABLES_STATE runnables_state;
@@ -63,6 +69,11 @@ static void update_runnables_state(void)
 	int min_cpus = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
 	unsigned int avg_nr_run = avg_nr_running();
 	unsigned int nr_run;
+	unsigned long curr_freq;
+
+	struct clk *c = tegra_get_clock_by_name("cpu");
+	BUG_ON(!c);
+	curr_freq = clk_get_rate(c);
 
 	if (runnables_state == DISABLED)
 		return;
@@ -78,8 +89,19 @@ static void update_runnables_state(void)
 
 	if ((nr_cpus > max_cpus || nr_run < nr_cpus) && nr_cpus >= min_cpus) {
 		runnables_state = DOWN;
-	} else if (nr_cpus < min_cpus || nr_run > nr_cpus) {
+	} else if ((nr_cpus < min_cpus || nr_run > nr_cpus) && curr_freq >= MIN_UP_FREQ) {
 		runnables_state =  UP;
+		if (DEBUG == 1) {
+			pr_info("laufersteppenwolf: runnables_state = UP");
+			pr_info("CPU rate: %lu MHz\n", curr_freq / 1000000);
+		}
+	} else if ((nr_cpus < min_cpus || nr_run > nr_cpus) && curr_freq < MIN_UP_FREQ) {
+		runnables_state = IDLE;
+		if (DEBUG == 1) {
+			pr_info("laufersteppenwolf: runnables_state = IDLE");
+			pr_info("laufersteppenwolf: freq too low to bring up next core");
+			pr_info("CPU rate: %lu MHz\n", curr_freq / 1000000);
+		}
 	} else {
 		runnables_state = IDLE;
 	}
