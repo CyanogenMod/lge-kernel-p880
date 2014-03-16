@@ -104,14 +104,9 @@ static p_tegra_dc_bl_output bl_output;
 static int x3_backlight_notify(struct device *unused, int brightness)
 {
 	int cur_sd_brightness = atomic_read(&sd_brightness);
-	int orig_brightness = brightness;
 
 	/* SD brightness is a percentage, 8-bit value. */
 	brightness = (brightness * cur_sd_brightness) / 255;
-	if (cur_sd_brightness != 255) {
-		pr_info("NVSD BL - in: %d, sd: %d, out: %d\n",
-			orig_brightness, cur_sd_brightness, brightness);
-	}
 
 	/* Apply any backlight response curve */
 	if (brightness > 255)
@@ -122,6 +117,7 @@ static int x3_backlight_notify(struct device *unused, int brightness)
 	return brightness;
 }
 
+static int x3_disp1_check_fb(struct device *dev, struct fb_info *info);
 
 static struct platform_tegra_pwm_backlight_data x3_disp1_backlight_data = {
 	.which_dc	= 0,
@@ -132,6 +128,7 @@ static struct platform_tegra_pwm_backlight_data x3_disp1_backlight_data = {
 	.period 		= 0xFF,
 	.clk_div		= 0x3FF,
 	.clk_select 	= 0,
+	.check_fb	= x3_disp1_check_fb,
 };
 
 static struct platform_device x3_disp1_backlight_device = {
@@ -638,6 +635,11 @@ static struct nvhost_device x3_disp1_device = {
 		.platform_data = &x3_disp1_pdata,
 	},
 };
+
+static int x3_disp1_check_fb(struct device *dev, struct fb_info *info)
+{
+		return info->device == &x3_disp1_device.dev;
+}
 
 static struct nvhost_device x3_disp2_device = {
 	.name		= "tegradc",
