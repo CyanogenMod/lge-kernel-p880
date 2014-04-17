@@ -388,6 +388,39 @@ static int tegra_auto_sysfs(void)
 	return err;
 }
 
+#ifdef CONFIG_DEBUG_FS
+
+struct pm_qos_request_list min_cpu_req;
+struct pm_qos_request_list max_cpu_req;
+
+static int min_cpus_get(void *data, u64 *val)
+{
+	*val = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
+	return 0;
+}
+static int min_cpus_set(void *data, u64 val)
+{
+	pm_qos_update_request(&min_cpu_req, (s32)val);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(min_cpus_fops, min_cpus_get, min_cpus_set, "%llu\n");
+
+static int max_cpus_get(void *data, u64 *val)
+{
+	*val = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS);
+	return 0;
+}
+static int max_cpus_set(void *data, u64 val)
+{
+	pm_qos_update_request(&max_cpu_req, (s32)val);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(max_cpus_fops, max_cpus_get, max_cpus_set, "%llu\n");
+
+#endif /* CONFIG_DEBUG_FS */
+
+
+// int __cpuinit tegra_auto_hotplug_init(struct mutex *cpulock)
 int tegra_auto_hotplug_init(struct mutex *cpu_lock)
 {
 	int err;
@@ -454,4 +487,9 @@ void tegra_auto_hotplug_exit(void)
 	destroy_workqueue(cpuquiet_wq);
         cpuquiet_unregister_driver(&tegra_cpuquiet_driver);
 	kobject_put(tegra_auto_sysfs_kobject);
+
+#ifdef CONFIG_DEBUG_FS
+	pm_qos_remove_request(&min_cpu_req);
+	pm_qos_remove_request(&max_cpu_req);
+#endif
 }
