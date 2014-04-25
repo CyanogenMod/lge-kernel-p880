@@ -36,6 +36,7 @@
 #include "pm.h"
 #include "cpu-tegra.h"
 #include "clock.h"
+#include "cpuquiet.h"
 
 #define INITIAL_STATE		TEGRA_CPQ_IDLE
 #define UP_DELAY_MS			100
@@ -393,24 +394,24 @@ static int tegra_auto_sysfs(void)
 struct pm_qos_request_list min_cpu_req;
 struct pm_qos_request_list max_cpu_req;
 
-static int min_cpus_get(void *data, u64 *val)
+int min_cpus_get(void *data, u64 *val)
 {
 	*val = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
 	return 0;
 }
-static int min_cpus_set(void *data, u64 val)
+int min_cpus_set(void *data, u64 val)
 {
 	pm_qos_update_request(&min_cpu_req, (s32)val);
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(min_cpus_fops, min_cpus_get, min_cpus_set, "%llu\n");
 
-static int max_cpus_get(void *data, u64 *val)
+int max_cpus_get(void *data, u64 *val)
 {
 	*val = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS);
 	return 0;
 }
-static int max_cpus_set(void *data, u64 val)
+int max_cpus_set(void *data, u64 val)
 {
 	pm_qos_update_request(&max_cpu_req, (s32)val);
 	return 0;

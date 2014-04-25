@@ -24,6 +24,8 @@
 #include <linux/ktime.h>
 #include <linux/sched.h>
 
+#include "../arch/arm/mach-tegra/cpuquiet.h"
+
 /*
  * dbs is used in this file as a shortform for demandbased switching
  * It helps to keep variable names smaller, simpler
@@ -602,11 +604,15 @@ struct cpufreq_governor cpufreq_gov_gaming = {
 
 static int __init cpufreq_gov_dbs_init(void)
 {
+	min_cpus_set(NULL, 2);
+	
 	return cpufreq_register_governor(&cpufreq_gov_gaming);
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
+	min_cpus_set(NULL, 0);
+		
 	cpufreq_unregister_governor(&cpufreq_gov_gaming);
 }
 
