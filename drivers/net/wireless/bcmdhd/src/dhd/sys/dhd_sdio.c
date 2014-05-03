@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c 373329 2012-12-07 04:46:09Z $
+ * $Id: dhd_sdio.c 378263 2013-01-11 03:03:05Z $
  */
 
 #include <typedefs.h>
@@ -403,7 +403,8 @@ uint dhd_txminmax = DHD_TXMINMAX;
 #define DONGLE_MIN_MEMSIZE (128 *1024)
 int dhd_dongle_memsize;
 
-static bool dhd_doflow;
+uint dhd_doflow = TRUE;
+uint dhd_dpcpoll = FALSE;
 static bool dhd_alignctl;
 
 static bool sd1idle;
@@ -6167,6 +6168,11 @@ clkwait:
 	}
 
 exit:
+		/* attemp to update tx credit before exiting dpc */
+		if (!resched && dhd_dpcpoll) {
+				if (dhdsdio_readframes(bus, dhd_rxbound, &rxdone) != 0)
+						resched = TRUE;
+	}
 	dhd_os_sdunlock(bus->dhd);
 	return resched;
 }
@@ -6278,32 +6284,30 @@ dhdsdio_pktgen(dhd_bus_t *bus)
 	uint fillbyte;
 	osl_t *osh = bus->dhd->osh;
 	uint16 len;
-	ulong cur_jiffies;
 	ulong time_lapse;
 	uint sent_pkts;
 	uint rcvd_pkts;
 
 	/* Display current count if appropriate */
-	bus->pktgen_ptick = 0;
-	printf("%s: send attempts %d, rcvd %d, errors %d\n",
-	       __FUNCTION__, bus->pktgen_sent, bus->pktgen_rcvd, bus->pktgen_fail);
+	if (bus->pktgen_print && (++bus->pktgen_ptick >= bus->pktgen_print)) {
+		bus->pktgen_ptick = 0;
+		printf("%s: send attempts %d, rcvd %d, errors %d\n",
+			__FUNCTION__, bus->pktgen_sent, bus->pktgen_rcvd, bus->pktgen_fail);
 
-	/* Print throughput stats only for constant length packet runs */
-	if (bus->pktgen_minlen == bus->pktgen_maxlen) {
-		cur_jiffies = jiffies;
-		if(cur_jiffies >= bus->pktgen_prev_time) /* Check for jiffies wrap around */
-			time_lapse = cur_jiffies - bus->pktgen_prev_time;
-		else
-			time_lapse = bus->pktgen_prev_time - cur_jiffies;
-		bus->pktgen_prev_time = jiffies;
-		sent_pkts = bus->pktgen_sent - bus->pktgen_prev_sent;
-		bus->pktgen_prev_sent = bus->pktgen_sent;
-		rcvd_pkts = bus->pktgen_rcvd - bus->pktgen_prev_rcvd;
-		bus->pktgen_prev_rcvd = bus->pktgen_rcvd;
+		/* Print throughput stats only for constant length packet runs */
+		if (bus->pktgen_minlen == bus->pktgen_maxlen) {
+			time_lapse = jiffies - bus->pktgen_prev_time;
+			bus->pktgen_prev_time = jiffies;
+			sent_pkts = bus->pktgen_sent - bus->pktgen_prev_sent;
+			bus->pktgen_prev_sent = bus->pktgen_sent;
+			rcvd_pkts = bus->pktgen_rcvd - bus->pktgen_prev_rcvd;
+			bus->pktgen_prev_rcvd = bus->pktgen_rcvd;
 
-		printf("%s: Tx Throughput %d kbps, Rx Throughput %d kbps\n", __FUNCTION__,
-			(sent_pkts * bus->pktgen_len / jiffies_to_msecs(time_lapse)) * 8,
-			(rcvd_pkts * bus->pktgen_len  / jiffies_to_msecs(time_lapse)) * 8);
+			printf("%s: Tx Throughput %d kbps, Rx Throughput %d kbps\n",
+			  __FUNCTION__,
+			  (sent_pkts * bus->pktgen_len / jiffies_to_msecs(time_lapse)) * 8,
+			  (rcvd_pkts * bus->pktgen_len  / jiffies_to_msecs(time_lapse)) * 8);
+		}
 	}
 
 	/* For recv mode, just make sure dongle has started sending */
@@ -7475,10 +7479,10 @@ dhdsdio_release_dongle(dhd_bus_t *bus, osl_t *osh, bool dongle_isolation, bool r
 		return;
 
 	if (bus->sih) {
+#if !defined(BCMLXSDMMC)
 		if (bus->dhd) {
 			dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
 		}
-#if !defined(BCMLXSDMMC)
 		if (KSO_ENAB(bus) && (dongle_isolation == FALSE))
 			si_watchdog(bus->sih, 4);
 #endif /* !defined(BCMLXSDMMC) */

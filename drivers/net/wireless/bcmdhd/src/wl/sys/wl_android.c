@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.c 372067 2012-11-30 08:03:06Z $
+ * $Id: wl_android.c 379859 2013-01-19 13:16:55Z $
  */
 
 #include <linux/module.h>
@@ -570,7 +570,7 @@ int wl_android_set_country_rev(
 
 	error = wldev_iovar_setbuf(dev, "country", (char *)&cspec,
 		sizeof(cspec), smbuf, sizeof(smbuf), NULL);
-
+#if 0
 	if (error) {
 		DHD_ERROR(("%s: set country '%s/%d' failed code %d\n",
 			__FUNCTION__, cspec.ccode, cspec.rev, error));
@@ -579,6 +579,7 @@ int wl_android_set_country_rev(
 		DHD_INFO(("%s: set country '%s/%d'\n",
 			__FUNCTION__, cspec.ccode, cspec.rev));
 	}
+#endif
 
 	return error;
 }
@@ -1817,7 +1818,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	/* CUSTOMER_SET_COUNTRY feature is define for only GGSM model */
 	else if (strnicmp(command, CMD_COUNTRY, strlen(CMD_COUNTRY)) == 0) {
 		char *country_code = command + strlen(CMD_COUNTRY) + 1;
-		bytes_written = wldev_set_country(net, country_code);
+		bytes_written = wldev_set_country(net, country_code, true, true);
 	}
 #endif
 #endif /* WL_CFG80211 */
@@ -1854,10 +1855,13 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		strlen(CMD_FULLROAMSCANPERIOD_GET)) == 0) {
 		bytes_written = wl_android_get_full_roam_scan_period(net, command,
 		priv_cmd.total_len);
+#if 0
 	} else if (strnicmp(command, CMD_COUNTRYREV_SET,
 		strlen(CMD_COUNTRYREV_SET)) == 0) {
 		bytes_written = wl_android_set_country_rev(net, command,
 		priv_cmd.total_len);
+		wl_update_wiphybands(NULL);
+#endif
 	} else if (strnicmp(command, CMD_COUNTRYREV_GET,
 		strlen(CMD_COUNTRYREV_GET)) == 0) {
 		bytes_written = wl_android_get_country_rev(net, command,

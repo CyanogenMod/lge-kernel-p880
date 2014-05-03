@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd.h 363319 2012-10-17 04:44:07Z $
+ * $Id: dhd.h 373887 2012-12-10 21:58:02Z $
  */
 
 /****************
@@ -359,6 +359,8 @@ extern int dhd_os_wake_unlock(dhd_pub_t *pub);
 extern int dhd_os_wake_lock_timeout(dhd_pub_t *pub);
 extern int dhd_os_wake_lock_rx_timeout_enable(dhd_pub_t *pub, int val);
 extern int dhd_os_wake_lock_ctrl_timeout_enable(dhd_pub_t *pub, int val);
+extern int dhd_os_wd_wake_lock(dhd_pub_t *pub);
+extern int dhd_os_wd_wake_unlock(dhd_pub_t *pub);
 
 inline static void MUTEX_LOCK_SOFTAP_SET_INIT(dhd_pub_t * dhdp)
 {
@@ -403,6 +405,8 @@ inline static void MUTEX_UNLOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 #else
 #define DHD_OS_WAKE_LOCK(pub) 			dhd_os_wake_lock(pub)
 #define DHD_OS_WAKE_UNLOCK(pub) 		dhd_os_wake_unlock(pub)
+#define DHD_OS_WD_WAKE_LOCK(pub)		dhd_os_wd_wake_lock(pub)
+#define DHD_OS_WD_WAKE_UNLOCK(pub)		dhd_os_wd_wake_unlock(pub)
 #define DHD_OS_WAKE_LOCK_TIMEOUT(pub)		dhd_os_wake_lock_timeout(pub)
 #define DHD_OS_WAKE_LOCK_RX_TIMEOUT_ENABLE(pub, val) \
 	dhd_os_wake_lock_rx_timeout_enable(pub, val)
@@ -715,6 +719,13 @@ extern uint dhd_force_tx_queueing;
 #define CUSTOM_ROAM_DELTA_SETTING 	DEFAULT_ROAM_DELTA_VALUE
 #endif
 
+/* hooks for custom PNO Event wake lock to guarantee enough time
+* for the Platform to detect Event before system suspended
+*/
+#define DEFAULT_PNO_EVENT_LOCK_xTIME 2 /* multiplay of DHD_PACKET_TIMEOUT_MS */
+#ifndef CUSTOM_PNO_EVENT_LOCK_xTIME
+#define CUSTOM_PNO_EVENT_LOCK_xTIME DEFAULT_PNO_EVENT_LOCK_xTIME
+#endif
 
 /* hooks for custom dhd_dpc_prio setting option via Makefile */
 #define DEFAULT_DHP_DPC_PRIO  1
@@ -726,6 +737,8 @@ extern uint dhd_force_tx_queueing;
 #ifndef CUSTOM_SUSPEND_BCN_LI_DTIM
 #define CUSTOM_SUSPEND_BCN_LI_DTIM		DEFAULT_SUSPEND_BCN_LI_DTIM
 #endif
+
+#define MAX_DTIM_SKIP_BEACON_ITERVAL   100 /* max allowed associated AP beacon for dtim skip */
 
 #ifdef SDTEST
 /* Echo packet generator (SDIO), pkts/s */

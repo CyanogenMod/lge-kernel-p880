@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh_sdmmc_linux.c 372067 2012-11-30 08:03:06Z $
+ * $Id: bcmsdh_sdmmc_linux.c 381548 2013-01-28 17:25:38Z $
  */
 
 #include <typedefs.h>
@@ -124,7 +124,8 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 			if(func->device == 0x4) { /* 4318 */
 				gInstance->func[2] = NULL;
 				sd_trace(("NIC found, calling bcmsdh_probe...\n"));
-				ret = bcmsdh_probe(&func->dev);
+				if (ret < 0 && gInstance)
+						gInstance->func[2] = NULL;
 			}
 		}
 

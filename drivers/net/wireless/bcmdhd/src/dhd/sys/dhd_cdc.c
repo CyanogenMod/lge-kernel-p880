@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_cdc.c 364003 2012-10-22 02:22:16Z $
+ * $Id: dhd_cdc.c 368762 2012-11-14 21:59:17Z $
  *
  * BDC is like CDC, except it includes a header for data packets to convey
  * packet priority over the bus, and flags (e.g. to indicate checksum status
@@ -2685,6 +2685,8 @@ dhd_wlfc_deinit(dhd_pub_t *dhd)
 	athost_wl_status_info_t* wlfc = (athost_wl_status_info_t*)
 		dhd->wlfc_state;
 
+	DHD_TRACE(("Enter %s\n", __FUNCTION__));
+
 	dhd_os_wlfc_block(dhd);
 	if (dhd->wlfc_state == NULL) {
 		dhd_os_wlfc_unblock(dhd);
@@ -2764,6 +2766,8 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 	struct bdc_header *h;
 #endif
 
+	uint8 data_offset = 0;
+
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
 #ifdef BDC
@@ -2779,15 +2783,23 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 
 	h = (struct bdc_header *)PKTDATA(dhd->osh, pktbuf);
 
+#if defined(NDIS630)
+	h->dataOffset = 0;
+#endif
+
+	if (!ifidx) {
+		/* for tx packet, skip the analysis and just exit */
+		data_offset = h->dataOffset;
+		PKTPULL(dhd->osh, pktbuf, BDC_HEADER_LEN);
+		goto exit;
+	}
+
 	if ((*ifidx = BDC_GET_IF_IDX(h)) >= DHD_MAX_IFS) {
 		DHD_ERROR(("%s: rx data ifnum out of range (%d)\n",
 		           __FUNCTION__, *ifidx));
 		return BCME_ERROR;
 	}
 
-#if defined(NDIS630)
-	h->dataOffset = 0;
-#endif
 	if (((h->flags & BDC_FLAG_VER_MASK) >> BDC_FLAG_VER_SHIFT) != BDC_PROTO_VER) {
 		DHD_ERROR(("%s: non-BDC packet received, flags = 0x%x\n",
 		           dhd_ifname(dhd, *ifidx), h->flags));
@@ -2804,13 +2816,14 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 	}
 
 	PKTSETPRIO(pktbuf, (h->priority & BDC_PRIORITY_MASK));
+	data_offset = h->dataOffset;
 	PKTPULL(dhd->osh, pktbuf, BDC_HEADER_LEN);
 #endif /* BDC */
 
 #if !defined(NDIS630)
-	if (PKTLEN(dhd->osh, pktbuf) < (uint32) (h->dataOffset << 2)) {
+	if (PKTLEN(dhd->osh, pktbuf) < (uint32) (data_offset << 2)) {
 		DHD_ERROR(("%s: rx data too short (%d < %d)\n", __FUNCTION__,
-		           PKTLEN(dhd->osh, pktbuf), (h->dataOffset * 4)));
+		           PKTLEN(dhd->osh, pktbuf), (data_offset * 4)));
 		return BCME_ERROR;
 	}
 #endif
@@ -2823,14 +2836,15 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 		- parse txstatus only for packets that came from the firmware
 		*/
 		dhd_os_wlfc_block(dhd);
-		dhd_wlfc_parse_header_info(dhd, pktbuf, (h->dataOffset << 2),
+		dhd_wlfc_parse_header_info(dhd, pktbuf, (data_offset << 2),
 			reorder_buf_info, reorder_info_len);
 		((athost_wl_status_info_t*)dhd->wlfc_state)->stats.dhd_hdrpulls++;
 		dhd_os_wlfc_unblock(dhd);
 	}
 #endif /* PROP_TXSTATUS */
+exit:
 #if !defined(NDIS630)
-		PKTPULL(dhd->osh, pktbuf, (h->dataOffset << 2));
+		PKTPULL(dhd->osh, pktbuf, (data_offset << 2));
 #endif
 	return 0;
 }

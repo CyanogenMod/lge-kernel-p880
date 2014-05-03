@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfg80211.h 366811 2012-11-05 13:49:17Z $
+ * $Id: wl_cfg80211.h 378667 2013-01-14 10:11:50Z $
  */
 
 #ifndef _wl_cfg80211_h_
@@ -143,6 +143,7 @@ do {									\
 #endif				/* (WL_DBG_LEVEL > 0) */
 #define WL_PNO(x)
 
+#define WL_SD(x)
 
 #define WL_SCAN_RETRY_MAX	3
 #define WL_NUM_PMKIDS_MAX	MAXPMKID
@@ -177,6 +178,10 @@ do {									\
 #ifndef WL_SCB_TIMEOUT
 #define WL_SCB_TIMEOUT	20
 #endif
+
+/* SCAN_SUPPRESS timer values in ms */
+#define WL_SCAN_SUPPRESS_TIMEOUT 31000 /* default Framework DHCP timeout is 30 sec */
+#define WL_SCAN_SUPPRESS_RETRY 3000
 
 /* driver status */
 enum wl_status {
@@ -486,6 +491,14 @@ struct parsed_ies {
 	u32 wpa2_ie_len;
 };
 
+#define MAX_EVENT_BUF_NUM 16
+typedef struct wl_eventmsg_buf {
+	u16 num;
+	struct {
+		u16 type;
+		bool set;
+	} event [MAX_EVENT_BUF_NUM];
+} wl_eventmsg_buf_t;
 
 #ifdef WL11U
 /* Max length of Interworking element */
@@ -596,6 +609,10 @@ struct wl_priv {
 #ifdef WL_HOST_BAND_MGMT
 	u8 curr_band;
 #endif /* WL_HOST_BAND_MGMT */
+	bool scan_suppressed;
+	struct timer_list scan_supp_timer;
+	struct work_struct wlan_work;
+	struct mutex event_sync;	/* maily for up/down synchronization */
 };
 
 
@@ -855,11 +872,17 @@ extern int wl_cfg80211_hang(struct net_device *dev, u16 reason);
 extern s32 wl_mode_to_nl80211_iftype(s32 mode);
 int wl_cfg80211_do_driver_init(struct net_device *net);
 void wl_cfg80211_enable_trace(bool set, u32 level);
-extern s32 wl_update_wiphybands(struct wl_priv *wl);
+extern s32 wl_update_wiphybands(struct wl_priv *wl, bool notify);
 extern s32 wl_cfg80211_if_is_group_owner(void);
 extern chanspec_t wl_ch_host_to_driver(u16 channel);
 extern s32 wl_add_remove_eventmsg(struct net_device *ndev, u16 event, bool add);
 extern void wl_stop_wait_next_action_frame(struct wl_priv *wl, struct net_device *ndev);
 extern s32 wl_cfg80211_set_band(struct net_device *ndev, int band);
 extern int wl_cfg80211_update_power_mode(struct net_device *dev);
+#if defined(DHCP_SCAN_SUPPRESS)
+extern int wl_cfg80211_scan_suppress(struct net_device *dev, int suppress);
+#endif
+extern void wl_cfg80211_add_to_eventbuffer(wl_eventmsg_buf_t *ev, u16 event, bool set);
+extern s32 wl_cfg80211_apply_eventbuffer(struct net_device *ndev,
+	struct wl_priv *wl, wl_eventmsg_buf_t *ev);
 #endif				/* _wl_cfg80211_h_ */

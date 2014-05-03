@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfgp2p.c 371797 2012-11-29 11:19:45Z $
+ * $Id: wl_cfgp2p.c 376685 2013-01-02 06:28:45Z $
  *
  */
 #include <typedefs.h>
@@ -777,7 +777,7 @@ exit:
 s32
 wl_cfgp2p_escan(struct wl_priv *wl, struct net_device *dev, u16 active,
 	u32 num_chans, u16 *channels,
-	s32 search_state, u16 action, u32 bssidx)
+	s32 search_state, u16 action, u32 bssidx, struct ether_addr *tx_dst_addr)
 {
 	s32 ret = BCME_OK;
 	s32 memsize;
@@ -847,7 +847,11 @@ wl_cfgp2p_escan(struct wl_priv *wl, struct net_device *dev, u16 active,
 	else
 		eparams->params.scan_type = DOT11_SCANTYPE_PASSIVE;
 
-	memcpy(&eparams->params.bssid, &ether_bcast, ETHER_ADDR_LEN);
+	if (tx_dst_addr == NULL)
+			memcpy(&eparams->params.bssid, &ether_bcast, ETHER_ADDR_LEN);
+	else
+			memcpy(&eparams->params.bssid, tx_dst_addr, ETHER_ADDR_LEN);
+
 	if (ssid.SSID_len)
 		memcpy(&eparams->params.ssid, &ssid, sizeof(wlc_ssid_t));
 
@@ -917,7 +921,7 @@ wl_cfgp2p_escan(struct wl_priv *wl, struct net_device *dev, u16 active,
  */
 s32
 wl_cfgp2p_act_frm_search(struct wl_priv *wl, struct net_device *ndev,
-	s32 bssidx, s32 channel)
+	s32 bssidx, s32 channel, struct ether_addr *tx_dst_addr)
 {
 	s32 ret = 0;
 	u32 chan_cnt = 0;
@@ -950,7 +954,7 @@ wl_cfgp2p_act_frm_search(struct wl_priv *wl, struct net_device *ndev,
 	}
 	ret = wl_cfgp2p_escan(wl, ndev, true, chan_cnt,
 		default_chan_list, WL_P2P_DISC_ST_SEARCH,
-		WL_SCAN_ACTION_START, bssidx);
+		WL_SCAN_ACTION_START, bssidx, tx_dst_addr);
 	kfree(default_chan_list);
 exit:
 	return ret;
@@ -1724,6 +1728,7 @@ wl_cfgp2p_tx_action_frame(struct wl_priv *wl, struct net_device *dev,
 	s32 ret = BCME_OK;
 	s32 timeout = 0;
 
+	wl_eventmsg_buf_t buf;
 
 	CFGP2P_INFO(("\n"));
 	CFGP2P_INFO(("channel : %u , dwell time : %u\n",
@@ -1731,6 +1736,13 @@ wl_cfgp2p_tx_action_frame(struct wl_priv *wl, struct net_device *dev,
 
 	wl_clr_p2p_status(wl, ACTION_TX_COMPLETED);
 	wl_clr_p2p_status(wl, ACTION_TX_NOACK);
+
+	bzero(&buf, sizeof(wl_eventmsg_buf_t));
+	wl_cfg80211_add_to_eventbuffer(&buf, WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE, true);
+	wl_cfg80211_add_to_eventbuffer(&buf, WLC_E_ACTION_FRAME_COMPLETE, true);
+	if ((ret = wl_cfg80211_apply_eventbuffer(wl_to_prmry_ndev(wl), wl, &buf)) < 0)
+			return ret;
+
 #define MAX_WAIT_TIME 2000
 	if (bssidx == P2PAPI_BSSCFG_PRIMARY)
 		bssidx =  wl_to_p2p_bss_bssidx(wl, P2PAPI_BSSCFG_DEVICE);
@@ -1764,6 +1776,13 @@ wl_cfgp2p_tx_action_frame(struct wl_priv *wl, struct net_device *dev,
 
 exit:
 	CFGP2P_INFO((" via act frame iovar : status = %d\n", ret));
+
+	bzero(&buf, sizeof(wl_eventmsg_buf_t));
+	wl_cfg80211_add_to_eventbuffer(&buf, WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE, false);
+	wl_cfg80211_add_to_eventbuffer(&buf, WLC_E_ACTION_FRAME_COMPLETE, false);
+	if ((ret = wl_cfg80211_apply_eventbuffer(wl_to_prmry_ndev(wl), wl, &buf)) < 0)
+			WL_ERR(("TX frame events revert back failed \n"));
+
 #undef MAX_WAIT_TIME
 	return ret;
 }
@@ -1920,6 +1939,7 @@ wl_cfgp2p_supported(struct wl_priv *wl, struct net_device *ndev)
 	}
 	return p2p_supported;
 }
+
 /* Cleanup P2P resources */
 s32
 wl_cfgp2p_down(struct wl_priv *wl)
@@ -1935,6 +1955,7 @@ wl_cfgp2p_down(struct wl_priv *wl)
 	wl_cfgp2p_deinit_priv(wl);
 	return 0;
 }
+
 s32
 wl_cfgp2p_set_p2p_noa(struct wl_priv *wl, struct net_device *ndev, char* buf, int len)
 {
@@ -2077,7 +2098,7 @@ wl_cfgp2p_set_p2p_ps(struct wl_priv *wl, struct net_device *ndev, char* buf, int
 		}
 
 		if ((legacy_ps != -1) && ((legacy_ps == PM_MAX) || (legacy_ps == PM_OFF))) {
-#if !defined(SUPPORT_PM2_ONLY)
+#if defined(SUPPORT_PM2_ONLY)
 			if (legacy_ps == PM_MAX)
 				legacy_ps = PM_FAST;
 #endif /* SUPPORT_PM2_ONLY */

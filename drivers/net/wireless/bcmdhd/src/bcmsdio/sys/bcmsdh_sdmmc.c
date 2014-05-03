@@ -251,8 +251,8 @@ sdioh_enable_func_intr(void)
 		}
 
 		/* Enable F1 and F2 interrupts, set master enable */
-		reg |= (INTR_CTL_FUNC1_EN | INTR_CTL_FUNC2_EN | INTR_CTL_MASTER_EN);
-
+		reg &= ~INTR_CTL_MASTER_EN;
+		reg |= (INTR_CTL_FUNC1_EN | INTR_CTL_FUNC2_EN);
 		sdio_writeb(gInstance->func[0], reg, SDIOD_CCCR_INTEN, &err);
 		sdio_release_host(gInstance->func[0]);
 
@@ -801,7 +801,7 @@ sdioh_request_byte(sdioh_info_t *sd, uint rw, uint func, uint regaddr, uint8 *by
 
 	DHD_PM_RESUME_WAIT(sdioh_request_byte_wait);
 	DHD_PM_RESUME_RETURN_ERROR(SDIOH_API_RC_FAIL);
-	if(rw) { /* CMD52 Write */
+	if(rw) { /* CMD53 Write */
 		if (func == 0) {
 			/* Can only directly write to some F0 registers.  Handle F2 enable
 			 * as a special case.

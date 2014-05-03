@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c 375020 2012-12-17 06:10:40Z $
+ * $Id: dhd_common.c 375022 2012-12-17 06:11:41Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -967,6 +967,12 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 		DHD_EVENT(("MACEVENT: %s %d\n", event_name, ntoh32(*((int *)event_data))));
 		break;
 
+	case WLC_E_SERVICE_FOUND:
+	case WLC_E_P2PO_ADD_DEVICE:
+	case WLC_E_P2PO_DEL_DEVICE:
+		DHD_EVENT(("MACEVENT: %s, MAC: %s\n", event_name, eabuf));
+		break;
+
 	default:
 		DHD_EVENT(("MACEVENT: %s %d, MAC %s, status %d, reason %d, auth %d\n",
 		       event_name, event_type, eabuf, (int)status, (int)reason,
@@ -1454,10 +1460,10 @@ dhd_arp_offload_set(dhd_pub_t * dhd, int arp_mode)
 	retcode = retcode >= 0 ? 0 : retcode;
 	if (retcode)
 		DHD_TRACE(("%s: failed to set ARP offload mode to 0x%x, retcode = %d\n",
-			__FUNCTION__, arp_mode, retcode));
+				__FUNCTION__, arp_mode, retcode));
 	else
 		DHD_TRACE(("%s: successfully set ARP offload mode to 0x%x\n",
-			__FUNCTION__, arp_mode));
+				__FUNCTION__, arp_mode));
 }
 
 void
@@ -1471,10 +1477,10 @@ dhd_arp_offload_enable(dhd_pub_t * dhd, int arp_enable)
 	retcode = retcode >= 0 ? 0 : retcode;
 	if (retcode)
 		DHD_TRACE(("%s: failed to enabe ARP offload to %d, retcode = %d\n",
-			__FUNCTION__, arp_enable, retcode));
+				__FUNCTION__, arp_enable, retcode));
 	else
 		DHD_TRACE(("%s: successfully enabed ARP offload to %d\n",
-			__FUNCTION__, arp_enable));
+				__FUNCTION__, arp_enable));
 	if (arp_enable) {
 		uint32 version;
 		bcm_mkiovar("arp_version", 0, 0, iovbuf, sizeof(iovbuf));
@@ -1541,10 +1547,10 @@ dhd_arp_offload_add_ip(dhd_pub_t *dhd, uint32 ipaddr, int idx)
 
 	if (retcode)
 		DHD_TRACE(("%s: ARP ip addr add failed, retcode = %d\n",
-		__FUNCTION__, retcode));
+				__FUNCTION__, retcode));
 	else
 		DHD_TRACE(("%s: sARP H ipaddr entry added \n",
-		__FUNCTION__));
+				__FUNCTION__));
 }
 
 int
@@ -1833,11 +1839,11 @@ bool dhd_is_associated(dhd_pub_t *dhd, void *bss_buf, int *retval)
 int
 dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd)
 {
-	int bcn_li_dtim;
+	int bcn_li_dtim = 1; /* default no dtim skip setting */
 	int ret = -1;
 	int dtim_assoc = 0;
 
-	bcn_li_dtim = dhd->suspend_bcn_li_dtim;
+	int ap_beacon = 0;
 
 	/* Check if associated */
 	if (dhd_is_associated(dhd, NULL, NULL) == FALSE) {
@@ -1845,20 +1851,33 @@ dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd)
 		goto exit;
 	}
 
-	/* if assoc grab ap's dtim value */
+	/* read associated AP beacon interval */
+	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_GET_BCNPRD,
+		&ap_beacon, sizeof(ap_beacon), FALSE, 0)) < 0) {
+		DHD_ERROR(("%s get beacon failed code %d\n", __FUNCTION__, ret));
+		goto exit;
+	}
+
+	/* if associated APs Beacon more  that 100msec do no dtim skip */
+	if (ap_beacon > MAX_DTIM_SKIP_BEACON_ITERVAL) {
+		DHD_ERROR(("%s NO dtim skip for AP with beacon %d ms\n", __FUNCTION__, ap_beacon));
+		goto exit;
+	}
+
+	/* read associated ap's dtim setup */
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_GET_DTIMPRD,
 		&dtim_assoc, sizeof(dtim_assoc), FALSE, 0)) < 0) {
 		DHD_ERROR(("%s failed code %d\n", __FUNCTION__, ret));
 		goto exit;
 	}
 
-	DHD_ERROR(("%s bcn_li_dtim=%d DTIM=%d Listen=%d\n",
-		__FUNCTION__, bcn_li_dtim, dtim_assoc, LISTEN_INTERVAL));
-
 	/* if not assocated just eixt */
 	if (dtim_assoc == 0) {
 		goto exit;
 	}
+
+	/* attemp to use platform defined dtim skip interval */
+	bcn_li_dtim = dhd->suspend_bcn_li_dtim;
 
 	/* check if sta listen interval fits into AP dtim */
 	if (dtim_assoc > LISTEN_INTERVAL) {
@@ -1874,6 +1893,9 @@ dhd_get_suspend_bcn_li_dtim(dhd_pub_t *dhd)
 		bcn_li_dtim = (int)(LISTEN_INTERVAL / dtim_assoc);
 		DHD_TRACE(("%s agjust dtim_skip as %d\n", __FUNCTION__, bcn_li_dtim));
 	}
+
+	DHD_ERROR(("%s beacon=%d bcn_li_dtim=%d DTIM=%d Listen=%d\n",
+		__FUNCTION__, ap_beacon, bcn_li_dtim, dtim_assoc, LISTEN_INTERVAL));
 
 exit:
 	return bcn_li_dtim;
