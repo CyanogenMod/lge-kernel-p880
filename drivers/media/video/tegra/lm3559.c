@@ -88,17 +88,18 @@ static unsigned char lm3559_flash_lvl[16] = {
 // [6] 1 => LED2 on, 0 => LED2 off
 // [7] 1 => Torch, 0 => Privacy
 static u8 lm3559_torch_table[] = {
-	0,	// Off
+	0,		// Off
 	228,	// CM default
 	255,	// CM high
-	24, 24, 24, 24, 24, 24, 24, // Filler
-	24,	// 10
+	255,	// CM high
+	24, 24, 24, 24, 24, 24, // Filler
+	228,	// 10 	// CM default
 	120,	// 11
-	26,	// 12
+	26,		// 12
 	121,	// 13
-	28,	// 14
+	28,		// 14
 	122,	// 15
-	30,	// 16
+	30,		// 16
 	123,	// 17
 	124,	// 18
 	125,	// 19
