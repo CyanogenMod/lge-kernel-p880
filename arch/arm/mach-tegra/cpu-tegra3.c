@@ -40,9 +40,9 @@
 
 #define INITIAL_STATE		TEGRA_HP_DISABLED
 #define UP2G0_DELAY_MS		100
-#define UP2Gn_DELAY_MS		1000
+#define UP2Gn_DELAY_MS		500
 //                    
-#define DOWN_DELAY_MS		1500
+#define DOWN_DELAY_MS		1000
 
 static struct mutex *tegra3_cpu_lock;
 
@@ -202,7 +202,7 @@ static unsigned int rt_profile_sel;
 static unsigned int rt_profile_default[] = {
 /*      1,  2,  3,  4 - on-line cpus target */
 /*                                                                              */
-	8,  9, 10, UINT_MAX
+	10, 11, 12, UINT_MAX
 //	5,  9, 10, UINT_MAX
 };
 
