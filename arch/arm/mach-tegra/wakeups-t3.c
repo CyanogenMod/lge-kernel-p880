@@ -65,6 +65,7 @@ static struct tegra_wake_info tegra_wake_event_data_t3[] = {
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PN2), POLARITY_NONE},	/* wake30 */
 	{-EINVAL, POLARITY_NONE}, /* not used */			/* wake31 */
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PO4), POLARITY_NONE},	/* wake32 */
+	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PO7), POLARITY_NONE},	/* wake43 */
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PJ0), POLARITY_NONE},	/* wake33 */
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PK2), POLARITY_NONE},	/* wake34 */
 	{TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PI6), POLARITY_NONE},	/* wake35 */

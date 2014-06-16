@@ -61,6 +61,7 @@
 /* bit 31 is unused */
 
 #define TEGRA_WAKE_GPIO_PO4	32
+#define TEGRA_WAKE_GPIO_PO7	43
 #define TEGRA_WAKE_GPIO_PJ0	33
 #define TEGRA_WAKE_GPIO_PK2	34
 #define TEGRA_WAKE_GPIO_PI6	35
