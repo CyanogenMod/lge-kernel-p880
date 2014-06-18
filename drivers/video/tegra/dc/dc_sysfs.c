@@ -321,6 +321,37 @@ static ssize_t smart_panel_show(struct device *device,
 
 static DEVICE_ATTR(smart_panel, S_IRUGO, smart_panel_show, NULL);
 
+#ifdef CONFIG_TEGRA_DC_CMU
+static ssize_t cmu_enable_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int val;
+	int e;
+	struct nvhost_device *ndev = to_nvhost_device(dev);
+	struct tegra_dc *dc = nvhost_get_drvdata(ndev);
+
+	e = kstrtoint(buf, 10, &val);
+	if (e)
+		return e;
+
+	tegra_dc_cmu_enable(dc, val);
+
+	return count;
+}
+
+static ssize_t cmu_enable_show(struct device *device,
+	struct device_attribute *attr, char  *buf)
+{
+	struct nvhost_device *ndev = to_nvhost_device(device);
+	struct tegra_dc *dc = nvhost_get_drvdata(ndev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", dc->pdata->cmu_enable);
+}
+
+
+static DEVICE_ATTR(cmu_enable, S_IRUGO|S_IWUSR, cmu_enable_show, cmu_enable_store);
+#endif
+
 void __devexit tegra_dc_remove_sysfs(struct device *dev)
 {
 	struct nvhost_device *ndev = to_nvhost_device(dev);
@@ -332,6 +363,10 @@ void __devexit tegra_dc_remove_sysfs(struct device *dev)
 	device_remove_file(dev, &dev_attr_enable);
 	device_remove_file(dev, &dev_attr_stats_enable);
 	device_remove_file(dev, &dev_attr_crc_checksum_latched);
+
+#ifdef CONFIG_TEGRA_DC_CMU
+	device_remove_file(dev, &dev_attr_cmu_enable);
+#endif
 
 	if (dc->out->stereo) {
 		device_remove_file(dev, &dev_attr_stereo_orientation);
@@ -356,6 +391,9 @@ void tegra_dc_create_sysfs(struct device *dev)
 	error |= device_create_file(dev, &dev_attr_nvdps);
 	error |= device_create_file(dev, &dev_attr_enable);
 	error |= device_create_file(dev, &dev_attr_stats_enable);
+#ifdef CONFIG_TEGRA_DC_CMU
+	error |= device_create_file(dev, &dev_attr_cmu_enable);
+#endif
 	error |= device_create_file(dev, &dev_attr_crc_checksum_latched);
 
 	if (dc->out->stereo) {
