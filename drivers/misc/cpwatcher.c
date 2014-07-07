@@ -52,6 +52,7 @@
 #include <linux/wakelock.h> 
 #include <linux/rtc.h>
 
+#include "../../arch/arm/mach-tegra/baseband-xmm-power.h"
 
 #define NV_DEBUG 0
 
@@ -108,16 +109,16 @@ static int debug_enable_flag = 0;//Release
 //#else
 #define EVENT_KEY KEY_F24 //194, Need to be changed
 
-#if defined (CONFIG_MODEM_IFX)
-#define EVENT_HARD_RESET_KEY	195	//this key number is not used in input.h
-#endif
+//#if defined (CONFIG_MODEM_IFX)
+//#define EVENT_HARD_RESET_KEY	195	//this key number is not used in input.h
+//#endif
 //#endif
 
-#define	HEADSET_PORT 6
-#define	HEADSET_PIN 3
-#if defined (CONFIG_MODEM_IFX)
-#define ENABLE_CP_HARD_RESET
-#endif
+//#define	HEADSET_PORT 6
+//#define	HEADSET_PIN 3
+//#if defined (CONFIG_MODEM_IFX)
+//#define ENABLE_CP_HARD_RESET
+//#endif
 
 //static int cp_crash_int_pin		= TEGRA_GPIO_PP1;		//Temporary for Rev.B test
 static int cp_crash_int_pin		= TEGRA_GPIO_PS5;		//Rev.C
@@ -141,8 +142,8 @@ struct cpwatcher_dev {
 };
 static struct cpwatcher_dev *cpwatcher;
 
-
-static int lge_is_crash_dump_enabled()
+/*
+static int lge_is_crash_dump_enabled(void)
 {
 	char data[2] = {0x00,0x00};
 
@@ -153,9 +154,9 @@ static int lge_is_crash_dump_enabled()
 		return 1;
 	else
 		return 0;
-}
+}*/
  //RIP-73256 : [X3] CTS issue : permission error - byeonggeun.kim [START]
-static int lge_is_ril_recovery_mode_enabled()
+static int lge_is_ril_recovery_mode_enabled(void)
 {
 	char data[2] = {0x00,0x00};
 
@@ -238,15 +239,14 @@ static unsigned int test_flag = 1;//debug with headset detect
 static unsigned int test_flag = 0;
 #endif
 module_param(test_flag, int, 0);
-
-
+/*
 static void cpwatcher_get_status(unsigned int *pin)
 {
 	//NvOdmGpioGetState(cpwatcher->hGpio, cpwatcher->hCP_status, pin);
 	*pin = gpio_get_value(cp_crash_int_pin);
-}
+}*/
 
-static void cpwatcher_irq_handler(void *dev_id)
+static irqreturn_t cpwatcher_irq_handler(int irq, void *dev_id)
 {
 	struct cpwatcher_dev *dev = cpwatcher;
 
@@ -254,21 +254,17 @@ static void cpwatcher_irq_handler(void *dev_id)
 		printk("[CPW] %s()\n", __FUNCTION__);
 		//NvOdmGpioGetState(cpwatcher_dev.hGpio, cpwatcher_dev.hCP_status, &pinValue);
 		schedule_delayed_work(&dev->delayed_work_cpwatcher, dev->delay);
+		return IRQ_HANDLED;
 	}
-
-	//NvOdmGpioInterruptDone(cpwatcher->hGpioInterrupt);
+	return IRQ_HANDLED;
 }
-
-
-#ifdef DEBUG_CPWATCHER_REPORT_INPUT
+#if 0
+//#ifdef DEBUG_CPWATCHER_REPORT_INPUT
 static int cpwatcher_thread(void *pd)
 {
-	unsigned int status = 0;
-
-
 	for (;;) {
 		
-		cpwatcher_get_status(&status);
+		int status = gpio_get_value(cp_crash_int_pin);
 
 		DBG("[CPW] CP status: %s\n", status? "error" : "available");
 
@@ -286,93 +282,83 @@ static int cpwatcher_thread(void *pd)
 }
 #endif
 
-extern volatile int time_to_stop; //                                                                                                             
+//extern volatile int time_to_stop; //                                                                                                             
 
 static void cpwatcher_work_func(struct work_struct *wq)
 {
 	struct cpwatcher_dev *dev = cpwatcher;
-	unsigned int status = 0;
-    //int ret = 0;
-        
-	//unsigned char data;				//Blocked due to CS Issue
-    struct timeval now;
-    struct tm gmt_time;
+	int status = 0;
+	int retry = 4;
 
-	char* argv[] = {"/system/bin/ifx_coredump", "CP_CRASH_IRQ", NULL};
-	char *envp[] = { "HOME=/",	"PATH=/sbin:/bin:/system/bin",	NULL };	
-
-    do_gettimeofday(&now);
-    time_to_tm(now.tv_sec, 0, &gmt_time);
-        
-    printk("[CPW] cpwatcher_work_func()\n");
-    printk(KERN_ERR "%d-%d-%d %d:%d:%d.%ld *\n",
-        gmt_time.tm_year + 1900, gmt_time.tm_mon + 1, 
-        gmt_time.tm_mday, gmt_time.tm_hour - sys_tz.tz_minuteswest / 60,
-        gmt_time.tm_min, gmt_time.tm_sec, now.tv_usec);
-        
-    time_to_stop = 1; //                                                                                                             
+	printk("[CPW] cpwatcher_work_func()\n");
+	  
+//	time_to_stop = 1; //                                                                                                             
 	if (dev->onoff) {
-
-		cpwatcher_get_status(&status);
+		status = gpio_get_value(cp_crash_int_pin);
 		printk("[CPW] %s(), status: %d\n", __FUNCTION__, status);
-
-		if (status == 0) {//If High, CP error
-
-            wake_lock(&dev->wake_lock);
-
-            // UPDATE CP_CRASH_COUNT -- //Blocked due to CS Issue
-            //                                                            
-            //data++;
-            //                                                             
-
-            // CHECK CP_CRASH_DUMP OPTION
-            //if (lge_is_crash_dump_enabled() != 1) //this line will be enabled rev.e
-            {
-                input_report_key(dev->input, EVENT_KEY, 1);
-                input_report_key(dev->input, EVENT_KEY, 0);
-                input_sync(dev->input);
-                printk("[CPW] CP Crash : input_report_key(): %d\n", EVENT_KEY);
-                is_cp_crash = 1; //RIP-13119 : RIL recovery should be started by USB-disconnection.
+/*ORG			if (status == 0) { 	//If High, CP error
+			wake_lock(&dev->wake_lock);
+			input_report_key(dev->input, EVENT_KEY, 1);
+			input_report_key(dev->input, EVENT_KEY, 0);
+			input_sync(dev->input);
+			printk("[CPW] CP Crash : input_report_key(): %d\n", EVENT_KEY);
+			is_cp_crash = 1; //RIP-13119 : RIL recovery should be started by USB-disconnection.
                 
-                //RIP-73256 - S
-                if(lge_is_ril_recovery_mode_enabled() != 1)
-                {
-                    printk("[CPW] CP Crash : lge_is_ril_recovery_mode_enabled() = 1 ...change to CP_USB mode \n");
-                    gpio_set_value(KEYBACKLIGHT_LEDS_GPIO, 1);      //Temporary -- Keybacklight on when occurs CP Crash
+			//RIP-73256 - S
+			if(lge_is_ril_recovery_mode_enabled() != 1) {
+				printk("[CPW] CP Crash : lge_is_ril_recovery_mode_enabled() = 1 ...change to CP_USB mode \n");
+				gpio_set_value(KEYBACKLIGHT_LEDS_GPIO, 1);      //Temporary -- Keybacklight on when occurs CP Crash
 
-                    extern void muic_proc_set_cp_usb_force(void);
-                    muic_proc_set_cp_usb_force();
-                }
-                wake_unlock(&dev->wake_lock);
-                //RIP-73256 - E
-                return;
-            }
-
-    //                {
-    //                        extern void tegra_ehci_shutdown_global(void);
-    //                        tegra_ehci_shutdown_global();
-    
-    //                }
-    
-    //        Enabled after Fixing Baudrate Issue 
-    //        ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
-    //        printk("[CP CRASH IRQ] launch ifx_coredump process ret:%d\n", ret);
-                        
+				extern void muic_proc_set_cp_usb_force(void);
+				muic_proc_set_cp_usb_force();
+			}
+			wake_unlock(&dev->wake_lock);
+*/ 	//(New test)
+		if (status == 0) {
+			//TODO Remove key event or add to ril.Might work on stock rom?
+			//V/InCall  (  910): InCallActivity - handleDialerKeyDown: keyCode 0, event KeyEvent { action=ACTION_DOWN, keyCode=KEYCODE_UNKNOWN, scanCode=194
+			wake_lock(&dev->wake_lock);
+			input_report_key(dev->input, EVENT_KEY, 1);
+			input_report_key(dev->input, EVENT_KEY, 0);
+			input_sync(dev->input);
+			printk("[CPW] CP Crash : input_report_key(): %d\n", EVENT_KEY);
+			is_cp_crash = 1; //RIP-13119 : RIL recovery should be started by USB-disconnection.
+			gpio_set_value(KEYBACKLIGHT_LEDS_GPIO, 1); //Keybacklight on when occurs CP Crash
+			
+			if (lge_is_ril_recovery_mode_enabled() != 1) {
+				extern void muic_proc_set_cp_usb_force(void);
+				do {
+					printk("[CPW] CP Crash : lge_is_ril_recovery_mode_enabled() = 1 ...change to CP_USB mode\n");
+					muic_proc_set_cp_usb_force();
+					msleep(300);
+					status = gpio_get_value(cp_crash_int_pin);
+					retry--;
+				} while ((!status) && (retry));
+				if (retry) {
+					printk("[CPW] CP Crash : modem crash is normal \n");
+					is_cp_crash = 0;
+					gpio_set_value(KEYBACKLIGHT_LEDS_GPIO, 0);
+				} else {
+					printk("[CPW] CP Crash : modem crash is abnormal, force restart\n");
+					//reset baseband_xmm
+					baseband_xmm_power_switch(0);
+					//ts0710_mux will turn it back on
+				}
+			}
+			wake_unlock(&dev->wake_lock);
+			return;
 		}
 	}
 }
-
 
 static ssize_t
 cpwatcher_show_onoff(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int result = 0;
 
-
 	if (!cpwatcher) return 0;
-
 	result  = snprintf(buf, PAGE_SIZE, "%s\n", (cpwatcher->onoff == TRUE)  ? "1":"0");
-	
+
 	return result;
 }
 
@@ -382,7 +368,6 @@ cpwatcher_store_onoff(struct device *dev, struct device_attribute *attr, const c
 {
 	int onoff;
 	
-	
 	if (!count)
 		return -EINVAL;
 
@@ -390,11 +375,9 @@ cpwatcher_store_onoff(struct device *dev, struct device_attribute *attr, const c
 	sscanf(buf, "%d", &onoff);
 
 	if (onoff) {
-
 		cpwatcher->onoff = TRUE;
 		printk("[CPW] On\n");
 	} else {
-
 		cpwatcher->onoff = FALSE;
 		printk("[CPW] Off\n");
 	}
@@ -421,8 +404,7 @@ static int cpwatcher_probe(struct platform_device *pdev)
 {
 	struct cpwatcher_dev *dev; 
 	struct device *dev_sys = &pdev->dev;
-	int i, j;
-//	NvBool ret_status = 0;
+//	int i, j;
 	int ret = 0;
 
 	dev = kzalloc(sizeof(struct cpwatcher_dev), GFP_KERNEL);
@@ -470,7 +452,7 @@ static int cpwatcher_probe(struct platform_device *pdev)
              goto fail_gpio_open;
         }
 
-        ret=gpio_direction_input(cp_crash_int_pin);
+        ret = gpio_direction_input(cp_crash_int_pin);
         if (ret < 0)
         {
              printk("CP_CRASH[2] : Fail to direct CP_CRASH_INT enabling\n");
@@ -479,19 +461,19 @@ static int cpwatcher_probe(struct platform_device *pdev)
         }               
 	printk("[CPW] CP_CRASH_INT : %d, Line[%d]\n",	gpio_get_value(cp_crash_int_pin),__LINE__); 	
 	
-        ret = request_irq(TEGRA_GPIO_TO_IRQ(cp_crash_int_pin), cpwatcher_irq_handler,
-              IRQF_TRIGGER_FALLING,
-              "cpwatcher", dev);
+	ret = request_threaded_irq(TEGRA_GPIO_TO_IRQ(cp_crash_int_pin), NULL,
+		cpwatcher_irq_handler,
+		IRQF_TRIGGER_FALLING,
+		"cpwatcher", NULL);
+	if (ret < 0) {
+		printk("%s Could not allocate APDS990x_INT !\n", __func__);
+		goto fail_gpio_open;
+	}
 
-      if (ret < 0) {
-              printk("%s Could not allocate APDS990x_INT !\n", __func__);
-              goto fail_gpio_open;
-      }
-
-
-#ifdef CPW_CHECK_STATUS_AT_BEGINNING
+#if 0
+//#ifdef CPW_CHECK_STATUS_AT_BEGINNING
 	/* Check the status at the beginning */
-	cpwatcher_get_status(&dev->status);
+	int status = gpio_get_value(cp_crash_int_pin);
 	printk("[CPW] CP status: %s\n", dev->status? "error" : "available");
 	if (dev->status) {//If High, CP error
 		input_report_key(dev->input, EVENT_KEY, 1);
@@ -530,8 +512,8 @@ fail_gpio_open:
 fail_input_register:
 	input_free_device(dev->input);
 
-fail_free_irq:
-	free_irq(TEGRA_GPIO_TO_IRQ(cp_crash_int_pin), dev);
+//fail_free_irq:
+//	free_irq(TEGRA_GPIO_TO_IRQ(cp_crash_int_pin), dev);
 
 fail_input_allocate:
 	kfree(dev);
@@ -550,7 +532,7 @@ static int __devexit cpwatcher_remove(struct platform_device *pdev)
 
 	input_free_device(cpwatcher->input);
 
-	free_irq(TEGRA_GPIO_TO_IRQ(cp_crash_int_pin), cpwatcher);
+	free_irq(TEGRA_GPIO_TO_IRQ(cp_crash_int_pin), NULL);
         wake_lock_destroy(&cpwatcher->wake_lock);
 
 	kfree(cpwatcher);
