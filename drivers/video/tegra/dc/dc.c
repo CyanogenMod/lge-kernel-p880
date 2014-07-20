@@ -82,6 +82,7 @@ static struct fb_videomode tegra_dc_hdmi_fallback_mode = {
 	.sync = 0,
 };
 
+static struct timeval t_suspend;
 static struct tegra_dc_mode override_disp_mode[3];
 
 static void _tegra_dc_controller_disable(struct tegra_dc *dc);
@@ -1671,6 +1672,18 @@ static int _tegra_dc_set_default_videomode(struct tegra_dc *dc)
 
 static bool _tegra_dc_enable(struct tegra_dc *dc)
 {
+	bool enabled = false;
+
+	if (dc->ndev->id == 0) {
+			struct timeval t_resume;
+			int diff_msec = 0;
+			do_gettimeofday(&t_resume);
+			diff_msec = ((t_resume.tv_sec - t_suspend.tv_sec) * 1000000 +(t_resume.tv_usec - t_suspend.tv_usec)) / 1000;
+			printk("Disp: diff_msec= %d\n", diff_msec);
+			if((diff_msec < 150) && (diff_msec >= 0))
+					msleep(150 - diff_msec);
+	}
+
 	if (dc->mode.pclk == 0)
 		return false;
 
@@ -1679,11 +1692,13 @@ static bool _tegra_dc_enable(struct tegra_dc *dc)
 
 	tegra_dc_io_start(dc);
 
-	if (!_tegra_dc_controller_enable(dc)) {
-		tegra_dc_io_end(dc);
-		return false;
+	enabled = _tegra_dc_controller_enable(dc);
+	if (dc->pdata->min_emc_clk_rate && enabled) {
+			clk_enable(dc->min_emc_clk);
+			clk_set_rate(dc->min_emc_clk, dc->pdata->min_emc_clk_rate);
 	}
-	return true;
+
+	return enabled;
 }
 
 void tegra_dc_enable(struct tegra_dc *dc)
@@ -1788,20 +1803,17 @@ void tegra_dc_blank(struct tegra_dc *dc)
 
 static void _tegra_dc_disable(struct tegra_dc *dc)
 {
-	if (dc->out->flags & TEGRA_DC_OUT_ONE_SHOT_MODE) {
-		mutex_lock(&dc->one_shot_lock);
-		cancel_delayed_work_sync(&dc->one_shot_work);
+	if (dc->ndev->id == 0) {
+		do_gettimeofday(&t_suspend);
 	}
-
-	tegra_dc_hold_dc_out(dc);
 
 	_tegra_dc_controller_disable(dc);
 	tegra_dc_io_end(dc);
 
-	tegra_dc_release_dc_out(dc);
-
-	if (dc->out->flags & TEGRA_DC_OUT_ONE_SHOT_MODE)
-		mutex_unlock(&dc->one_shot_lock);
+	if (dc->pdata->min_emc_clk_rate) {
+			clk_set_rate(dc->min_emc_clk, 0);
+			clk_disable(dc->min_emc_clk);
+	}
 }
 
 void tegra_dc_disable(struct tegra_dc *dc)
@@ -1913,13 +1925,13 @@ static ssize_t switch_modeset_print_mode(struct switch_dev *sdev, char *buf)
 }
 #endif
 
-static int tegra_dc_probe(struct nvhost_device *ndev,
-	struct nvhost_device_id *id_table)
+static int tegra_dc_probe(struct nvhost_device *ndev)
 {
 	struct tegra_dc *dc;
 	struct tegra_dc_mode *mode;
 	struct clk *clk;
 	struct clk *emc_clk;
+	struct clk *min_emc_clk;
 	struct resource	*res;
 	struct resource *base_res;
 	struct resource *fb_mem = NULL;
@@ -1984,8 +1996,16 @@ static int tegra_dc_probe(struct nvhost_device *ndev,
 		goto err_put_clk;
 	}
 
+	min_emc_clk = clk_get(&ndev->dev, "min_emc");
+	if (IS_ERR_OR_NULL(min_emc_clk)) {
+	dev_err(&ndev->dev, "can't get min_emc clock\n");
+	ret = -ENOENT;
+	goto err_put_emc_clk;
+	}
+
 	dc->clk = clk;
 	dc->emc_clk = emc_clk;
+	dc->min_emc_clk = min_emc_clk;
 	dc->shift_clk_div = 1;
 	/* Initialize one shot work delay, it will be assigned by dsi
 	 * according to refresh rate later. */
@@ -2070,7 +2090,7 @@ static int tegra_dc_probe(struct nvhost_device *ndev,
 			dev_name(&ndev->dev), dc)) {
 		dev_err(&ndev->dev, "request_irq %d failed\n", irq);
 		ret = -EBUSY;
-		goto err_put_emc_clk;
+		goto err_put_min_emc_clk;
 	}
 
 	tegra_dc_create_debugfs(dc);
@@ -2114,6 +2134,8 @@ static int tegra_dc_probe(struct nvhost_device *ndev,
 
 err_free_irq:
 	free_irq(irq, dc);
+err_put_min_emc_clk:
+	clk_put(min_emc_clk);
 err_put_emc_clk:
 	clk_put(emc_clk);
 err_put_clk:
