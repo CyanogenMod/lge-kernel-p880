@@ -4269,13 +4269,8 @@ static struct clk tegra_clk_emc = {
 	.ops = &tegra_emc_clk_ops,
 	.reg = 0x19c,
 	.max_rate = 900000000,
-#if 0//def CONFIG_MACH_X3 JB native code use
-	.min_rate = 25000000,
-#else
 	.min_rate = 12000000,
-#endif
 	.inputs = mux_pllm_pllc_pllp_clkm,
-//                                                      
 	.flags = MUX | DIV_U71 | PERIPH_EMC_ENB,
 	.u.periph = {
 		.clk_num = 57,
