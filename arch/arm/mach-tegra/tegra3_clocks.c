@@ -4109,16 +4109,11 @@ static struct clk tegra_clk_pclk = {
 	.reg		= 0x30,
 	.reg_shift	= 0,
 	.ops		= &tegra_bus_ops,
-#ifdef CONFIG_MACH_X3
-	.max_rate       = 167000000,
-	.min_rate       = SCLK_MIN_FREQ,
-#else
 	.max_rate       = 167000000,
 	.min_rate       = 12000000,
-#endif
 };
 
-static struct raw_notifier_head sbus_rate_change_nh;
+static RAW_NOTIFIER_HEAD(sbus_rate_change_nh);
 
 static struct clk tegra_clk_sbus_cmplx = {
 	.name	   = "sbus",
@@ -4262,7 +4257,7 @@ static struct clk_mux_sel mux_plla_clk32_pllp_clkm_plle[] = {
 	{ 0, 0},
 };
 
-static struct raw_notifier_head emc_rate_change_nh;
+static RAW_NOTIFIER_HEAD(emc_rate_change_nh);
 
 static struct clk tegra_clk_emc = {
 	.name = "emc",
