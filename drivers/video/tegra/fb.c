@@ -80,12 +80,20 @@ static int tegra_fb_check_var(struct fb_var_screeninfo *var,
 	/* Apply mode filter for HDMI only -LVDS supports only fix mode */
 	if (ops && ops->mode_filter) {
 
+	/* xoffset and yoffset are not preserved by conversion
+     * to fb_videomode */
+		__u32 xoffset = var->xoffset;
+		__u32 yoffset = var->yoffset;
+
 		fb_var_to_videomode(&mode, var);
 		if (!ops->mode_filter(dc, &mode))
 			return -EINVAL;
 
 		/* Mode filter may have modified the mode */
 		fb_videomode_to_var(var, &mode);
+
+		var->xoffset = xoffset;
+		var->yoffset = yoffset;
 	}
 
 	/* Double yres_virtual to allow double buffering through pan_display */
@@ -294,7 +302,8 @@ static int tegra_fb_pan_display(struct fb_var_screeninfo *var,
 	 * Do nothing if display parameters are same as current values.
 	 */
 	if ((var->xoffset == tegra_fb->curr_xoffset) &&
-	    (var->yoffset == tegra_fb->curr_yoffset))
+	    (var->yoffset == tegra_fb->curr_yoffset) &&
+		!(var->activate & FB_ACTIVATE_FORCE))
 		return 0;
 
 	if (!tegra_fb->win->cur_handle) {
