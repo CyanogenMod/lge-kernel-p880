@@ -1048,6 +1048,11 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 	/* Use primary I/F for sending cmds down to firmware */
 	_ndev = wl_to_prmry_ndev(wl);
 
+    if (wl_get_drv_status(wl, CONNECTING, _ndev)) {
+            WL_ERR(("Already AP connection going on\n"));
+            return -EBUSY;
+    }
+	
 	WL_DBG(("if name: %s, type: %d\n", name, type));
 	switch (type) {
 	case NL80211_IFTYPE_ADHOC:
