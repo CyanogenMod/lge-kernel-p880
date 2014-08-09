@@ -47,7 +47,7 @@
 
 extern void drop_pagecache_sb(struct super_block *sb, void *unused);
 
-static uint32_t lowmem_debug_level = 2;
+static uint32_t lowmem_debug_level = 1;
 static uint32_t enable_filecache_check = 150;
 static long pick_task_runtime = 10;
 
