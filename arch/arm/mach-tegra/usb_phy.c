@@ -34,6 +34,10 @@
 #include <mach/iomap.h>
 #include "fuse.h"
 
+#include "pm-irq.h"
+
+#define MODULE_NAME "[USBPHY] "
+
 #define ERR(stuff...)		pr_err("usb_phy: " stuff)
 #define WARNING(stuff...)	pr_warning("usb_phy: " stuff)
 #define INFO(stuff...)		pr_info("usb_phy: " stuff)
@@ -214,7 +218,10 @@ static int tegra_usb_phy_get_clocks(struct tegra_usb_phy *phy)
 		err = PTR_ERR(phy->sys_clk);
 		goto fail_sclk;
 	}
-	clk_set_rate(phy->sys_clk, 80000000);
+	if (phy->pdata->phy_intf == TEGRA_USB_PHY_INTF_UTMI)
+		clk_set_rate(phy->sys_clk, 81600000);
+	else
+		clk_set_rate(phy->sys_clk, 80000000);
 
 	phy->emc_clk = clk_get(&phy->pdev->dev, "emc");
 	if (IS_ERR(phy->emc_clk)) {
@@ -227,6 +234,9 @@ static int tegra_usb_phy_get_clocks(struct tegra_usb_phy *phy)
 		clk_set_rate(phy->emc_clk, 100000000);
 	else
 		clk_set_rate(phy->emc_clk, 300000000);
+
+	if (phy->pdata->phy_intf == TEGRA_USB_PHY_INTF_UTMI)
+		clk_set_rate(phy->emc_clk, 266500000);
 
 	return err;
 
@@ -777,3 +787,33 @@ void tegra_usb_phy_memory_prefetch_off(struct tegra_usb_phy *phy)
 		writel(val, ahb_gizmo + AHB_MEM_PREFETCH_CFG2);
 	}
 }
+
+int tegra_usb_set_vbus_wakeup(int irq)
+{
+	int err = 0;
+	err = tegra_pm_irq_set_wake(irq, true);
+	if(err!=0){
+		pr_err(MODULE_NAME "%s set wake error:%d\n", __func__,err);
+		return err;
+	}
+	err = tegra_pm_irq_set_wake_type(irq, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING);
+	if(err!=0){
+		pr_err(MODULE_NAME "%s set wake_type error:%d\n", __func__,err);
+	}
+	return err;
+
+}
+void tegra_usb_set_usb_clk(struct tegra_usb_phy *phy, bool pull_up)
+{
+	if (!phy)
+		return;
+	pr_info("%s pull_up:%d\n", __func__, pull_up);
+	if (pull_up) {
+		clk_set_rate(phy->sys_clk, 266000000);
+		clk_set_rate(phy->emc_clk, 533000000);
+	} else {
+		clk_set_rate(phy->sys_clk, 81600000);
+		clk_set_rate(phy->emc_clk, 266500000);
+	}
+}
+

@@ -42,7 +42,7 @@
 #endif  /* USB_NET_BUFSIZ */
 
 /* maximum interface number supported */
-#define MAX_INTFS	5
+#define MAX_INTFS	3
 
 MODULE_LICENSE("GPL");
 

@@ -312,7 +312,7 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	 * before we continue.
 	 */
 	set_cpu_online(cpu, true);
-	printk("CPU%u: Booted secondary processor\n", cpu);
+//	printk("CPU%u: Booted secondary processor\n", cpu);
 
 	/*
 	 * Setup the percpu timer for this CPU.
