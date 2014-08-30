@@ -662,17 +662,14 @@ long writeback_inodes_wb(struct bdi_writeback *wb, long nr_pages)
 	return nr_pages - work.nr_pages;
 }
 
-static bool over_bground_thresh(struct backing_dev_info *bdi)
+static inline bool over_bground_thresh(void)
 {
 	unsigned long background_thresh, dirty_thresh;
 
 	global_dirty_limits(&background_thresh, &dirty_thresh);
 
-	if (bdi_stat(bdi, BDI_RECLAIMABLE) >
-				bdi_dirty_limit(bdi, background_thresh))
-		return true;
-
-	return false;
+	return (global_page_state(NR_FILE_DIRTY) +
+		global_page_state(NR_UNSTABLE_NFS) > background_thresh);
 }
 
 /*
@@ -734,7 +731,7 @@ static long wb_writeback(struct bdi_writeback *wb,
 		 * For background writeout, stop when we are below the
 		 * background dirty threshold
 		 */
-		if (work->for_background && !over_bground_thresh(wb->bdi))
+		if (work->for_background && !over_bground_thresh())
 			break;
 
 		if (work->for_kupdate) {
@@ -818,7 +815,7 @@ static unsigned long get_nr_dirty_pages(void)
 
 static long wb_check_background_flush(struct bdi_writeback *wb)
 {
-	if (over_bground_thresh(wb->bdi)) {
+	if (over_bground_thresh()) {
 
 		struct wb_writeback_work work = {
 			.nr_pages	= LONG_MAX,
@@ -980,8 +977,10 @@ void wakeup_flusher_threads(long nr_pages)
 {
 	struct backing_dev_info *bdi;
 
-	if (!nr_pages)
-		nr_pages = get_nr_dirty_pages();
+	if (!nr_pages) {
+		nr_pages = global_page_state(NR_FILE_DIRTY) +
+				global_page_state(NR_UNSTABLE_NFS);
+	}
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(bdi, &bdi_list, bdi_list) {
