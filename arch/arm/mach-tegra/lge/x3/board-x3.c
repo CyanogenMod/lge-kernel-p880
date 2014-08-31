@@ -155,7 +155,7 @@ static struct tegra_thermal_data thermal_data = {
 	.hysteresis_edp = 3000,
 #endif
 #ifdef CONFIG_TEGRA_THERMAL_THROTTLE
-	.temp_throttle = 71000, //default 85000
+	.temp_throttle = 85000,
 	.tc1 = 0,
 	.tc2 = 1,
 	.passive_delay = 2000,
@@ -163,38 +163,8 @@ static struct tegra_thermal_data thermal_data = {
 #ifdef CONFIG_TEGRA_SKIN_THROTTLE
 	.skin_device_id = THERMAL_DEVICE_ID_SKIN,
 	.temp_throttle_skin = 43000,
-        .tc1_skin = 5,
-        .tc2_skin = 1,
-        .passive_delay_skin = 5000,
-        .skin_temp_offset = 9793,
-        .skin_period = 1100,
-	.skin_devs_size = 2,
-        .skin_devs = {
-                {
-                        THERMAL_DEVICE_ID_NCT_EXT,
-                        {
-                                2, 1, 1, 1,
-                                1, 1, 1, 1,
-                                1, 1, 1, 0,
-                                1, 1, 0, 0,
-                                0, 0, -1, -7
-                        }
-                },
-                {
-                        THERMAL_DEVICE_ID_NCT_INT,
-                        {
-                                -11, -7, -5, -3,
-                                -3, -2, -1, 0,
-                                0, 0, 1, 1,
-                                1, 2, 2, 3,
-                                4, 6, 11, 18
-                        }
-                },
-        },
 #endif
 };
-
-
 
 static __initdata struct tegra_clk_init_table x3_clk_init_table[] = {
 	/* name		parent		rate		enabled */
