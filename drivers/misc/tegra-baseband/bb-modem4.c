@@ -549,7 +549,7 @@ static int modem4_load(struct device *dev, int value)
 
 		/* Unregister ehci controller */
 		if (ehci_device != NULL)
-			pdata->ehci_unregister(ehci_device);
+			pdata->ehci_unregister(&ehci_device);
 
 		/* Signal AP going down */
 		modem4_apdown_handshake();
