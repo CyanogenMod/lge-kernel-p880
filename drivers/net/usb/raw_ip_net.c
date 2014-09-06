@@ -54,7 +54,7 @@ static int g_i;
  */
 static int max_intfs = 3;	/* default number of interfaces */
 
-static unsigned long usb_net_raw_ip_intf[MAX_INTFS] = { 3, 5, 7, 9, 11};
+static unsigned long usb_net_raw_ip_intf[MAX_INTFS] = { 3, 5, 7, 9, 11, 13};
 unsigned long usb_net_raw_ip_rx_debug;
 unsigned long usb_net_raw_ip_tx_debug;
 
