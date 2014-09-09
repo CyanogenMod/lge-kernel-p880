@@ -506,12 +506,9 @@ show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);
 show_one(scaling_cur_freq, cur);
-<<<<<<< HEAD
 show_one(policy_min_freq, user_policy.min);
 show_one(policy_max_freq, user_policy.max);
-=======
 show_one(cpu_utilization, util);
->>>>>>> cbeef6a... cpufreq: Add cpu utilization statistics to aid decisions made by userspace.
 
 static int __cpufreq_set_policy(struct cpufreq_policy *data,
 				struct cpufreq_policy *policy);
