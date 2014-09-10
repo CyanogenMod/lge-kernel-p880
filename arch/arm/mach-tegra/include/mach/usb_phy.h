@@ -133,7 +133,6 @@ bool tegra_usb_phy_has_hostpc(struct tegra_usb_phy *phy);
 bool tegra_usb_phy_otg_supported(struct tegra_usb_phy *phy);
 
 int tegra_usb_set_vbus_wakeup(int irq);
-void tegra_usb_set_usb_clk(struct tegra_usb_phy *phy, bool pull_up);
 
 void tegra_usb_phy_memory_prefetch_on(struct tegra_usb_phy *phy);
 
