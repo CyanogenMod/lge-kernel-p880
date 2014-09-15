@@ -1178,6 +1178,7 @@ void process_uih(ts0710_con * ts0710, char *data, int len, u8 dlci)
      		return;
      }
 
+
      flow_control = 0;
      recv_room = 65535;
 
@@ -2486,9 +2487,9 @@ static void ts_ldisc_close(struct tty_struct *tty)
 
 	//reset baseband_xmm
 	baseband_xmm_power_switch(0);
-	mdelay(600);
+	msleep(500);
 	baseband_xmm_power_switch(1);
-	mdelay(2000);
+	msleep(2000);
 
 	ts_ldisc_close_is_called = 0; //init
 	ril_recovery_cnt++;
