@@ -2375,7 +2375,6 @@ static int ext4_da_write_begin(struct file *file, struct address_space *mapping,
 	pgoff_t index;
 	struct inode *inode = mapping->host;
 	handle_t *handle;
-	loff_t page_len;
 
 	index = pos >> PAGE_CACHE_SHIFT;
 
@@ -2422,13 +2421,6 @@ retry:
 		 */
 		if (pos + len > inode->i_size)
 			ext4_truncate_failed_write(inode);
-	} else {
-		page_len = pos & (PAGE_CACHE_SIZE - 1);
-		if (page_len > 0) {
-			ret = ext4_discard_partial_page_buffers_no_lock(handle,
-				inode, page, pos - page_len, page_len,
-				EXT4_DISCARD_PARTIAL_PG_ZERO_UNMAPPED);
-		}
 	}
 
 	if (ret == -ENOSPC && ext4_should_retry_alloc(inode->i_sb, &retries))
@@ -2471,7 +2463,6 @@ static int ext4_da_write_end(struct file *file,
 	loff_t new_i_size;
 	unsigned long start, end;
 	int write_mode = (int)(unsigned long)fsdata;
-	loff_t page_len;
 
 	if (write_mode == FALL_BACK_TO_NONDELALLOC) {
 		if (ext4_should_order_data(inode)) {
@@ -2520,15 +2511,6 @@ static int ext4_da_write_end(struct file *file,
 	}
 	ret2 = generic_write_end(file, mapping, pos, len, copied,
 							page, fsdata);
-
-	page_len = PAGE_CACHE_SIZE -
-			((pos + copied - 1) & (PAGE_CACHE_SIZE - 1));
-
-	if (page_len > 0) {
-		ret = ext4_discard_partial_page_buffers_no_lock(handle,
-			inode, page, pos + copied - 1, page_len,
-			EXT4_DISCARD_PARTIAL_PG_ZERO_UNMAPPED);
-	}
 
 	copied = ret2;
 	if (ret2 < 0)
