@@ -117,11 +117,9 @@ static ext4_fsblk_t ext4_ext_find_goal(struct inode *inode,
 			      struct ext4_ext_path *path,
 			      ext4_lblk_t block)
 {
-	int depth;
-
 	if (path) {
+		int depth = path->p_depth;
 		struct ext4_extent *ex;
-		depth = path->p_depth;
 
 		/*
 		 * Try to predict block placement assuming that we are
@@ -247,7 +245,7 @@ static inline int ext4_ext_space_root_idx(struct inode *inode, int check)
 int ext4_ext_calc_metadata_amount(struct inode *inode, ext4_lblk_t lblock)
 {
 	struct ext4_inode_info *ei = EXT4_I(inode);
-	int idxs, num = 0;
+	int idxs;
 
 	idxs = ((inode->i_sb->s_blocksize - sizeof(struct ext4_extent_header))
 		/ sizeof(struct ext4_extent_idx));
@@ -262,6 +260,8 @@ int ext4_ext_calc_metadata_amount(struct inode *inode, ext4_lblk_t lblock)
 	 */
 	if (ei->i_da_metadata_calc_len &&
 	    ei->i_da_metadata_calc_last_lblock+1 == lblock) {
+			int num = 0;
+
 		if ((ei->i_da_metadata_calc_len % idxs) == 0)
 			num++;
 		if ((ei->i_da_metadata_calc_len % (idxs*idxs)) == 0)
@@ -328,8 +328,6 @@ static int ext4_valid_extent_entries(struct inode *inode,
 				struct ext4_extent_header *eh,
 				int depth)
 {
-	struct ext4_extent *ext;
-	struct ext4_extent_idx *ext_idx;
 	unsigned short entries;
 	if (eh->eh_entries == 0)
 		return 1;
@@ -339,29 +337,14 @@ static int ext4_valid_extent_entries(struct inode *inode,
 	if (depth == 0) {
 		/* leaf entries */
 		struct ext4_extent *ext = EXT_FIRST_EXTENT(eh);
-		struct ext4_super_block *es = EXT4_SB(inode->i_sb)->s_es;
-		ext4_fsblk_t pblock = 0;
-		ext4_lblk_t lblock = 0;
-		ext4_lblk_t prev = 0;
-		int len = 0;
 		while (entries) {
 			if (!ext4_valid_extent(inode, ext))
 				return 0;
-
-			/* Check for overlapping extents */
-			lblock = le32_to_cpu(ext->ee_block);
-			len = ext4_ext_get_actual_len(ext);
-			if ((lblock <= prev) && prev) {
-				pblock = ext4_ext_pblock(ext);
-				es->s_last_error_block = cpu_to_le64(pblock);
-				return 0;
-			}
 			ext++;
 			entries--;
-			prev = lblock + len - 1;
 		}
 	} else {
-		ext_idx = EXT_FIRST_INDEX(eh);
+		struct ext4_extent_idx *ext_idx = EXT_FIRST_INDEX(eh);
 		while (entries) {
 			if (!ext4_valid_extent_idx(inode, ext_idx))
 				return 0;
@@ -3741,13 +3724,12 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 	ext4_fsblk_t newblock = 0;
 	int free_on_err = 0, err = 0, depth, ret;
 	unsigned int allocated = 0, offset = 0;
-	unsigned int allocated_clusters = 0, reserved_clusters = 0;
+	unsigned int allocated_clusters = 0;
 	unsigned int punched_out = 0;
 	unsigned int result = 0;
 	struct ext4_allocation_request ar;
 	ext4_io_end_t *io = EXT4_I(inode)->cur_aio_dio;
 	ext4_lblk_t cluster_offset;
-	struct ext4_map_blocks punch_map;
 
 	ext_debug("blocks %u/%u requested for inode %lu\n",
 		  map->m_lblk, map->m_len, inode->i_ino);
@@ -3823,6 +3805,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 
 		/* if found extent covers block, simply return it */
 		if (in_range(map->m_lblk, ee_block, ee_len)) {
+			struct ext4_map_blocks punch_map;
 			ext4_fsblk_t partial_cluster = 0;
 
 			newblock = map->m_lblk - ee_block + ee_start;
@@ -4103,8 +4086,9 @@ got_allocated_blocks:
 	 * block allocation which had been deferred till now.
 	 */
 	if (flags & EXT4_GET_BLOCKS_DELALLOC_RESERVE) {
+		unsigned int reserved_clusters;
 		/*
-		 * Check how many clusters we had reserved this allocted range.
+		 * Check how many clusters we had reserved this allocated range.
 		 */
 		reserved_clusters = get_reserved_cluster_alloc(inode,
 						map->m_lblk, allocated);
