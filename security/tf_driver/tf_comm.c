@@ -1255,7 +1255,7 @@ copy_answers:
 
 		dprintk(KERN_INFO
 			"Entering refrigerator.\n");
-		refrigerator();
+		try_to_freeze();
 		dprintk(KERN_INFO
 			"Left refrigerator.\n");
 		goto copy_answers;
