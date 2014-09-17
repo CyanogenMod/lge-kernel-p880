@@ -218,15 +218,6 @@ static void ieee80211_work_work(struct work_struct *work)
 
 	if (!remain_off_channel && local->tmp_channel) {
 		local->tmp_channel = NULL;
-		/* If tmp_channel wasn't operating channel, then
-		 * we need to go back on-channel.
-		 * NOTE:  If we can ever be here while scanning,
-		 * or if the hw_config() channel config logic changes,
-		 * then we may need to do a more thorough check to see if
-		 * we still need to do a hardware config.  Currently,
-		 * we cannot be here while scanning, however.
-		 */
-		if (!ieee80211_cfg_on_oper_channel(local))
 			ieee80211_hw_config(local, 0);
 
 		ieee80211_offchannel_return(local, true);
