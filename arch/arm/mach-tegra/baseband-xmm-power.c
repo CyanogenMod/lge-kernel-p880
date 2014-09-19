@@ -98,6 +98,8 @@ static bool modem_acked_resume;
 static spinlock_t xmm_lock;
 static DEFINE_MUTEX(xmm_onoff_mutex);
 static bool system_suspending;
+static struct regulator *x3_hsic_reg;
+static bool _hsic_reg_status;
 static struct pm_qos_request_list boost_cpu_freq_req;
 static struct delayed_work pm_qos_work;
 #define BOOST_CPU_FREQ_MIN	1500000
@@ -108,6 +110,51 @@ bool enum_success;
  */
 struct xmm_power_data xmm_power_drv_data;
 EXPORT_SYMBOL(xmm_power_drv_data);
+
+static int tegra_baseband_rail_on(void)
+{
+	int ret;
+
+	if (_hsic_reg_status == true)
+		return 0;
+
+	if (x3_hsic_reg == NULL) {
+		x3_hsic_reg = regulator_get(NULL, "avdd_hsic");
+		if (IS_ERR_OR_NULL(x3_hsic_reg)) {
+			pr_err("xmm: could not get regulator vddio_hsic\n");
+			x3_hsic_reg = NULL;
+			return PTR_ERR(x3_hsic_reg);
+		}
+	}
+	ret = regulator_enable(x3_hsic_reg);
+	if (ret < 0) {
+		pr_err("xmm: failed to enable regulator\n");
+		return ret;
+	}
+	_hsic_reg_status = true;
+	return 0;
+}
+
+static int tegra_baseband_rail_off(void)
+{
+	int ret;
+
+	if (_hsic_reg_status == false)
+		return 0;
+
+	if (IS_ERR_OR_NULL(x3_hsic_reg)) {
+		pr_err("xmm: unbalanced disable on vddio_hsic regulator\n");
+		x3_hsic_reg = NULL;
+		return PTR_ERR(x3_hsic_reg);
+	}
+	ret = regulator_disable(x3_hsic_reg);
+	if (ret < 0) {
+		pr_err("xmm: failed to disable regulator\n");
+		return ret;
+	}
+	_hsic_reg_status = false;
+	return 0;
+}
 
 static inline enum baseband_xmm_powerstate_t baseband_xmm_get_power_status(void)
 {
@@ -198,6 +245,8 @@ static int xmm_power_on(struct platform_device *device)
 	}
 	if (baseband_xmm_get_power_status() != BBXMM_PS_UNINIT)
 		return -EINVAL;
+
+	tegra_baseband_rail_on();
 
 	/* reset the state machine */
 	baseband_xmm_set_power_status(BBXMM_PS_INIT);
@@ -318,6 +367,8 @@ static int xmm_power_off(struct platform_device *device)
 
 	/* start registration process once again on xmm on */
 	register_hsic_device = true;
+
+	tegra_baseband_rail_off();
 	pr_debug("%s }\n", __func__);
 
 	return 0;
@@ -1079,6 +1130,9 @@ static int xmm_power_driver_resume(struct device *dev)
 			pr_err("%s: disable_irq_wake error=%d\n",
 				__func__, err);
 	}
+	/* PMC is driving hsic bus
+	 * tegra_baseband_rail_on();
+	 */
 	reenable_autosuspend = true;
 
 	return 0;
