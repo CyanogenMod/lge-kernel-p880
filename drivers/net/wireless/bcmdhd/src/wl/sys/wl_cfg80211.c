@@ -3536,7 +3536,9 @@ wl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 
 	bssidx = wl_cfgp2p_find_idx(wl, dev);
 
-	if (mac_addr) {
+	if (mac_addr &&
+	   ((params->cipher != WLAN_CIPHER_SUITE_WEP40) &&
+	    (params->cipher != WLAN_CIPHER_SUITE_WEP104))) {
 		wl_add_keyext(wiphy, dev, key_idx, mac_addr, params);
 		goto exit;
 	}
@@ -10197,7 +10199,9 @@ static s32 __wl_cfg80211_down(struct wl_priv *wl)
 	unsigned long flags;
 	struct net_info *iter, *next;
 	struct net_device *ndev = wl_to_prmry_ndev(wl);
+#if defined(WL_CFG80211) && defined(WL_ENABLE_P2P_IF)
 	struct net_device *p2p_net = wl->p2p_net;
+#endif /* WL_CFG80211 && WL_ENABLE_P2P_IF */
 	WL_DBG(("In\n"));
 	/* Check if cfg80211 interface is already down */
 	if (!wl_get_drv_status(wl, READY, ndev))
@@ -10227,8 +10231,10 @@ static s32 __wl_cfg80211_down(struct wl_priv *wl)
 	}
 	wl_to_prmry_ndev(wl)->ieee80211_ptr->iftype =
 		NL80211_IFTYPE_STATION;
+#if defined(WL_CFG80211) && defined(WL_ENABLE_P2P_IF)
 		if (p2p_net)
 			dev_close(p2p_net);
+#endif /* WL_CFG80211 && WL_ENABLE_P2P_IF */
 	DNGL_FUNC(dhd_cfg80211_down, (wl));
 	wl_flush_eq(wl);
 	wl_link_down(wl);
