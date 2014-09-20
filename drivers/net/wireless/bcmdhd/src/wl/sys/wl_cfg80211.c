@@ -404,6 +404,7 @@ static s32 wl_inform_bss(struct wl_priv *wl);
 static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi, u8 is_roam_done);
 static s32 wl_update_bss_info(struct wl_priv *wl, struct net_device *ndev, u8 is_roam_done);
 static chanspec_t wl_cfg80211_get_shared_freq(struct wiphy *wiphy);
+static s32 wl_cfg80211_40MHz_to_20MHz_Channel(chanspec_t chspec);
 static s32 wl_add_keyext(struct wiphy *wiphy, struct net_device *dev,
 	u8 key_idx, const u8 *mac_addr,
 	struct key_params *params);
@@ -966,6 +967,37 @@ wl_validate_wps_ie(char *wps_ie, s32 wps_ie_len, bool *pbc)
 }
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0) */
 
+static s32
+wl_cfg80211_40MHz_to_20MHz_Channel(chanspec_t chspec)
+{
+	u32 channel = chspec & WL_CHANSPEC_CHAN_MASK;
+
+	/* If chspec is not for 40MHz. Do nothing */
+	if (!(chspec & WL_CHANSPEC_BW_40))
+		return channel;
+
+	if ((channel < 0) || (channel > MAXCHANNEL))
+		return -1;
+
+	switch (channel) {
+		/* 5G Channels */
+		case 38:
+		case 46:
+		case 151:
+		case 159:
+			if (chspec & WL_CHANSPEC_CTL_SB_LOWER)
+				channel = channel - CH_10MHZ_APART;
+			else if (chspec & WL_CHANSPEC_CTL_SB_UPPER)
+				channel = channel + CH_10MHZ_APART;
+			break;
+		default:
+			/* Mhz adjustment not required. Use as is */
+			WL_ERR(("Unsupported channel: %d \n", channel));
+	}
+
+	return channel;
+}
+
 static chanspec_t wl_cfg80211_get_shared_freq(struct wiphy *wiphy)
 {
 	chanspec_t chspec;
@@ -994,6 +1026,11 @@ static chanspec_t wl_cfg80211_get_shared_freq(struct wiphy *wiphy)
 	else {
 			bss = (struct wl_bss_info *) (wl->extra_buf + 4);
 			chspec =  bss->chanspec;
+			if (chspec & WL_CHANSPEC_BW_40) {
+				uint32 channel = wl_cfg80211_40MHz_to_20MHz_Channel(chspec);
+				chspec = wl_ch_host_to_driver(channel);
+			}
+
 			WL_DBG(("Valid BSS Found. chanspec:%d \n", chspec));
 	}
 	return chspec;
@@ -1847,6 +1884,7 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 	u16 *default_chan_list = NULL;
 	wl_uint32_list_t *list;
 	struct net_device *dev = NULL;
+
 #ifdef USE_INITIAL_2G_SCAN
 	bool is_first_init_2g_scan = false;
 #endif /* USE_INITIAL_2G_SCAN */
@@ -10159,9 +10197,7 @@ static s32 __wl_cfg80211_down(struct wl_priv *wl)
 	unsigned long flags;
 	struct net_info *iter, *next;
 	struct net_device *ndev = wl_to_prmry_ndev(wl);
-#if defined(WL_CFG80211) && defined(SUPPORT_DEEP_SLEEP)
 	struct net_device *p2p_net = wl->p2p_net;
-#endif
 	WL_DBG(("In\n"));
 	/* Check if cfg80211 interface is already down */
 	if (!wl_get_drv_status(wl, READY, ndev))
@@ -10191,12 +10227,8 @@ static s32 __wl_cfg80211_down(struct wl_priv *wl)
 	}
 	wl_to_prmry_ndev(wl)->ieee80211_ptr->iftype =
 		NL80211_IFTYPE_STATION;
-#if defined(WL_CFG80211) && defined(SUPPORT_DEEP_SLEEP)
-	if (!sleep_never) {
 		if (p2p_net)
 			dev_close(p2p_net);
-	}
-#endif
 	DNGL_FUNC(dhd_cfg80211_down, (wl));
 	wl_flush_eq(wl);
 	wl_link_down(wl);
