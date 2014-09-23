@@ -319,6 +319,11 @@ struct hid_item {
 #define HID_QUIRK_NO_INPUT_SYNC			0x80000000
 
 /*
+ * HID device groups
+ */
+#define HID_GROUP_GENERIC			0x0001
+
+/*
  * This is the global environment of the parser. This information is
  * persistent for main-items. The global environment can be saved and
  * restored with PUSH/POP statements.
@@ -461,6 +466,8 @@ struct hid_driver;
 struct hid_ll_driver;
 
 struct hid_device {							/* device report descriptor */
+	__u8 *dev_rdesc;
+	unsigned dev_rsize;
 	__u8 *rdesc;
 	unsigned rsize;
 	struct hid_collection *collection;				/* List of HID collections */
@@ -468,6 +475,7 @@ struct hid_device {							/* device report descriptor */
 	unsigned maxcollection;						/* Number of parsed collections */
 	unsigned maxapplication;					/* Number of applications */
 	__u16 bus;							/* BUS ID */
+	__u16 group;							/* Report group */
 	__u32 vendor;							/* Vendor ID */
 	__u32 product;							/* Product ID */
 	__u32 version;							/* HID version */
@@ -558,12 +566,12 @@ struct hid_descriptor {
 	struct hid_class_descriptor desc[1];
 } __attribute__ ((packed));
 
-#define HID_DEVICE(b, ven, prod) \
-	.bus = (b), \
-	.vendor = (ven), .product = (prod)
-
-#define HID_USB_DEVICE(ven, prod)	HID_DEVICE(BUS_USB, ven, prod)
-#define HID_BLUETOOTH_DEVICE(ven, prod)	HID_DEVICE(BUS_BLUETOOTH, ven, prod)
+#define HID_DEVICE(b, g, ven, prod)					\
+	.bus = (b), .group = (g), .vendor = (ven), .product = (prod)
+#define HID_USB_DEVICE(ven, prod)				\
+	.bus = BUS_USB, .vendor = (ven), .product = (prod)
+#define HID_BLUETOOTH_DEVICE(ven, prod)					\
+	.bus = BUS_BLUETOOTH, .vendor = (ven), .product = (prod)
 
 #define HID_REPORT_ID(rep) \
 	.report_type = (rep)
@@ -715,6 +723,7 @@ int hidinput_find_field(struct hid_device *hid, unsigned int type, unsigned int 
 void hid_output_report(struct hid_report *report, __u8 *data);
 struct hid_device *hid_allocate_device(void);
 struct hid_report *hid_register_report(struct hid_device *device, unsigned type, unsigned id);
+int hid_open_report(struct hid_device *device);
 int hid_parse_report(struct hid_device *hid, __u8 *start, unsigned size);
 int hid_check_keys_pressed(struct hid_device *hid);
 int hid_connect(struct hid_device *hid, unsigned int connect_mask);
@@ -784,16 +793,7 @@ static inline void hid_map_usage_clear(struct hid_input *hidinput,
  */
 static inline int __must_check hid_parse(struct hid_device *hdev)
 {
-	int ret;
-
-	if (hdev->status & HID_STAT_PARSED)
-		return 0;
-
-	ret = hdev->ll_driver->parse(hdev);
-	if (!ret)
-		hdev->status |= HID_STAT_PARSED;
-
-	return ret;
+	return hid_open_report(hdev);
 }
 
 /**
