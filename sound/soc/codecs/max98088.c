@@ -1906,26 +1906,19 @@ static int max98088_shutdown(struct snd_pcm_substream *substream,
 	return 0;
 }
 #endif
-//                                          
-
+                                        
 static struct snd_soc_dai_ops max98088_dai1_ops = {
        .set_sysclk = max98088_dai_set_sysclk,
        .set_fmt = max98088_dai1_set_fmt,
        .hw_params = max98088_dai1_hw_params,
- //                                                                                     
-#if !defined(CONFIG_MACH_X3) && ! defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
        .digital_mute = max98088_dai1_digital_mute,
-#endif
 };
 
 static struct snd_soc_dai_ops max98088_dai2_ops = {
        .set_sysclk = max98088_dai_set_sysclk,
        .set_fmt = max98088_dai2_set_fmt,
        .hw_params = max98088_dai2_hw_params,
-//                                                                                     
-#if !defined(CONFIG_MACH_X3) && ! defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
        .digital_mute = max98088_dai2_digital_mute,
-#endif
 };
 
 //                                         
@@ -2016,13 +2009,19 @@ static struct snd_soc_dai_driver max98088_dai[] = {
 //                                         
 };
 
-static int max98088_get_channel(const char *name)
+static const char *eq_mode_name[] = {"EQ1 Mode", "EQ2 Mode"};
+
+static int max98088_get_channel(struct snd_soc_codec *codec, const char *name)
 {
-       if (strcmp(name, "EQ1 Mode") == 0)
-               return 0;
-       if (strcmp(name, "EQ2 Mode") == 0)
-               return 1;
-       return -EINVAL;
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(eq_mode_name); i++)
+        if (strcmp(name, eq_mode_name[i]) == 0)
+            return i;
+
+    /* Shouldn't happen */
+    dev_err(codec->dev, "Bad EQ channel name '%s'\n", name);
+    return -EINVAL;
 }
 
 static void max98088_setup_eq1(struct snd_soc_codec *codec)
@@ -2132,16 +2131,19 @@ static int max98088_put_eq_enum(struct snd_kcontrol *kcontrol,
        struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
        struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
        struct max98088_pdata *pdata = max98088->pdata;
-       int channel = max98088_get_channel(kcontrol->id.name);
+       int channel = max98088_get_channel(codec, kcontrol->id.name);
        struct max98088_cdata *cdata;
        int sel = ucontrol->value.integer.value[0];
 
-       cdata = &max98088->dai[channel];
+       if (channel < 0)
+           return channel;
 
-       if (sel >= pdata->eq_cfgcnt)
-               return -EINVAL;
+	cdata = &max98088->dai[channel];
 
-       cdata->eq_sel = sel;
+	if (sel >= pdata->eq_cfgcnt)
+		return -EINVAL;
+
+	cdata->eq_sel = sel;
 
        switch (channel) {
        case 0:
@@ -2160,8 +2162,11 @@ static int max98088_get_eq_enum(struct snd_kcontrol *kcontrol,
 {
        struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
        struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
-       int channel = max98088_get_channel(kcontrol->id.name);
+       int channel = max98088_get_channel(codec, kcontrol->id.name);
        struct max98088_cdata *cdata;
+
+       if (channel < 0)
+           return channel;
 
        cdata = &max98088->dai[channel];
        ucontrol->value.enumerated.item[0] = cdata->eq_sel;
@@ -2179,18 +2184,19 @@ static void max98088_handle_eq_pdata(struct snd_soc_codec *codec)
        int ret;
 
        struct snd_kcontrol_new controls[] = {
-               SOC_ENUM_EXT("EQ1 Mode",
+               SOC_ENUM_EXT((char *)eq_mode_name[0],
                        max98088->eq_enum,
                        max98088_get_eq_enum,
                        max98088_put_eq_enum),
-               SOC_ENUM_EXT("EQ2 Mode",
+               SOC_ENUM_EXT((char *)eq_mode_name[1],
                        max98088->eq_enum,
                        max98088_get_eq_enum,
                        max98088_put_eq_enum),
        };
+	BUILD_BUG_ON(ARRAY_SIZE(controls) != ARRAY_SIZE(eq_mode_name));
 
-       cfg = pdata->eq_cfg;
-       cfgcnt = pdata->eq_cfgcnt;
+	cfg = pdata->eq_cfg;
+	cfgcnt = pdata->eq_cfgcnt;
 
        /* Setup an array of texts for the equalizer enum.
         * This is based on Mark Brown's equalizer driver code.
@@ -2507,7 +2513,6 @@ static int max98088_resume(struct snd_soc_codec *codec)
 {
 	struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
 
-    printk("(snd codec) resume.....\n");
 	max98088_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	max98088_report_jack(codec);
 	enable_irq(max98088->irq);
@@ -2520,15 +2525,15 @@ static int max98088_resume(struct snd_soc_codec *codec)
 #endif
 
 static struct snd_soc_codec_driver soc_codec_dev_max98088 = {
-       .probe   = max98088_probe,
-       .remove  = max98088_remove,
-       .suspend = max98088_suspend,
-       .resume  = max98088_resume,
-       .set_bias_level = max98088_set_bias_level,
-       .reg_cache_size = ARRAY_SIZE(max98088_reg),
-       .reg_word_size = sizeof(u8),
-       .reg_cache_default = max98088_reg,
-       .volatile_register = max98088_volatile_register,
+	.probe   = max98088_probe,
+	.remove  = max98088_remove,
+	.suspend = max98088_suspend,
+	.resume  = max98088_resume,
+	.set_bias_level = max98088_set_bias_level,
+	.reg_cache_size = ARRAY_SIZE(max98088_reg),
+	.reg_word_size = sizeof(u8),
+	.reg_cache_default = max98088_reg,
+	.volatile_register = max98088_volatile_register,
 	.dapm_widgets = max98088_dapm_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(max98088_dapm_widgets),
 	.dapm_routes = max98088_audio_map,
