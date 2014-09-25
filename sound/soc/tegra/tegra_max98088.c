@@ -1741,26 +1741,40 @@ static int tegra30_soc_set_bias_level_post(struct snd_soc_card *card,
 	return 0 ;
 }
 
-static int tegra_max98088_suspend_post(struct snd_soc_card *card)
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+static int tegra30_soc_suspend_post(struct snd_soc_card *card)
 {
 	struct tegra_max98088 *machine = snd_soc_card_get_drvdata(card);
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
 
-	if (machine->clock_enabled)
-		tegra_asoc_utils_clk_disable(&machine->util_data);
-
+	if( machine->is_call_mode == false ){
+		if (machine->gpio_requested & GPIO_EXT_MIC_EN)
+			gpio_direction_output(pdata->gpio_ext_mic_en, 0);
+		if (machine->gpio_requested & GPIO_INT_MIC_EN)
+			gpio_direction_output(pdata->gpio_int_mic_en, 0);
+		
+		//gpio_set_value(headset_sw_data->ear_mic, 0);
+	}
 	return 0;
-
 }
 
-static int tegra_max98088_resume_pre(struct snd_soc_card *card)
+int tegra30_soc_resume_pre(struct snd_soc_card *card)
 {
 	struct tegra_max98088 *machine = snd_soc_card_get_drvdata(card);
+	struct tegra_asoc_platform_data *pdata = machine->pdata;
 
-	if (!machine->clock_enabled)
-		tegra_asoc_utils_clk_enable(&machine->util_data);
+	if (machine->gpio_requested & GPIO_EXT_MIC_EN)
+		gpio_direction_output(pdata->gpio_ext_mic_en, 1);
+	if (machine->gpio_requested & GPIO_INT_MIC_EN)
+		gpio_direction_output(pdata->gpio_int_mic_en, 1);
+	
+	gpio_set_value(headset_sw_data->ear_mic, 1);
 
 	return 0;
 }
+#endif
+//                                         
 
 static struct snd_soc_card snd_soc_tegra_max98088 = {
 	.name = "tegra-max98088",
@@ -1768,8 +1782,12 @@ static struct snd_soc_card snd_soc_tegra_max98088 = {
 	.num_links = ARRAY_SIZE(tegra_max98088_dai),
 	.set_bias_level = tegra30_soc_set_bias_level,
 	.set_bias_level_post = tegra30_soc_set_bias_level_post,
-	.suspend_post = tegra_max98088_suspend_post,
-	.resume_pre = tegra_max98088_resume_pre,                                 
+//                                         
+#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
+	.suspend_post = tegra30_soc_suspend_post,
+	.resume_pre = tegra30_soc_resume_pre,
+#endif
+//                                         
 };
 
 static __devinit int tegra_max98088_driver_probe(struct platform_device *pdev)
