@@ -96,6 +96,7 @@ static struct i2c_board_info __initdata x3_i2c_bus0_board_info[] = {
 	{
 		I2C_BOARD_INFO("max98088", 0x10),
 		.platform_data = &max98088_pdata,
+		.irq = TEGRA_GPIO_HP_DET,
 	},
 #endif
 //                                            
