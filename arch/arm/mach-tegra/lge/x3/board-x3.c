@@ -300,7 +300,16 @@ static void __init x3_uart_init(void)
 	platform_add_devices(x3_uart_devices,
 				ARRAY_SIZE(x3_uart_devices));
 }
+/* add vibrator for x3 */
+static struct platform_device vibrator_device = {
+	.name = "tegra-vibrator",
+	.id = -1,
+};
 
+static noinline void __init x3_vibrator_init(void)
+{
+	platform_device_register(&vibrator_device);
+}
 
 #if defined(CONFIG_RTC_DRV_TEGRA)	
 
@@ -702,6 +711,7 @@ if(is_tegra_bootmode())
 	tegra_release_bootloader_fb();
 	x3_sensor_input_init();
 	tegra_serial_debug_init(TEGRA_UARTD_BASE, INT_WDT_CPU, NULL, -1, -1);
+	x3_vibrator_init();
 }
 
 
