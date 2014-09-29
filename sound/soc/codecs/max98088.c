@@ -402,7 +402,7 @@ static struct {
        { 0xFF, 0xFF, 0 }, /* 2C right SPK mixer */
        { 0xFF, 0xFF, 0 }, /* 2D SPK control */
        { 0xFF, 0xFF, 0 }, /* 2E sidetone */
-       { 0xFF, 0xFF, 0 }, /* 2F DAI1 playback level */
+       { 0xFF, 0xFF, 1 }, /* 2F DAI1 playback level */
 
        { 0xFF, 0xFF, 0 }, /* 30 DAI1 playback level */
        { 0xFF, 0xFF, 0 }, /* 31 DAI2 playback level */
@@ -1506,8 +1506,6 @@ static int max98088_dai1_hw_params(struct snd_pcm_substream *substream,
                snd_soc_update_bits(codec, M98088_REG_18_DAI1_FILTERS,
                        M98088_DAI_DHF, M98088_DAI_DHF);
 
-//                                                               
-#if !(defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10))
 		if (rate > 24000)
 			snd_soc_update_bits(codec, M98088_REG_18_DAI1_FILTERS,
 						M98088_DAI_MODE, M98088_DAI_MODE);
@@ -1517,8 +1515,7 @@ static int max98088_dai1_hw_params(struct snd_pcm_substream *substream,
 
 		snd_soc_update_bits(codec, M98088_REG_18_DAI1_FILTERS,
 						M98088_DAI_AVFLT_MASK, 5<<M98088_DAI_AVFLT_SHIFT);
-#endif
-//                                                               
+                                                           
        snd_soc_update_bits(codec, M98088_REG_51_PWR_SYS, M98088_SHDNRUN,
                M98088_SHDNRUN);
 
@@ -1835,8 +1832,7 @@ static int max98088_set_bias_level(struct snd_soc_codec *codec,
 #endif
 	   
        switch (level) {
-       case SND_SOC_BIAS_ON:
-               level = SND_SOC_BIAS_STANDBY; //                                                       
+       case SND_SOC_BIAS_ON:                                                
                break;
 
        case SND_SOC_BIAS_PREPARE:
@@ -2059,13 +2055,7 @@ static void max98088_setup_eq1(struct snd_soc_codec *codec)
        save = snd_soc_read(codec, M98088_REG_49_CFG_LEVEL);
        snd_soc_update_bits(codec, M98088_REG_49_CFG_LEVEL, M98088_EQ1EN, 0);
 
-//                                          
-#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
-       coef_set = &pdata->eq_cfg[best];
-#else
-       coef_set = &pdata->eq_cfg[sel];
-#endif
-//                                          
+       coef_set = &pdata->eq_cfg[sel];                                 
 
        m98088_eq_band(codec, 0, 0, coef_set->band1);
        m98088_eq_band(codec, 0, 1, coef_set->band2);
@@ -2376,16 +2366,7 @@ static int max98088_probe(struct snd_soc_codec *codec)
        int ret = 0;
 
        codec->cache_sync = 1;
-#if defined(CONFIG_MACH_X3) || defined(CONFIG_MACH_LX) || defined(CONFIG_MACH_VU10)
-//                                          
-	   // Google requires very low noise level when starting audio recording.
-	   // But, whenever mic bias turn on, 1s mic noise happens.
-	   // So, I decide that maxim codec and mic bias keep power-on during phone wakes up.
-       codec->dapm.idle_bias_off = 0;
-#else
-       codec->dapm.idle_bias_off = 1;
-#endif
-//                                          
+       codec->dapm.idle_bias_off = 1;                                 
 
        ret = snd_soc_codec_set_cache_io(codec, 8, 8, SND_SOC_I2C);
        if (ret != 0) {
@@ -2502,7 +2483,7 @@ static int max98088_remove(struct snd_soc_codec *codec)
 static int max98088_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
 	struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
-    printk("(snd codec) suspend.....\n");
+
 	disable_irq(max98088->irq);
 	max98088_set_bias_level(codec, SND_SOC_BIAS_OFF);
 

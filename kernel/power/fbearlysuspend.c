@@ -22,7 +22,7 @@
 #define MAX_BUF 100
 
 static wait_queue_head_t fb_state_wq;
-static int display = 1;
+static int x3_hddisplay_on = 1;
 static DEFINE_SPINLOCK(fb_state_lock);
 static enum {
 	FB_STATE_STOPPED_DRAWING,
@@ -78,8 +78,8 @@ static ssize_t wait_for_fb_sleep_show(struct kobject *kobj,
 		return ret;
 	} else {
 		s += sprintf(buf, "sleeping");
-		if (display == 1) {
-			display = 0;
+		if (x3_hddisplay_on == 1) {
+			x3_hddisplay_on = 0;
 			sysfs_notify(power_kobj, NULL, "wait_for_fb_status");
 		}
 	}
@@ -107,8 +107,8 @@ static ssize_t wait_for_fb_wake_show(struct kobject *kobj,
 		return ret;
 	else {
 		s += sprintf(buf, "awake");
-		if (display == 0) {
-			display = 1;
+		if (x3_hddisplay_on == 0) {
+			x3_hddisplay_on = 1;
 			sysfs_notify(power_kobj, NULL, "wait_for_fb_status");
 		}
 	}
@@ -120,7 +120,7 @@ static ssize_t wait_for_fb_status_show(struct kobject *kobj,
 {
 	int ret = 0;
 
-	if (display == 1)
+	if (x3_hddisplay_on == 1)
 		ret = snprintf(buf, strnlen("on", MAX_BUF) + 1, "on");
 	else
 		ret = snprintf(buf, strnlen("off", MAX_BUF) + 1, "off");
