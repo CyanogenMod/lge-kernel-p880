@@ -1829,7 +1829,7 @@ static __devinit int tegra_max98088_driver_probe(struct platform_device *pdev)
 #if !defined(CONFIG_MACH_X3) && !defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
 #ifdef CONFIG_SWITCH
 	/* Add h2w switch class support */
-	ret = tegra_asoc_switch_register(&wired_switch_dev);
+	ret = switch_dev_register(&wired_switch_dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "not able to register switch device\n");
 		goto err_fini_utils;
@@ -1904,7 +1904,7 @@ err_switch_unregister:
 //                                             
 #if !defined(CONFIG_MACH_X3) && !defined(CONFIG_MACH_LX) && !defined(CONFIG_MACH_VU10)
 #ifdef CONFIG_SWITCH
-	tegra_asoc_switch_unregister(&wired_switch_dev);
+	switch_dev_unregister(&wired_switch_dev);
 #endif
 #endif
 //                                             
@@ -1930,7 +1930,7 @@ static int __devexit tegra_max98088_driver_remove(struct platform_device *pdev)
 	switch_dev_unregister(&headset_sw_data->sdev);
 #else
 #ifdef CONFIG_SWITCH
-	tegra_asoc_switch_unregister(&wired_switch_dev);
+	switch_dev_unregister(&wired_switch_dev);
 #endif
 #endif
 //                                             

@@ -945,7 +945,7 @@ static __devinit int tegra_wm8753_driver_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_SWITCH
 	/* Add h2w swith class support */
-	ret = tegra_asoc_switch_register(&wired_switch_dev);
+	ret = switch_dev_register(&wired_switch_dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "not able to register switch device\n");
 		goto err_unregister_card;
@@ -982,7 +982,7 @@ static int __devexit tegra_wm8753_driver_remove(struct platform_device *pdev)
 	snd_soc_unregister_card(card);
 
 #ifdef CONFIG_SWITCH
-	tegra_asoc_switch_unregister(&wired_switch_dev);
+	switch_dev_unregister(&wired_switch_dev);
 #endif
 
 	tegra_asoc_utils_fini(&machine->util_data);
