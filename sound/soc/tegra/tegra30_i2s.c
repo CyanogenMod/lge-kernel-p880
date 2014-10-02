@@ -694,9 +694,22 @@ static int tegra30_i2s_hw_params(struct snd_pcm_substream *substream,
 		val |= TEGRA30_AUDIOCIF_CTRL_DIRECTION_RX;
 		tegra30_i2s_write(i2s, TEGRA30_I2S_CIF_RX_CTRL, val);
 
+//
+#ifdef TEGRA30_I2S_RESET
+	if( i2s->is_dam_used && i2s->playback_ref_count == 1 ){
+		if( i2s->reg_ctrl & TEGRA30_I2S_CTRL_XFER_EN_RX ){
+		val &= ~TEGRA30_AUDIOCIF_CTRL_DIRECTION_MASK;
+		val |= TEGRA30_AUDIOCIF_CTRL_DIRECTION_TX;
+		tegra30_i2s_write(i2s, TEGRA30_I2S_CIF_TX_CTRL, val);
+		}
+	}
+#else
+
 		tegra30_ahub_set_tx_cif_channels(i2s->txcif,
 						 params_channels(params),
 						 params_channels(params));
+#endif
+// 
 
 		switch (sample_size) {
 		case 8:
