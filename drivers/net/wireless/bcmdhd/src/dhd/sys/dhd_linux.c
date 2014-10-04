@@ -3844,6 +3844,42 @@ dhd_get_concurrent_capabilites(dhd_pub_t *dhd)
 }
 #endif
 
+#ifdef WLTDLS
+int dhd_tdls_enable_disable(dhd_pub_t *dhd, bool flag)
+{
+	char iovbuf[WL_EVENTING_MASK_LEN + 12];
+	uint32 tdls = flag;
+	int ret;
+#ifdef WLTDLS_AUTO_ENABLE
+	uint32 tdls_auto_op = 1;
+	uint32 tdls_idle_time = CUSTOM_TDLS_IDLE_MODE_SETTING;
+#endif
+
+	bcm_mkiovar("tdls_enable", (char *)&tdls, sizeof(tdls), iovbuf, sizeof(iovbuf));
+	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0) {
+		DHD_ERROR(("%s: tdls %d failed %d\n", __FUNCTION__, tdls, ret));
+		return ret;
+	}
+
+	dhd->tdls_enable = flag;
+	if (!flag)
+		return ret;
+
+#ifdef WLTDLS_AUTO_ENABLE
+	bcm_mkiovar("tdls_auto_op", (char *)&tdls_auto_op, sizeof(tdls_auto_op), iovbuf, sizeof(iovbuf));
+	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0) {
+		DHD_ERROR(("%s: tdls_auto_op failed %d\n", __FUNCTION__, ret));
+		return ret;
+	}
+
+	bcm_mkiovar("tdls_idle_time", (char *)&tdls_idle_time, sizeof(tdls_idle_time), iovbuf, sizeof(iovbuf));
+	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0) {
+		WL_ERR(("%s: tdls_idle_time failed %d\n", __FUNCTION__, ret));
+#endif
+	return ret;
+}
+#endif
+
 int
 dhd_preinit_ioctls(dhd_pub_t *dhd)
 {
@@ -4106,6 +4142,10 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 #endif
 
+#ifdef WLTDLS
+	dhd_tdls_enable_disable(dhd, 1);
+#endif /* WLTDLS */
+
 #ifdef CONFIG_CONTROL_PM
 	sec_control_pm(dhd, &power_mode);
 #else
@@ -4208,6 +4248,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	setbit(eventmask, WLC_E_ADDTS_IND);
 	setbit(eventmask, WLC_E_DELTS_IND);
 #endif /* BCMCCX */
+#ifdef WLTDLS
+	setbit(eventmask, WLC_E_TDLS_PEER_EVENT);
+#endif /* WLTDLS */
 #ifdef WL_CFG80211
 	setbit(eventmask, WLC_E_ESCAN_RESULT);
 	if (dhd->op_mode & DHD_FLAG_P2P_MODE) {

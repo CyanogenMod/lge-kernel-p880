@@ -335,6 +335,11 @@ static s32 wl_notify_pfn_status(struct wl_priv *wl, struct net_device *ndev,
 #endif /* PNO_SUPPORT */
 static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_info,
 	enum wl_status state, bool set);
+
+#ifdef WLTDLS
+static s32 wl_tdls_event_handler(struct wl_priv *wl, struct net_device *ndev,
+	const wl_event_msg_t *e, void *data);
+#endif /* WLTDLS */
 /*
  * register/deregister parent device
  */
@@ -8320,6 +8325,9 @@ static void wl_init_event_handler(struct wl_priv *wl)
 #ifdef PNO_SUPPORT
 	wl->evt_handler[WLC_E_PFN_NET_FOUND] = wl_notify_pfn_status;
 #endif /* PNO_SUPPORT */
+#ifdef WLTDLS
+	wl->evt_handler[WLC_E_TDLS_PEER_EVENT] = wl_tdls_event_handler;
+#endif /* WLTDLS */
 }
 
 static s32 wl_init_priv_mem(struct wl_priv *wl)
@@ -10566,6 +10574,76 @@ s32 wl_cfg80211_set_p2p_ps(struct net_device *net, char* buf, int len)
 
 	return wl_cfgp2p_set_p2p_ps(wl, net, buf, len);
 }
+
+#ifdef WLTDLS
+static s32
+wl_tdls_event_handler(struct wl_priv *wl, struct net_device *ndev,
+	const wl_event_msg_t *e, void *data) {
+
+	u32 reason = ntoh32(e->reason);
+	s8 *msg = NULL;
+	switch (reason) {
+	case WLC_E_TDLS_PEER_DISCOVERED :
+		msg = " TDLS PEER DISCOVERD ";
+		break;
+	case WLC_E_TDLS_PEER_CONNECTED :
+		msg = " TDLS PEER CONNECTED ";
+		break;
+	case WLC_E_TDLS_PEER_DISCONNECTED :
+		msg = "TDLS PEER DISCONNECTED ";
+		break;
+	}
+	if (msg) {
+		WL_ERR(("%s: " MACDBG " on %s ndev\n", msg, MAC2STRDBG((u8*)(&e->addr)),
+			(wl_to_prmry_ndev(wl) == ndev) ? "primary" : "secondary"));
+	}
+	return 0;
+
+}
+#endif  /* WLTDLS */
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0)
+static s32
+wl_cfg80211_tdls_oper(struct wiphy *wiphy, struct net_device *dev,
+	u8 *peer, enum nl80211_tdls_operation oper)
+{
+	s32 ret = 0;
+#ifdef WLTDLS
+	struct wl_priv *wl = wlcfg_drv_priv;
+	tdls_iovar_t info;
+	dhd_pub_t *dhd = (dhd_pub_t *)(wl->pub);
+
+	memset(&info, 0, sizeof(tdls_iovar_t));
+	if (peer)
+		memcpy(&info.ea, peer, ETHER_ADDR_LEN);
+	switch (oper) {
+	case NL80211_TDLS_DISCOVERY_REQ:
+		if (!dhd->tdls_enable)
+			ret = dhd_tdls_enable_disable(dhd, 1);
+		if (ret < 0)
+			return ret;
+		info.mode = TDLS_MANUAL_EP_DISCOVERY;
+		break;
+	case NL80211_TDLS_SETUP:
+		info.mode = TDLS_MANUAL_EP_CREATE;
+		break;
+	case NL80211_TDLS_TEARDOWN:
+		info.mode = TDLS_MANUAL_EP_DELETE;
+		break;
+	default:
+		WL_ERR(("Unsupported operation : %d\n", oper));
+		goto out;
+	}
+	ret = wldev_iovar_setbuf(dev, "tdls_endpoint", &info, sizeof(info),
+		wl->ioctl_buf, WLC_IOCTL_MAXLEN, &wl->ioctl_buf_sync);
+	if (ret) {
+		WL_ERR(("tdls_endpoint error %d\n", ret));
+	}
+out:
+#endif /* WLTDLS */
+	return ret;
+}
+#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0) */
 
 s32 wl_cfg80211_set_wps_p2p_ie(struct net_device *net, char *buf, int len,
 	enum wl_management_type type)
