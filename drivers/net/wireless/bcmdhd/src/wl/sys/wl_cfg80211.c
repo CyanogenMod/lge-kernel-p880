@@ -8168,7 +8168,7 @@ exit:
 /* If target scan is not reliable, set the below define to "1" to do a
  * full escan
  */
-#define FULL_ESCAN_ON_PFN_NET_FOUND		0
+#define FULL_ESCAN_ON_PFN_NET_FOUND		1
 static s32
 wl_notify_sched_scan_results(struct wl_priv *wl, struct net_device *ndev,
 	const wl_event_msg_t *e, void *data)
@@ -8831,9 +8831,7 @@ static s32 wl_notify_escan_complete(struct wl_priv *wl,
 #ifdef WL_SCHED_SCAN
 	if (wl->sched_scan_req && !wl->scan_request) {
 		WL_PNO((">>> REPORTING SCHED SCAN RESULTS \n"));
-		if (aborted)
-			cfg80211_sched_scan_stopped(wl->sched_scan_req->wiphy);
-		else
+		if (!aborted)
 			cfg80211_sched_scan_results(wl->sched_scan_req->wiphy);
 		wl->sched_scan_running = FALSE;
 		wl->sched_scan_req = NULL;
