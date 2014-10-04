@@ -284,6 +284,9 @@ typedef struct dhd_pub {
 #ifdef WLMEDIA_HTSF
 	uint8 htsfdlystat_sz; /* Size of delay stats, max 255B */
 #endif
+#ifdef WLTDLS
+	bool tdls_enable;
+#endif
 	struct reorder_info *reorder_bufs[WLHOST_REORDERDATA_MAXFLOWS];
 #if defined(ARP_OFFLOAD_SUPPORT)
 	uint32 arp_version;
@@ -924,6 +927,10 @@ void dhd_aoe_arp_clr(dhd_pub_t *dhd, int idx);
 int dhd_arp_get_arp_hostip_table(dhd_pub_t *dhd, void *buf, int buflen, int idx);
 void dhd_arp_offload_add_ip(dhd_pub_t *dhd, uint32 ipaddr, int idx);
 #endif /* ARP_OFFLOAD_SUPPORT */
+
+#ifdef WLTDLS
+int dhd_tdls_enable_disable(dhd_pub_t *dhd, bool flag);
+#endif
 
 #if defined(CUSTOMER_HW4) && defined(RDWR_KORICS_MACADDR)
 extern int
