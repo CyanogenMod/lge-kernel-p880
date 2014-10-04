@@ -34,10 +34,6 @@
 #include <mach/iomap.h>
 #include "fuse.h"
 
-#include "pm-irq.h"
-
-#define MODULE_NAME "[USBPHY] "
-
 #define ERR(stuff...)		pr_err("usb_phy: " stuff)
 #define WARNING(stuff...)	pr_warning("usb_phy: " stuff)
 #define INFO(stuff...)		pr_info("usb_phy: " stuff)
@@ -781,20 +777,3 @@ void tegra_usb_phy_memory_prefetch_off(struct tegra_usb_phy *phy)
 		writel(val, ahb_gizmo + AHB_MEM_PREFETCH_CFG2);
 	}
 }
-
-int tegra_usb_set_vbus_wakeup(int irq)
-{
-	int err = 0;
-	err = tegra_pm_irq_set_wake(irq, true);
-	if(err!=0){
-		pr_err(MODULE_NAME "%s set wake error:%d\n", __func__,err);
-		return err;
-	}
-	err = tegra_pm_irq_set_wake_type(irq, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING);
-	if(err!=0){
-		pr_err(MODULE_NAME "%s set wake_type error:%d\n", __func__,err);
-	}
-	return err;
-
-}
-
