@@ -1774,11 +1774,10 @@ typedef struct {
 /* WLC_GET_AUTH, WLC_SET_AUTH values */
 #define WL_AUTH_OPEN_SYSTEM		0	/* d11 open authentication */
 #define WL_AUTH_SHARED_KEY		1	/* d11 shared authentication */
-#ifdef BCM4330_CHIP
+#ifndef CONFIG_BCM4334
 #define WL_AUTH_OPEN_SHARED		2	/* try open, then shared if open failed w/rc 13 */
 #else
-/* BCM4334(Phoenex branch) value changed to 3 */
-#define WL_AUTH_OPEN_SHARED		3	/* try open, then shared if open failed w/rc 13 */
+#define WL_AUTH_OPEN_SHARED		3	/* BCM4334(Phoenix branch) value changed to 3 */
 #endif
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
