@@ -104,6 +104,9 @@ static int __init hlt_setup(char *__unused)
 __setup("nohlt", nohlt_setup);
 __setup("hlt", hlt_setup);
 
+extern void call_with_stack(void (*fn)(void *), void *arg, void *sp);
+typedef void (*phys_reset_t)(unsigned long);
+
 #ifdef CONFIG_ARM_FLUSH_CONSOLE_ON_RESTART
 void arm_machine_flush_console(void)
 {
@@ -128,9 +131,6 @@ void arm_machine_flush_console(void)
 {
 }
 #endif
-
-extern void call_with_stack(void (*fn)(void *), void *arg, void *sp);
-typedef void (*phys_reset_t)(unsigned long);
 
 /*
  * A temporary stack to use for CPU reset. This is static so that we
@@ -312,15 +312,11 @@ void machine_power_off(void)
 
 void machine_restart(char *cmd)
 {
+	machine_shutdown();
+
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
 	arm_machine_flush_console();
-
-	/* Disable interrupts first */
-	local_irq_disable();
-	local_fiq_disable();
-
-	machine_shutdown();
 
 	arm_pm_restart(reboot_mode, cmd);
 
