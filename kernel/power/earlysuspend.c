@@ -28,6 +28,7 @@
 #endif /* CONFIG_MACH_X3 */
 
 #include "power.h"
+#include "../../arch/arm/mach-tegra/cpu-tegra.h"
 
 #ifdef LGE_RESTRICT_POWER_DURING_SLEEP
 #include "../../drivers/misc/muic/muic.h"
@@ -37,14 +38,15 @@ extern TYPE_CHARGING_MODE charging_mode;
 #endif
 #define LGE_EARLYSUSPEND_DEBUG  1  //[20110131:geayoung.baek] suspend,resume monitoring
 
+#define BOOST_CPU_MIN_FREQ	1000000 // 1GHz
+#define BOOST_DEBUG 0
+
 enum {
 	DEBUG_USER_STATE = 1U << 0,
 	DEBUG_SUSPEND = 1U << 2,
 	DEBUG_VERBOSE = 1U << 3,
 };
 
-
- 
 static int debug_mask = DEBUG_USER_STATE|DEBUG_SUSPEND;  //[20110131:geayoung.baek] suspend,resume monitoring
 
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
@@ -147,6 +149,44 @@ abort:
 	spin_unlock_irqrestore(&state_lock, irqflags);
 }
 
+void x3_resume_boost_start(void)
+{
+	unsigned long max_freq;
+	unsigned long preferred_boost_freq;
+	
+	if (BOOST_DEBUG)
+		pr_info("x3_resume_boost_start: Disabling speed cap\n");
+	tegra_cpu_set_speed_cap(NULL);
+
+	max_freq = cpufreq_quick_get_max(0);
+	if (BOOST_DEBUG)
+		pr_info("x3_resume_boost_start: scaling_max_freq is %lu\n", max_freq );
+	
+	if ( max_freq > 1000000 ) {
+		if (max_freq > 1400000 ) {
+			preferred_boost_freq = 1400000;
+		} else {
+			preferred_boost_freq = max_freq;
+		}
+	} else {
+		preferred_boost_freq = 1000000;
+	}
+	if (BOOST_DEBUG)
+		pr_info("x3_resume_boost_start: preferred boost freq is: %lu", preferred_boost_freq );
+	cpufreq_set_min_freq(NULL, preferred_boost_freq); //TODO: Use proper boost method
+	
+	if (BOOST_DEBUG)
+		pr_info("x3_resume_boost_start: Min freq is %d\n", BOOST_CPU_MIN_FREQ );
+	cpufreq_set_min_freq(NULL, BOOST_CPU_MIN_FREQ);
+}
+
+void x3_resume_boost_stop(void)
+{
+	if (BOOST_DEBUG)
+		pr_info("x3_resume_boost_stop: Min freq is %d\n", PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE );
+	cpufreq_set_min_freq(NULL, PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE);
+}
+
 static void late_resume(struct work_struct *work)
 {
 	struct early_suspend *pos;
@@ -173,6 +213,7 @@ static void late_resume(struct work_struct *work)
 	}
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: call handlers\n");
+	x3_resume_boost_start();
 	list_for_each_entry_reverse(pos, &early_suspend_handlers, link) {
 		if (pos->resume != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
@@ -183,6 +224,7 @@ static void late_resume(struct work_struct *work)
 	}
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: done\n");
+	x3_resume_boost_stop();
 abort:
 	mutex_unlock(&early_suspend_lock);
 }
