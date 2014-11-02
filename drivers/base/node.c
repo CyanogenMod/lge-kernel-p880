@@ -1,7 +1,8 @@
 /*
- * Basic Node interface support
+ * drivers/base/node.c - basic Node class support
  */
 
+#include <linux/sysdev.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/mm.h>
@@ -18,16 +19,18 @@
 #include <linux/swap.h>
 #include <linux/slab.h>
 
-static struct bus_type node_subsys = {
+static struct sysdev_class_attribute *node_state_attrs[];
+
+static struct sysdev_class node_class = {
 	.name = "node",
-	.dev_name = "node",
+	.attrs = node_state_attrs,
 };
 
 
-static ssize_t node_read_cpumap(struct device *dev, int type, char *buf)
+static ssize_t node_read_cpumap(struct sys_device *dev, int type, char *buf)
 {
 	struct node *node_dev = to_node(dev);
-	const struct cpumask *mask = cpumask_of_node(node_dev->dev.id);
+	const struct cpumask *mask = cpumask_of_node(node_dev->sysdev.id);
 	int len;
 
 	/* 2008/04/07: buf currently PAGE_SIZE, need 9 chars per 32 bits. */
@@ -41,23 +44,23 @@ static ssize_t node_read_cpumap(struct device *dev, int type, char *buf)
 	return len;
 }
 
-static inline ssize_t node_read_cpumask(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static inline ssize_t node_read_cpumask(struct sys_device *dev,
+				struct sysdev_attribute *attr, char *buf)
 {
 	return node_read_cpumap(dev, 0, buf);
 }
-static inline ssize_t node_read_cpulist(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static inline ssize_t node_read_cpulist(struct sys_device *dev,
+				struct sysdev_attribute *attr, char *buf)
 {
 	return node_read_cpumap(dev, 1, buf);
 }
 
-static DEVICE_ATTR(cpumap,  S_IRUGO, node_read_cpumask, NULL);
-static DEVICE_ATTR(cpulist, S_IRUGO, node_read_cpulist, NULL);
+static SYSDEV_ATTR(cpumap,  S_IRUGO, node_read_cpumask, NULL);
+static SYSDEV_ATTR(cpulist, S_IRUGO, node_read_cpulist, NULL);
 
 #define K(x) ((x) << (PAGE_SHIFT - 10))
-static ssize_t node_read_meminfo(struct device *dev,
-			struct device_attribute *attr, char *buf)
+static ssize_t node_read_meminfo(struct sys_device * dev,
+			struct sysdev_attribute *attr, char * buf)
 {
 	int n;
 	int nid = dev->id;
@@ -154,10 +157,10 @@ static ssize_t node_read_meminfo(struct device *dev,
 }
 
 #undef K
-static DEVICE_ATTR(meminfo, S_IRUGO, node_read_meminfo, NULL);
+static SYSDEV_ATTR(meminfo, S_IRUGO, node_read_meminfo, NULL);
 
-static ssize_t node_read_numastat(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t node_read_numastat(struct sys_device * dev,
+				struct sysdev_attribute *attr, char * buf)
 {
 	return sprintf(buf,
 		       "numa_hit %lu\n"
@@ -173,10 +176,10 @@ static ssize_t node_read_numastat(struct device *dev,
 		       node_page_state(dev->id, NUMA_LOCAL),
 		       node_page_state(dev->id, NUMA_OTHER));
 }
-static DEVICE_ATTR(numastat, S_IRUGO, node_read_numastat, NULL);
+static SYSDEV_ATTR(numastat, S_IRUGO, node_read_numastat, NULL);
 
-static ssize_t node_read_vmstat(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t node_read_vmstat(struct sys_device *dev,
+				struct sysdev_attribute *attr, char *buf)
 {
 	int nid = dev->id;
 	int i;
@@ -188,10 +191,10 @@ static ssize_t node_read_vmstat(struct device *dev,
 
 	return n;
 }
-static DEVICE_ATTR(vmstat, S_IRUGO, node_read_vmstat, NULL);
+static SYSDEV_ATTR(vmstat, S_IRUGO, node_read_vmstat, NULL);
 
-static ssize_t node_read_distance(struct device *dev,
-			struct device_attribute *attr, char * buf)
+static ssize_t node_read_distance(struct sys_device * dev,
+			struct sysdev_attribute *attr, char * buf)
 {
 	int nid = dev->id;
 	int len = 0;
@@ -209,7 +212,7 @@ static ssize_t node_read_distance(struct device *dev,
 	len += sprintf(buf + len, "\n");
 	return len;
 }
-static DEVICE_ATTR(distance, S_IRUGO, node_read_distance, NULL);
+static SYSDEV_ATTR(distance, S_IRUGO, node_read_distance, NULL);
 
 #ifdef CONFIG_HUGETLBFS
 /*
@@ -227,7 +230,7 @@ static node_registration_func_t __hugetlb_unregister_node;
 static inline bool hugetlb_register_node(struct node *node)
 {
 	if (__hugetlb_register_node &&
-			node_state(node->dev.id, N_HIGH_MEMORY)) {
+			node_state(node->sysdev.id, N_HIGH_MEMORY)) {
 		__hugetlb_register_node(node);
 		return true;
 	}
@@ -263,17 +266,17 @@ int register_node(struct node *node, int num, struct node *parent)
 {
 	int error;
 
-	node->dev.id = num;
-	node->dev.bus = &node_subsys;
-	error = device_register(&node->dev);
+	node->sysdev.id = num;
+	node->sysdev.cls = &node_class;
+	error = sysdev_register(&node->sysdev);
 
 	if (!error){
-		device_create_file(&node->dev, &dev_attr_cpumap);
-		device_create_file(&node->dev, &dev_attr_cpulist);
-		device_create_file(&node->dev, &dev_attr_meminfo);
-		device_create_file(&node->dev, &dev_attr_numastat);
-		device_create_file(&node->dev, &dev_attr_distance);
-		device_create_file(&node->dev, &dev_attr_vmstat);
+		sysdev_create_file(&node->sysdev, &attr_cpumap);
+		sysdev_create_file(&node->sysdev, &attr_cpulist);
+		sysdev_create_file(&node->sysdev, &attr_meminfo);
+		sysdev_create_file(&node->sysdev, &attr_numastat);
+		sysdev_create_file(&node->sysdev, &attr_distance);
+		sysdev_create_file(&node->sysdev, &attr_vmstat);
 
 		scan_unevictable_register_node(node);
 
@@ -293,17 +296,17 @@ int register_node(struct node *node, int num, struct node *parent)
  */
 void unregister_node(struct node *node)
 {
-	device_remove_file(&node->dev, &dev_attr_cpumap);
-	device_remove_file(&node->dev, &dev_attr_cpulist);
-	device_remove_file(&node->dev, &dev_attr_meminfo);
-	device_remove_file(&node->dev, &dev_attr_numastat);
-	device_remove_file(&node->dev, &dev_attr_distance);
-	device_remove_file(&node->dev, &dev_attr_vmstat);
+	sysdev_remove_file(&node->sysdev, &attr_cpumap);
+	sysdev_remove_file(&node->sysdev, &attr_cpulist);
+	sysdev_remove_file(&node->sysdev, &attr_meminfo);
+	sysdev_remove_file(&node->sysdev, &attr_numastat);
+	sysdev_remove_file(&node->sysdev, &attr_distance);
+	sysdev_remove_file(&node->sysdev, &attr_vmstat);
 
 	scan_unevictable_unregister_node(node);
 	hugetlb_unregister_node(node);		/* no-op, if memoryless node */
 
-	device_unregister(&node->dev);
+	sysdev_unregister(&node->sysdev);
 }
 
 struct node node_devices[MAX_NUMNODES];
@@ -323,15 +326,15 @@ int register_cpu_under_node(unsigned int cpu, unsigned int nid)
 	if (!obj)
 		return 0;
 
-	ret = sysfs_create_link(&node_devices[nid].dev.kobj,
+	ret = sysfs_create_link(&node_devices[nid].sysdev.kobj,
 				&obj->kobj,
 				kobject_name(&obj->kobj));
 	if (ret)
 		return ret;
 
 	return sysfs_create_link(&obj->kobj,
-				 &node_devices[nid].dev.kobj,
-				 kobject_name(&node_devices[nid].dev.kobj));
+				 &node_devices[nid].sysdev.kobj,
+				 kobject_name(&node_devices[nid].sysdev.kobj));
 }
 
 int unregister_cpu_under_node(unsigned int cpu, unsigned int nid)
@@ -345,10 +348,10 @@ int unregister_cpu_under_node(unsigned int cpu, unsigned int nid)
 	if (!obj)
 		return 0;
 
-	sysfs_remove_link(&node_devices[nid].dev.kobj,
+	sysfs_remove_link(&node_devices[nid].sysdev.kobj,
 			  kobject_name(&obj->kobj));
 	sysfs_remove_link(&obj->kobj,
-			  kobject_name(&node_devices[nid].dev.kobj));
+			  kobject_name(&node_devices[nid].sysdev.kobj));
 
 	return 0;
 }
@@ -390,15 +393,15 @@ int register_mem_sect_under_node(struct memory_block *mem_blk, int nid)
 			continue;
 		if (page_nid != nid)
 			continue;
-		ret = sysfs_create_link_nowarn(&node_devices[nid].dev.kobj,
-					&mem_blk->dev.kobj,
-					kobject_name(&mem_blk->dev.kobj));
+		ret = sysfs_create_link_nowarn(&node_devices[nid].sysdev.kobj,
+					&mem_blk->sysdev.kobj,
+					kobject_name(&mem_blk->sysdev.kobj));
 		if (ret)
 			return ret;
 
-		return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
-				&node_devices[nid].dev.kobj,
-				kobject_name(&node_devices[nid].dev.kobj));
+		return sysfs_create_link_nowarn(&mem_blk->sysdev.kobj,
+				&node_devices[nid].sysdev.kobj,
+				kobject_name(&node_devices[nid].sysdev.kobj));
 	}
 	/* mem section does not span the specified node */
 	return 0;
@@ -431,10 +434,10 @@ int unregister_mem_sect_under_nodes(struct memory_block *mem_blk,
 			continue;
 		if (node_test_and_set(nid, *unlinked_nodes))
 			continue;
-		sysfs_remove_link(&node_devices[nid].dev.kobj,
-			 kobject_name(&mem_blk->dev.kobj));
-		sysfs_remove_link(&mem_blk->dev.kobj,
-			 kobject_name(&node_devices[nid].dev.kobj));
+		sysfs_remove_link(&node_devices[nid].sysdev.kobj,
+			 kobject_name(&mem_blk->sysdev.kobj));
+		sysfs_remove_link(&mem_blk->sysdev.kobj,
+			 kobject_name(&node_devices[nid].sysdev.kobj));
 	}
 	NODEMASK_FREE(unlinked_nodes);
 	return 0;
@@ -465,7 +468,7 @@ static int link_mem_sections(int nid)
 	}
 
 	if (mem_blk)
-		kobject_put(&mem_blk->dev.kobj);
+		kobject_put(&mem_blk->sysdev.kobj);
 	return err;
 }
 
@@ -593,19 +596,19 @@ static ssize_t print_nodes_state(enum node_states state, char *buf)
 }
 
 struct node_attr {
-	struct device_attribute attr;
+	struct sysdev_class_attribute attr;
 	enum node_states state;
 };
 
-static ssize_t show_node_state(struct device *dev,
-			       struct device_attribute *attr, char *buf)
+static ssize_t show_node_state(struct sysdev_class *class,
+			       struct sysdev_class_attribute *attr, char *buf)
 {
 	struct node_attr *na = container_of(attr, struct node_attr, attr);
 	return print_nodes_state(na->state, buf);
 }
 
 #define _NODE_ATTR(name, state) \
-	{ __ATTR(name, 0444, show_node_state, NULL), state }
+	{ _SYSDEV_CLASS_ATTR(name, 0444, show_node_state, NULL), state }
 
 static struct node_attr node_state_attr[] = {
 	_NODE_ATTR(possible, N_POSSIBLE),
@@ -617,24 +620,15 @@ static struct node_attr node_state_attr[] = {
 #endif
 };
 
-static struct attribute *node_state_attrs[] = {
-	&node_state_attr[0].attr.attr,
-	&node_state_attr[1].attr.attr,
-	&node_state_attr[2].attr.attr,
-	&node_state_attr[3].attr.attr,
+static struct sysdev_class_attribute *node_state_attrs[] = {
+	&node_state_attr[0].attr,
+	&node_state_attr[1].attr,
+	&node_state_attr[2].attr,
+	&node_state_attr[3].attr,
 #ifdef CONFIG_HIGHMEM
-	&node_state_attr[4].attr.attr,
+	&node_state_attr[4].attr,
 #endif
 	NULL
-};
-
-static struct attribute_group memory_root_attr_group = {
-	.attrs = node_state_attrs,
-};
-
-static const struct attribute_group *cpu_root_attr_groups[] = {
-	&memory_root_attr_group,
-	NULL,
 };
 
 #define NODE_CALLBACK_PRI	2	/* lower than SLAB */
@@ -645,7 +639,7 @@ static int __init register_node_type(void)
  	BUILD_BUG_ON(ARRAY_SIZE(node_state_attr) != NR_NODE_STATES);
  	BUILD_BUG_ON(ARRAY_SIZE(node_state_attrs)-1 != NR_NODE_STATES);
 
-	ret = subsys_system_register(&node_subsys, cpu_root_attr_groups);
+	ret = sysdev_class_register(&node_class);
 	if (!ret) {
 		hotplug_memory_notifier(node_memory_callback,
 					NODE_CALLBACK_PRI);
