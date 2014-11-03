@@ -284,7 +284,7 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	int i;
 	u32 p_min = ~0;
 	u32 minqlen = ~0;
-	u32 r, slot, salt, sfbhash;
+	u32 r, slot, salt=0, sfbhash;
 	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
 
 	if (q->rehash_interval > 0) {
