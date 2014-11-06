@@ -308,7 +308,7 @@ int tegra20_spdif_resume(struct snd_soc_dai *cpu_dai)
 #define tegra20_spdif_resume NULL
 #endif
 
-static const struct snd_soc_dai_ops tegra_spdif_dai_ops = {
+static const struct snd_soc_dai_ops tegra20_spdif_dai_ops = {
 	.hw_params	= tegra20_spdif_hw_params,
 	.trigger	= tegra20_spdif_trigger,
 };

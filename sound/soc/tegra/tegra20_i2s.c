@@ -403,7 +403,7 @@ int tegra20_i2s_resume(struct snd_soc_dai *cpu_dai)
 #define tegra20_i2s_resume NULL
 #endif
 
-static const struct snd_soc_dai_ops tegra_i2s_dai_ops = {
+static const struct snd_soc_dai_ops tegra20_i2s_dai_ops = {
 	.set_fmt	= tegra20_i2s_set_fmt,
 	.hw_params	= tegra20_i2s_hw_params,
 	.trigger	= tegra20_i2s_trigger,
