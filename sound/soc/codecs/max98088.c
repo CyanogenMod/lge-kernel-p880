@@ -1905,7 +1905,7 @@ static int max98088_shutdown(struct snd_pcm_substream *substream,
 #endif
 //                                          
 
-static struct snd_soc_dai_ops max98088_dai1_ops = {
+static const struct snd_soc_dai_ops max98088_dai1_ops = {
        .set_sysclk = max98088_dai_set_sysclk,
        .set_fmt = max98088_dai1_set_fmt,
        .hw_params = max98088_dai1_hw_params,
@@ -1915,7 +1915,7 @@ static struct snd_soc_dai_ops max98088_dai1_ops = {
 #endif
 };
 
-static struct snd_soc_dai_ops max98088_dai2_ops = {
+static const struct snd_soc_dai_ops max98088_dai2_ops = {
        .set_sysclk = max98088_dai_set_sysclk,
        .set_fmt = max98088_dai2_set_fmt,
        .hw_params = max98088_dai2_hw_params,
