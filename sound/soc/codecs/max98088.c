@@ -15,7 +15,6 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/i2c.h>
-#include <linux/platform_device.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -2493,7 +2492,7 @@ static int max98088_remove(struct snd_soc_codec *codec)
 }
 
 #ifdef CONFIG_PM
-static int max98088_suspend(struct snd_soc_codec *codec, pm_message_t state)
+static int max98088_suspend(struct snd_soc_codec *codec)
 {
 	struct max98088_priv *max98088 = snd_soc_codec_get_drvdata(codec);
     printk("(snd codec) suspend.....\n");

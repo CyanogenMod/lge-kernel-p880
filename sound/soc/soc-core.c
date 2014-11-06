@@ -581,7 +581,7 @@ int snd_soc_suspend(struct device *dev)
                 {     
                     //printk("(soc-core) %s() [%s] SSP Go codec suspend codec->dapm.bias_level?(%d).###\n",
                     //      __func__,codec->name, codec->dapm.bias_level );  
-				    codec->driver->suspend(codec, PMSG_SUSPEND);
+				    codec->driver->suspend(codec);
 				    codec->suspended = 1;
 				    codec->cache_sync = 1;
                 }   
