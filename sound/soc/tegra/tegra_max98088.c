@@ -1566,7 +1566,7 @@ static int tegra_max98088_init(struct snd_soc_pcm_runtime *rtd)
 //                                         
 	}
 
-	ret = snd_soc_add_controls(codec, tegra_max98088_controls,
+	ret = snd_soc_add_codec_controls(codec, tegra_max98088_controls,
 				   ARRAY_SIZE(tegra_max98088_controls));
 	if (ret < 0)
 		return ret;
