@@ -477,7 +477,7 @@ static int tegra_pcm_probe(struct snd_soc_platform *platform)
 		return 0;
 }
 
-struct snd_soc_platform_driver tegra_pcm_platform = {
+static struct snd_soc_platform_driver tegra_pcm_platform = {
 	.ops		= &tegra_pcm_ops,
 	.pcm_new	= tegra_pcm_new,
 	.pcm_free	= tegra_pcm_free,
