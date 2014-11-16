@@ -43,6 +43,7 @@
 #define TSPDRV_ENABLE_AMP                   _IO(TSPDRV_MAGIC_NUMBER & 0xFF, 3)
 #define TSPDRV_DISABLE_AMP                  _IO(TSPDRV_MAGIC_NUMBER & 0xFF, 4)
 #define TSPDRV_GET_NUM_ACTUATORS            _IO(TSPDRV_MAGIC_NUMBER & 0xFF, 5)
+#define TSPDRV_ENABLE_TIMED_AMP             _IO(TSPDRV_MAGIC_NUMBER & 0xFF, 6)
 #define VIBE_MAX_DEVICE_NAME_LENGTH			64
 #define SPI_HEADER_SIZE                     3   /* DO NOT CHANGE - SPI buffer header size */
 #define VIBE_OUTPUT_SAMPLE_SIZE             50  /* DO NOT CHANGE - maximum number of samples */
@@ -57,7 +58,7 @@ typedef int16_t		VibeInt16;
 typedef u_int16_t	VibeUInt16;
 typedef int32_t		VibeInt32;
 typedef u_int32_t	VibeUInt32;
-typedef u_int8_t	VibeBool;
+typedef u_int8_t		VibeBool;
 typedef VibeInt32	VibeStatus;
 
 typedef struct
