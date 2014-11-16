@@ -228,7 +228,7 @@ static int __devinit tegra20_das_probe(struct platform_device *pdev)
 	if (das)
 		return -ENODEV;
 
-	das = devm_kzalloc(&pdev->dev, sizeof(struct tegra_das), GFP_KERNEL);
+	das = devm_kzalloc(&pdev->dev, sizeof(struct tegra20_das), GFP_KERNEL);
 	if (!das) {
 		dev_err(&pdev->dev, "Can't allocate tegra20_das\n");
 		ret = -ENOMEM;
@@ -303,7 +303,7 @@ static struct platform_driver tegra20_das_driver = {
 	},
 };
 
-module_platform_driver(tegra_das_driver);
+module_platform_driver(tegra20_das_driver);
 
 MODULE_AUTHOR("Stephen Warren <swarren@nvidia.com>");
 MODULE_DESCRIPTION("Tegra DAS driver");
