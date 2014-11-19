@@ -1634,7 +1634,6 @@ static int tegra_max98088_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_nc_pin(dapm, "INB2");
 #endif
 //                                             
-	snd_soc_dapm_sync(dapm);
 
 	return 0;
 }
