@@ -294,17 +294,7 @@ static struct platform_driver tegra_vcm_driver = {
 	.remove = __devexit_p(tegra_vcm_driver_remove),
 };
 
-static int __init tegra_vcm_modinit(void)
-{
-	return platform_driver_register(&tegra_vcm_driver);
-}
-module_init(tegra_vcm_modinit);
-
-static void __exit tegra_vcm_modexit(void)
-{
-	platform_driver_unregister(&tegra_vcm_driver);
-}
-module_exit(tegra_vcm_modexit);
+module_platform_driver(tegra_vcm_driver);
 
 MODULE_AUTHOR("Nitin Pai <npai@nvidia.com>");
 MODULE_DESCRIPTION("Tegra+VCM machine ASoC driver");

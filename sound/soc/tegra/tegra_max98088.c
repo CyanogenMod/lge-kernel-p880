@@ -1959,18 +1959,7 @@ static struct platform_driver tegra_max98088_driver = {
 	.probe = tegra_max98088_driver_probe,
 	.remove = __devexit_p(tegra_max98088_driver_remove),
 };
-
-static int __init tegra_max98088_modinit(void)
-{
-	return platform_driver_register(&tegra_max98088_driver);
-}
-module_init(tegra_max98088_modinit);
-
-static void __exit tegra_max98088_modexit(void)
-{
-	platform_driver_unregister(&tegra_max98088_driver);
-}
-module_exit(tegra_max98088_modexit);
+module_platform_driver(tegra_max98088_driver);
 
 MODULE_AUTHOR("Sumit Bhattacharya <sumitb@nvidia.com>");
 MODULE_DESCRIPTION("Tegra+MAX98088 machine ASoC driver");

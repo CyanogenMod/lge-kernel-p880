@@ -503,6 +503,7 @@ static struct platform_driver tegra_pcm_driver = {
 	.probe = tegra_pcm_platform_probe,
 	.remove = __devexit_p(tegra_pcm_platform_remove),
 };
+
 module_platform_driver(tegra_pcm_driver);
 
 MODULE_AUTHOR("Stephen Warren <swarren@nvidia.com>");

@@ -875,17 +875,7 @@ static struct platform_driver tegra30_ahub_driver = {
 	},
 };
 
-static int __init tegra30_ahub_modinit(void)
-{
-	return platform_driver_register(&tegra30_ahub_driver);
-}
-module_init(tegra30_ahub_modinit);
-
-static void __exit tegra30_ahub_modexit(void)
-{
-	platform_driver_unregister(&tegra30_ahub_driver);
-}
-module_exit(tegra30_ahub_modexit);
+module_platform_driver(tegra30_ahub_driver);
 
 MODULE_AUTHOR("Stephen Warren <swarren@nvidia.com>");
 MODULE_DESCRIPTION("Tegra 30 AHUB driver");

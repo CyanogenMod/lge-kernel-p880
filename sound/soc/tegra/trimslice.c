@@ -206,6 +206,7 @@ static struct platform_driver tegra_snd_trimslice_driver = {
 	.probe = tegra_snd_trimslice_probe,
 	.remove = __devexit_p(tegra_snd_trimslice_remove),
 };
+
 module_platform_driver(tegra_snd_trimslice_driver);
 
 MODULE_AUTHOR("Mike Rapoport <mike@compulab.co.il>");

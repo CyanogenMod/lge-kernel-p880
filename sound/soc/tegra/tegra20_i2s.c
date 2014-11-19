@@ -569,17 +569,7 @@ static struct platform_driver tegra20_i2s_driver = {
 	.remove = __devexit_p(tegra20_i2s_platform_remove),
 };
 
-static int __init snd_tegra20_i2s_init(void)
-{
-	return platform_driver_register(&tegra20_i2s_driver);
-}
-module_init(snd_tegra20_i2s_init);
-
-static void __exit snd_tegra20_i2s_exit(void)
-{
-	platform_driver_unregister(&tegra20_i2s_driver);
-}
-module_exit(snd_tegra20_i2s_exit);
+module_platform_driver(tegra20_i2s_driver);
 
 MODULE_AUTHOR("Stephen Warren <swarren@nvidia.com>");
 MODULE_DESCRIPTION("Tegra I2S ASoC driver");

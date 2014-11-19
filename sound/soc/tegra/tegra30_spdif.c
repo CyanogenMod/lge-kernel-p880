@@ -489,17 +489,7 @@ static struct platform_driver tegra30_spdif_driver = {
 	.remove = __devexit_p(tegra30_spdif_platform_remove),
 };
 
-static int __init snd_tegra30_spdif_init(void)
-{
-	return platform_driver_register(&tegra30_spdif_driver);
-}
-module_init(snd_tegra30_spdif_init);
-
-static void __exit snd_tegra30_spdif_exit(void)
-{
-	platform_driver_unregister(&tegra30_spdif_driver);
-}
-module_exit(snd_tegra30_spdif_exit);
+module_platform_driver(tegra30_spdif_driver);
 
 MODULE_AUTHOR("Sumit Bhattacharya <sumitb@nvidia.com>");
 MODULE_DESCRIPTION("Tegra30 SPDIF ASoC driver");

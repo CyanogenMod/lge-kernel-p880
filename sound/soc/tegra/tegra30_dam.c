@@ -876,17 +876,7 @@ static struct platform_driver tegra30_dam_driver = {
 	},
 };
 
-static int __init tegra30_dam_modinit(void)
-{
-	return platform_driver_register(&tegra30_dam_driver);
-}
-module_init(tegra30_dam_modinit);
-
-static void __exit tegra30_dam_modexit(void)
-{
-	platform_driver_unregister(&tegra30_dam_driver);
-}
-module_exit(tegra30_dam_modexit);
+module_platform_driver(tegra30_dam_driver);
 
 MODULE_AUTHOR("Nikesh Oswal <noswal@nvidia.com>");
 MODULE_DESCRIPTION("Tegra 30 DAM driver");
