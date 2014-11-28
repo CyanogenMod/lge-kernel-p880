@@ -47,15 +47,13 @@
 
 MODULE_LICENSE("GPL");
 
-static int g_i;
-
 /* To support more rmnet interfaces, increase the default max_intfs or
  * pass kernel module parameter.
  * e.g. insmod raw_ip_net.ko max_intfs=5
  */
-static int max_intfs = 3;	/* default number of interfaces */
+static int max_intfs = 2;	/* default number of interfaces */
 
-static unsigned long usb_net_raw_ip_intf[MAX_INTFS] = { 3, 5, 7, 9, 11, 13};
+static const unsigned long USB_NET_RAW_IP_INTF[MAX_INTFS] = { 3, 5, 9, 11, 13};
 unsigned long usb_net_raw_ip_rx_debug;
 unsigned long usb_net_raw_ip_tx_debug;
 
@@ -74,6 +72,7 @@ struct baseband_usb {
 	int baseband_index;
 	/* network statistics */
 	struct net_device_stats stats;
+	struct net_device *usb_net_raw_ip_dev;
 	/* usb context */
 	struct {
 		struct usb_driver *driver;
@@ -98,62 +97,55 @@ struct baseband_usb {
 	void *buff[RAWIP_RX_BUFS];
 	/* suspend count */
 	int susp_count;
-
-	spinlock_t autopm_lock;
-	int autopm_refcnt;
 };
 
 static struct baseband_usb *baseband_usb_net[MAX_INTFS] = { 0, 0, 0, 0, 0};
 
-static struct net_device *usb_net_raw_ip_dev[MAX_INTFS] = { 0, 0, 0, 0, 0};
-
-static struct usb_interface *g_usb_interface[MAX_INTFS];
-
 static int usb_net_raw_ip_rx_urb_submit(struct baseband_usb *usb);
 static void usb_net_raw_ip_rx_urb_comp(struct urb *urb);
+static int usb_net_raw_ip_setup_rx_urb( struct baseband_usb *usb);
+static int usb_net_raw_ip_rx_urb_submit(struct baseband_usb *usb);
+static void usb_net_raw_ip_free_rx_urb(struct baseband_usb *usb);
 
 static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 	struct sk_buff *skb);
 static void usb_net_raw_ip_tx_urb_work(struct work_struct *work);
 static void usb_net_raw_ip_tx_urb_comp(struct urb *urb);
 
-static void usb_autopm_get_ex(struct baseband_usb *usb)
+struct baseband_usb *baseband_usb_create(int index, unsigned int intf);
+static int baseband_usb_open(
+		int index, struct baseband_usb *usb, struct usb_interface *intf);
+
+static struct net_device_ops usb_net_raw_ip_ops;
+
+static int intf_index(struct usb_interface *intf)
 {
-	unsigned long flag;
-	if (!usb_autopm_get_interface_async(usb->usb.interface)) {
-		spin_lock_irqsave(&usb->autopm_lock, flag);
-		usb->autopm_refcnt++;
-		spin_unlock_irqrestore(&usb->autopm_lock, flag);
-	} else
-		pr_debug("%s autopm_get fails (%d)\n",
-				__func__, usb->autopm_refcnt);
-}
-
-
-static void usb_autopm_put_ex(struct baseband_usb *usb)
-{
-	unsigned long flag;
-
-	spin_lock_irqsave(&usb->autopm_lock, flag);
-	if (usb->autopm_refcnt) {
-		usb->autopm_refcnt--;
-		spin_unlock_irqrestore(&usb->autopm_lock, flag);
-		usb_autopm_put_interface_async(usb->usb.interface);
-	} else {
-		spin_unlock_irqrestore(&usb->autopm_lock, flag);
-		pr_debug("%s autopm_put skipped (%d)\n",
-				__func__, usb->autopm_refcnt);
+	int i;
+	for (i = 0; i < max_intfs; ++i) {
+		if (USB_NET_RAW_IP_INTF[i] ==
+				intf->cur_altsetting->desc.bInterfaceNumber) {
+			return i;
+		}
 	}
+	return -1;
 }
 
 static int baseband_usb_driver_probe(struct usb_interface *intf,
 	const struct usb_device_id *id)
 {
-	int i = g_i, j;
+	int j;
+	struct net_device *net_dev = NULL;
+	int err;
+
+	struct usb_device *usb_dev = interface_to_usbdev(intf);
+
+	if (5 == usb_dev->actconfig->desc.bNumInterfaces) {
+		pr_debug("%s: XMM 6260 core dump state, do not work with it.\n",
+				__func__);
+		return -ENODEV;
+	}
 
 	pr_debug("%s(%d) { intf %p id %p\n", __func__, __LINE__, intf, id);
-
-	pr_debug("i %d\n", i);
 
 	pr_debug("intf->cur_altsetting->desc.bInterfaceNumber %02x\n",
 		intf->cur_altsetting->desc.bInterfaceNumber);
@@ -171,17 +163,57 @@ static int baseband_usb_driver_probe(struct usb_interface *intf,
 		intf->cur_altsetting->desc.iInterface);
 
 	/* register interfaces that are assigned to raw-ip */
-	for (j = 0; j < max_intfs; j++) {
-		if (usb_net_raw_ip_intf[j] ==
-				intf->cur_altsetting->desc.bInterfaceNumber) {
-			pr_info("%s: raw_ip using interface %d\n", __func__,
+	j = intf_index(intf);
+	if (j < 0) {
+		pr_info("%s: interface %d not in list\n", __func__,
 				intf->cur_altsetting->desc.bInterfaceNumber);
-			g_usb_interface[j] = intf;
-			return 0;
-		}
+		return -ENODEV;
 	}
-	pr_debug("%s(%d) }\n", __func__, __LINE__);
-	return -ENODEV;
+
+	pr_info("%s: raw_ip using interface %d\n", __func__,
+		intf->cur_altsetting->desc.bInterfaceNumber);
+
+	/* register network device */
+	net_dev = alloc_netdev(0,
+			BASEBAND_USB_NET_DEV_NAME,
+			ether_setup);
+	if (!net_dev) {
+		pr_err("alloc_netdev() failed\n");
+		err = -ENOMEM;
+		goto error_exit;
+	}
+	net_dev->netdev_ops = &usb_net_raw_ip_ops;
+	net_dev->watchdog_timeo = TX_TIMEOUT;
+	random_ether_addr(net_dev->dev_addr);
+	net_dev->flags |= IFF_NOARP;
+	err = register_netdev(net_dev);
+	if (err < 0) {
+		pr_err("cannot register network device - %d\n", err);
+		goto error_exit;
+	}
+	baseband_usb_net[j]->usb_net_raw_ip_dev = net_dev;
+	pr_debug("registered baseband usb network device"
+			" - dev %p name %s\n", net_dev,
+			BASEBAND_USB_NET_DEV_NAME);
+
+	/* finish initialize */
+	err = baseband_usb_open(j, baseband_usb_net[j], intf);
+	if (err < 0) {
+		pr_err("cannot finish open network device\n");
+		err = -ENOMEM;
+		goto error_exit;
+	}
+
+	return 0;
+
+error_exit:
+	/* unregister network device */
+	if (net_dev) {
+		unregister_netdev(net_dev);
+		free_netdev(net_dev);
+	}
+	baseband_usb_net[j]->usb_net_raw_ip_dev = (struct net_device *) 0;
+	return err;
 }
 
 static void baseband_usb_driver_disconnect(struct usb_interface *intf)
@@ -205,6 +237,12 @@ static void baseband_usb_driver_disconnect(struct usb_interface *intf)
 			pr_err("%s: cannot acquire semaphore\n", __func__);
 			continue;
 		}
+		/* unregister network device */
+		if (baseband_usb_net[i]->usb_net_raw_ip_dev) {
+			unregister_netdev(baseband_usb_net[i]->usb_net_raw_ip_dev);
+			free_netdev(baseband_usb_net[i]->usb_net_raw_ip_dev);
+			baseband_usb_net[i]->usb_net_raw_ip_dev = (struct net_device *) 0;
+		}
 		/* kill usb tx */
 		while ((urb = usb_get_from_anchor(&baseband_usb_net[i]->
 			usb.tx_urb_deferred)) != (struct urb *) 0) {
@@ -222,22 +260,26 @@ static void baseband_usb_driver_disconnect(struct usb_interface *intf)
 			usb_free_urb(urb);
 		}
 		if (baseband_usb_net[i]->usb.tx_workqueue) {
-			flush_workqueue(baseband_usb_net[i]
+			destroy_workqueue(baseband_usb_net[i]
 				->usb.tx_workqueue);
+			baseband_usb_net[i]->usb.tx_workqueue
+				= (struct workqueue_struct *) 0;
 		}
 		if (baseband_usb_net[i]->usb.tx_urb) {
 			usb_kill_urb(baseband_usb_net[i]->usb.tx_urb);
 			baseband_usb_net[i]->usb.tx_urb
 				= (struct urb *) 0;
 		}
-		/* kill usb rx */
+		/* kill and stop usb rx */
 		for (j = 0; j < RAWIP_RX_BUFS; j++)
 			usb_kill_urb(baseband_usb_net[i]->urb_r[j]);
 		baseband_usb_net[i]->usb.rx_urb	= (struct urb *) 0;
-
+		usb_net_raw_ip_free_rx_urb(baseband_usb_net[i]);
 		/* mark interface as disconnected */
 		baseband_usb_net[i]->usb.interface
 			= (struct usb_interface *) 0;
+		/* clear suspend counter */
+		baseband_usb_net[i]->susp_count = 0;
 		/* release semaphore */
 		up(&baseband_usb_net[i]->sem);
 	}
@@ -437,12 +479,11 @@ static void find_usb_pipe(struct baseband_usb *usb)
 
 void baseband_usb_close(struct baseband_usb *usb);
 
-struct baseband_usb *baseband_usb_open(int index, unsigned int intf)
+struct baseband_usb *baseband_usb_create(int index, unsigned int intf)
 {
 	struct baseband_usb *usb;
-	int i;
 
-	pr_debug("baseband_usb_open {\n");
+	pr_debug("baseband_usb_create {\n");
 
 	/* allocate baseband usb structure */
 	usb = kzalloc(sizeof(struct baseband_usb),
@@ -453,28 +494,26 @@ struct baseband_usb *baseband_usb_open(int index, unsigned int intf)
 	/* create semaphores */
 	sema_init(&usb->sem, 1);
 
-	spin_lock_init(&usb->autopm_lock);
+	pr_debug("baseband_usb_create }\n");
+	return usb;
+}
+
+static int baseband_usb_open(
+		int index, struct baseband_usb *usb, struct usb_interface *intf)
+{
+	int err;
+	char name[32];
+
+	pr_debug("baseband_usb_open {\n");
 
 	/* open usb interface */
 	usb->baseband_index = index;
 	usb->usb.driver = &baseband_usb_driver;
-	if (!g_usb_interface[index]) {
-		/* wait for usb probe */
-		for (i = 0; i < 50; i++)
-			if (!g_usb_interface[index])
-				msleep(20);
-		if (!g_usb_interface[index]) {
-			pr_err("can't open usb: !g_usb_interface[%d]\n", index);
-			kfree(usb);
-			return NULL;
-		}
-	}
-	usb->usb.device = interface_to_usbdev(g_usb_interface[index]);
-	usb->usb.interface = g_usb_interface[index];
+	usb->usb.device = interface_to_usbdev(intf);
+	usb->usb.interface = intf;
 	find_usb_pipe(usb);
 	usb->usb.rx_urb = (struct urb *) 0;
 	usb->usb.tx_urb = (struct urb *) 0;
-	g_usb_interface[index] = (struct usb_interface *) 0;
 	pr_debug("usb->usb.driver->name %s\n", usb->usb.driver->name);
 	pr_debug("usb->usb.device %p\n", usb->usb.device);
 	pr_debug("usb->usb.interface %p\n", usb->usb.interface);
@@ -486,8 +525,57 @@ struct baseband_usb *baseband_usb_open(int index, unsigned int intf)
 	pr_debug("usb->usb.pipe.interrupt.out %x\n",
 		usb->usb.pipe.interrupt.out);
 
+	/* start usb tx */
+	if (!baseband_usb_net[index]->usb.tx_workqueue) {
+		sprintf(name, "raw_ip_tx_wq-%d",
+			baseband_usb_net[index]->baseband_index);
+		baseband_usb_net[index]->usb.tx_workqueue
+			= create_singlethread_workqueue(name);
+		if (!baseband_usb_net[index]->usb.tx_workqueue) {
+			pr_err("cannot create workqueue\n");
+			err = -ENOMEM;
+			goto error_exit;
+		}
+	}
+	/* start usb rx */
+	err = usb_net_raw_ip_setup_rx_urb(baseband_usb_net[index]);
+	if (err < 0) {
+		pr_err("setup reusable rx urb failed - err %d\n", err);
+		goto error_exit;
+	}
+	err = usb_net_raw_ip_rx_urb_submit(baseband_usb_net[index]);
+	if (err < 0) {
+		pr_err("submit rx failed - err %d\n", err);
+		goto error_exit;
+	}
+
+	/* clear suspend counter */
+	usb->susp_count = 0;
+
 	pr_debug("baseband_usb_open }\n");
-	return usb;
+	return 0;
+
+error_exit:
+	/* stop usb tx */
+	if (baseband_usb_net[index]->usb.tx_workqueue) {
+		destroy_workqueue(baseband_usb_net[index]
+			->usb.tx_workqueue);
+		baseband_usb_net[index]->usb.tx_workqueue
+			= (struct workqueue_struct *) 0;
+	}
+	if (baseband_usb_net[index]->usb.tx_urb) {
+		usb_kill_urb(baseband_usb_net[index]->usb.tx_urb);
+		baseband_usb_net[index]->usb.tx_urb
+			= (struct urb *) 0;
+	}
+	/* stop usb rx */
+	if (baseband_usb_net[index]->usb.rx_urb) {
+		usb_kill_urb(baseband_usb_net[index]->usb.rx_urb);
+		baseband_usb_net[index]->usb.rx_urb
+			= (struct urb *) 0;
+	}
+	usb_net_raw_ip_free_rx_urb(baseband_usb_net[index]);
+	return err;
 }
 
 void baseband_usb_close(struct baseband_usb *usb)
@@ -556,7 +644,7 @@ static netdev_tx_t baseband_usb_netdev_start_xmit(
 
 	/* find index of network device which is transmitting */
 	for (i = 0; i < max_intfs; i++) {
-		if (usb_net_raw_ip_dev[i] == dev)
+		if (baseband_usb_net[i]->usb_net_raw_ip_dev == dev)
 			break;
 	}
 	if (i >= max_intfs) {
@@ -567,7 +655,7 @@ static netdev_tx_t baseband_usb_netdev_start_xmit(
 
 	/* autoresume if suspended */
 	if (usb->usb.interface) {
-		usb_autopm_get_ex(usb);
+		usb_autopm_get_interface_async(usb->usb.interface);
 	} else {
 		pr_err("%s: tx get interface error\n", __func__);
 		netif_stop_queue(dev);
@@ -592,7 +680,7 @@ static struct net_device_stats *baseband_usb_netdev_get_stats(
 {
 	int i;
 	for (i = 0; i < max_intfs; i++) {
-		if (dev == usb_net_raw_ip_dev[i]) {
+		if (dev == baseband_usb_net[i]->usb_net_raw_ip_dev) {
 			pr_debug("%s idx(%d)\n", __func__, i);
 			return &baseband_usb_net[i]->stats;
 		}
@@ -627,7 +715,6 @@ static int usb_net_raw_ip_rx_urb_submit(struct baseband_usb *usb)
 		pr_err("usb interface disconnected - not submitting rx urb\n");
 		return -EINVAL;
 	}
-
 	for (j = 0; j < RAWIP_RX_BUFS; j++) {
 		urb = usb->urb_r[j];
 		buf = usb->buff[j];
@@ -690,11 +777,11 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 		break;
 	case -ESHUTDOWN:
 		/* fall through */
-		pr_debug("%s: rx urb %p - link shutdown %d\n",
+		pr_info("%s: rx urb %p - link shutdown %d\n",
 			__func__, urb, urb->status);
 		goto err_exit;
 	case -EPROTO:
-		pr_debug("%s: rx urb %p - link shutdown %d EPROTO\n",
+		pr_info("%s: rx urb %p - link shutdown %d EPROTO\n",
 			__func__, urb, urb->status);
 		goto err_exit;
 	case -ENOENT:
@@ -715,17 +802,15 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 		 * - dummy ethernet header
 		 * - rx IP packet from modem
 		 */
-		skb = netdev_alloc_skb(usb_net_raw_ip_dev[i],
+		skb = netdev_alloc_skb(usb->usb_net_raw_ip_dev,
 			NET_IP_ALIGN + 14 + urb->actual_length);
 		if (skb) {
 			/* generate a dummy ethernet header
 			 * since modem sends IP packets without
 			 * any ethernet headers
 			 */
-			memcpy(ethernet_header + 0,
-				usb_net_raw_ip_dev[i]->dev_addr, 6);
-			memcpy(ethernet_header + 6,
-				"0x01\0x02\0x03\0x04\0x05\0x06", 6);
+			memcpy(ethernet_header + 0, usb->usb_net_raw_ip_dev->dev_addr, 6);
+			memcpy(ethernet_header + 6, "0x01\0x02\0x03\0x04\0x05\0x06", 6);
 			/* fill skb with
 			 * - dummy ethernet header
 			 * - rx IP packet from modem
@@ -742,7 +827,7 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 			dst = skb_put(skb, urb->actual_length);
 			memcpy(dst, urb->transfer_buffer, urb->actual_length);
 			skb->protocol = eth_type_trans(skb,
-				usb_net_raw_ip_dev[i]);
+				usb->usb_net_raw_ip_dev);
 			pr_debug("%s: ntohs(skb->protocol) %04x (%s)\n",
 				__func__, ntohs(skb->protocol),
 				(ntohs(skb->protocol) == 0x0800)
@@ -769,6 +854,7 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 		} else {
 			pr_err("usb_net_raw_ip_rx_urb_comp_work - "
 				"netdev_alloc_skb() failed\n");
+			usb->stats.rx_dropped++;
 		}
 	}
 
@@ -785,7 +871,7 @@ static void usb_net_raw_ip_rx_urb_comp(struct urb *urb)
 		usb->usb.rx_urb = NULL;
 		return;
 	}
-
+	pr_debug("usb_net_raw_ip_rx_urb_comp }\n");
 	return;
 
 err_exit:
@@ -793,6 +879,7 @@ err_exit:
 	usb->usb.rx_urb = (struct urb *) 0;
 
 	pr_debug("usb_net_raw_ip_rx_urb_comp }\n");
+	usb->stats.rx_dropped++;
 	return;
 }
 
@@ -806,7 +893,6 @@ static int usb_net_raw_ip_setup_rx_urb( struct baseband_usb *usb)
 		pr_err("%s: !usb\n", __func__);
 		return -EINVAL;
 	}
-
 	for (i = 0; i < RAWIP_RX_BUFS; i++) {
 		/* allocate reusable rx urbs */
 		usb->urb_r[i] = usb_alloc_urb(0, GFP_KERNEL);
@@ -873,7 +959,8 @@ static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 	}
 	if (!skb) {
 		pr_err("%s: !skb\n", __func__);
-		usb_autopm_put_ex(usb);
+		usb_autopm_put_interface_async(usb->usb.interface);
+		usb->stats.tx_dropped++;
 		return -EINVAL;
 	}
 
@@ -881,14 +968,16 @@ static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 	urb = usb_alloc_urb(0, GFP_ATOMIC);
 	if (!urb) {
 		pr_err("usb_alloc_urb() failed\n");
-		usb_autopm_put_ex(usb);
+		usb_autopm_put_interface_async(usb->usb.interface);
+		usb->stats.tx_dropped++;
 		return -ENOMEM;
 	}
 	buf = kzalloc(skb->len - 14, GFP_ATOMIC);
 	if (!buf) {
 		pr_err("usb buffer kzalloc() failed\n");
 		usb_free_urb(urb);
-		usb_autopm_put_ex(usb);
+		usb_autopm_put_interface_async(usb->usb.interface);
+		usb->stats.tx_dropped++;
 		return -ENOMEM;
 	}
 	err = skb_copy_bits(skb, 14, buf, skb->len - 14);
@@ -896,7 +985,8 @@ static int usb_net_raw_ip_tx_urb_submit(struct baseband_usb *usb,
 		pr_err("skb_copy_bits() failed - %d\n", err);
 		kfree(buf);
 		usb_free_urb(urb);
-		usb_autopm_put_ex(usb);
+		usb_autopm_put_interface_async(usb->usb.interface);
+		usb->stats.tx_errors++;
 		return err;
 	}
 	usb_fill_bulk_urb(urb, usb->usb.device, usb->usb.pipe.bulk.out,
@@ -984,7 +1074,7 @@ static void usb_net_raw_ip_tx_urb_work(struct work_struct *work)
 		if (err < 0) {
 			pr_err("%s: usb_submit_urb(%p) failed - err %d\n",
 				__func__, urb, err);
-			usb_autopm_put_ex(usb);
+			usb_autopm_put_interface_async(usb->usb.interface);
 			if (urb->transfer_buffer) {
 				kfree(urb->transfer_buffer);
 				urb->transfer_buffer = (void *) 0;
@@ -1026,9 +1116,10 @@ static void usb_net_raw_ip_tx_urb_comp(struct urb *urb)
 	case -ESHUTDOWN:
 		/* fall through */
 	case -EPROTO:
-		pr_debug("%s: tx urb %p - link shutdown %d\n",
+		pr_info("%s: tx urb %p - link shutdown %d\n",
 			__func__, urb, urb->status);
-		usb_autopm_put_ex(usb);
+		usb->stats.tx_dropped++;
+		usb_autopm_put_interface_async(usb->usb.interface);
 		goto err_exit;
 	default:
 		pr_debug("%s: tx urb %p - status %d\n",
@@ -1049,7 +1140,7 @@ static void usb_net_raw_ip_tx_urb_comp(struct urb *urb)
 			__func__);
 		goto err_exit;
 	}
-	usb_autopm_put_ex(usb);
+	usb_autopm_put_interface_async(usb->usb.interface);
 
 err_exit:
 	/* free tx urb transfer buffer */
@@ -1062,9 +1153,8 @@ err_exit:
 
 static int usb_net_raw_ip_init(void)
 {
-	int i, j;
+	int i;
 	int err;
-	char name[32];
 
 	pr_debug("usb_net_raw_ip_init { max_intfs %d\n", max_intfs);
 
@@ -1077,59 +1167,15 @@ static int usb_net_raw_ip_init(void)
 	/* create multiple raw-ip network devices */
 	for (i = 0; i < max_intfs; i++) {
 		/* open baseband usb */
-		g_i = i;
-		baseband_usb_net[i] = baseband_usb_open(i,
-						usb_net_raw_ip_intf[i]);
+		baseband_usb_net[i] = baseband_usb_create(i,
+						USB_NET_RAW_IP_INTF[i]);
 		if (!baseband_usb_net[i]) {
 			pr_err("cannot open baseband usb net\n");
 			err = -1;
 			goto error_exit;
 		}
 		init_usb_anchor(&baseband_usb_net[i]->usb.tx_urb_deferred);
-		/* register network device */
-		usb_net_raw_ip_dev[i] = alloc_netdev(0,
-			BASEBAND_USB_NET_DEV_NAME,
-			ether_setup);
-		if (!usb_net_raw_ip_dev[i]) {
-			pr_err("alloc_netdev() failed\n");
-			err = -ENOMEM;
-			goto error_exit;
-		}
-		usb_net_raw_ip_dev[i]->netdev_ops = &usb_net_raw_ip_ops;
-		usb_net_raw_ip_dev[i]->watchdog_timeo = TX_TIMEOUT;
-		random_ether_addr(usb_net_raw_ip_dev[i]->dev_addr);
-        //                                                                              
-        /* keep the default flags, just add NOARP */
-        usb_net_raw_ip_dev[i]->flags |= IFF_NOARP;
-        //                                                                              
-		err = register_netdev(usb_net_raw_ip_dev[i]);
-		if (err < 0) {
-			pr_err("cannot register network device - %d\n", err);
-			goto error_exit;
-		}
-		pr_debug("registered baseband usb network device"
-				" - dev %p name %s\n", usb_net_raw_ip_dev[i],
-				 BASEBAND_USB_NET_DEV_NAME);
-		/* start usb rx */
-		err = usb_net_raw_ip_setup_rx_urb(baseband_usb_net[i]);
-		if (err < 0) {
-			pr_err("setup reusable rx urb failed - err %d\n", err);
-			goto error_exit;
-		}
-		err = usb_net_raw_ip_rx_urb_submit(baseband_usb_net[i]);
-		if (err < 0) {
-			pr_err("submit rx failed - err %d\n", err);
-			goto error_exit;
-		}
-		/* start usb tx */
-		sprintf(name, "raw_ip_tx_wq-%d",
-			baseband_usb_net[i]->baseband_index);
-		baseband_usb_net[i]->usb.tx_workqueue
-			= create_singlethread_workqueue(name);
-		if (!baseband_usb_net[i]->usb.tx_workqueue) {
-			pr_err("cannot create workqueue\n");
-			goto error_exit;
-		}
+		/* init usb tx; start tx/rx workqueue after probe */
 		INIT_WORK(&baseband_usb_net[i]->usb.tx_work,
 			usb_net_raw_ip_tx_urb_work);
 	}
@@ -1140,34 +1186,8 @@ static int usb_net_raw_ip_init(void)
 error_exit:
 	/* destroy multiple raw-ip network devices */
 	for (i = 0; i < max_intfs; i++) {
-		/* unregister network device */
-		if (usb_net_raw_ip_dev[i]) {
-			unregister_netdev(usb_net_raw_ip_dev[i]);
-			free_netdev(usb_net_raw_ip_dev[i]);
-			usb_net_raw_ip_dev[i] = (struct net_device *) 0;
-		}
 		/* close baseband usb */
 		if (baseband_usb_net[i]) {
-			/* stop usb tx */
-			if (baseband_usb_net[i]->usb.tx_workqueue) {
-				destroy_workqueue(baseband_usb_net[i]
-					->usb.tx_workqueue);
-				baseband_usb_net[i]->usb.tx_workqueue
-					= (struct workqueue_struct *) 0;
-			}
-			if (baseband_usb_net[i]->usb.tx_urb) {
-				usb_kill_urb(baseband_usb_net[i]->usb.tx_urb);
-				baseband_usb_net[i]->usb.tx_urb
-					= (struct urb *) 0;
-			}
-
-			/* stop usb rx */
-			for (j = 0; j < RAWIP_RX_BUFS; j++)
-				if (baseband_usb_net[i]->urb_r[j])
-					usb_kill_urb(baseband_usb_net[i]->
-								urb_r[j]);
-			usb_net_raw_ip_free_rx_urb(baseband_usb_net[i]);
-
 			/* close usb */
 			baseband_usb_close(baseband_usb_net[i]);
 			baseband_usb_net[i] = (struct baseband_usb *) 0;
@@ -1217,12 +1237,11 @@ static void usb_net_raw_ip_exit(void)
 
 		pr_debug("%s: unregister netdev\n", __func__);
 		/* unregister network device */
-		if (usb_net_raw_ip_dev[i]) {
-			unregister_netdev(usb_net_raw_ip_dev[i]);
-			free_netdev(usb_net_raw_ip_dev[i]);
-			usb_net_raw_ip_dev[i] = (struct net_device *) 0;
+		if (baseband_usb_net[i]->usb_net_raw_ip_dev) {
+			unregister_netdev(baseband_usb_net[i]->usb_net_raw_ip_dev);
+			free_netdev(baseband_usb_net[i]->usb_net_raw_ip_dev);
+			baseband_usb_net[i]->usb_net_raw_ip_dev = (struct net_device *) 0;
 		}
-
 		if (usb) {
 			pr_debug("%s: destroy tx workqueue\n", __func__);
 			if (usb->usb.tx_workqueue) {
@@ -1245,4 +1264,3 @@ static void usb_net_raw_ip_exit(void)
 
 module_init(usb_net_raw_ip_init)
 module_exit(usb_net_raw_ip_exit)
-
