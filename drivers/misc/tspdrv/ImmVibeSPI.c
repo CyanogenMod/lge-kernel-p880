@@ -435,7 +435,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetFrequency(VibeUInt8 nActuatorInd
 #define DEFAULT_TIMED_STRENGTH 65
 VibeInt8 timedForce = DEFAULT_TIMED_STRENGTH;
 
-VibeStatus ImmVibeSPI_SetTimedSample() {
+VibeStatus ImmVibeSPI_SetTimedSample(void) {
     return ImmVibeSPI_ForceOut_SetSamples(0, 8, 1, &timedForce);
 }
 
