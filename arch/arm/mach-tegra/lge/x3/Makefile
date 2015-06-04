@@ -21,6 +21,7 @@ EXTRA_CFLAGS += -DMPU_SENSORS_MPU6050B1=1
 #endif
 
 # 4 X3
+
 obj-$(CONFIG_MACH_X3)				+= board-x3.o
 obj-$(CONFIG_MACH_X3)				+= board-x3-kbc.o
 

@@ -42,6 +42,29 @@
 #include "clock.h"
 #include "cpu-tegra.h"
 #include "dvfs.h"
+#include "pm.h"
+#include "tegra_pmqos.h"
+
+#ifdef CONFIG_TEGRA_MPDECISION
+/* mpdecision notifier */
+extern int mpdecision_gmode_notifier(void);
+#endif
+
+unsigned int tegra_pmqos_boost_freq = BOOST_CPU_FREQ_MIN;
+unsigned int tegra_pmqos_cap_freq = CAP_CPU_FREQ_MAX;
+unsigned int miss_freq_set=0;
+
+// maxwen: assumes 4 cores!
+unsigned int tegra_pmqos_cpu_freq_limits[CONFIG_NR_CPUS] = {0, 0, 0, 0};
+
+
+#if 0
+extern unsigned int get_powersave_freq();
+/* Symbol to store resume resume */
+extern unsigned long long wake_reason_resume;
+static spinlock_t user_cap_lock;
+struct work_struct htc_suspend_resume_work;
+#endif
 
 /* tegra throttling and edp governors require frequencies in the table
    to be in ascending order */
@@ -121,7 +144,7 @@ module_param_cb(force_disable_edp, &force_disable_edp_ops, &force_disable_edp, 0
 #define MAX_BUCKET_SIZE 10000
 static int token_in_bucket = MAX_BUCKET_SIZE;
 static long threashold_allowed_clk = 880000;
-static long threashold_limited_clk = 1000000;
+static long threashold_limited_clk = 1700000;
 static long threashold_enable_token = 2000;
 static int restore_token = 5;
 static bool is_enable_boost_load_shaper = true;
@@ -445,6 +468,18 @@ static unsigned int user_cap_speed(unsigned int requested_speed)
 	return requested_speed;
 }
 
+#if 1
+static unsigned int powersave_speed(unsigned int requested_speed)
+{
+	if ((get_powersave_freq()) && (requested_speed > get_powersave_freq()))
+		return get_powersave_freq();
+	return requested_speed;
+}
+
+#else
+#define powersave_speed(requested_speed) (requested_speed)
+#endif
+
 #ifdef CONFIG_TEGRA_THERMAL_THROTTLE
 
 static ssize_t show_throttle(struct cpufreq_policy *policy, char *buf)
@@ -507,17 +542,7 @@ static void edp_update_limit(void)
 
 static unsigned int edp_governor_speed(unsigned int requested_speed)
 {
-//                    
-#ifdef CONFIG_MACH_X3
-#ifdef LGE_EDP_ENABLE_CONTROL
-	if(force_disable_edp)
-		return requested_speed;
-#endif
-#endif /* CONFIG_MACH_X3 */
-	if ((!edp_limit) || (requested_speed <= edp_limit))
-		return requested_speed;
-	else
-		return edp_limit;
+	return requested_speed;
 }
 
 int tegra_edp_update_thermal_zone(int temperature)
@@ -972,6 +997,7 @@ int tegra_suspended_target(unsigned int target_freq)
 	/* apply only "hard" caps */
 	new_speed = tegra_throttle_governor_speed(new_speed);
 	new_speed = edp_governor_speed(new_speed);
+	new_speed = powersave_speed(new_speed);
 
 	return tegra_update_cpu_speed(new_speed);
 }
@@ -1062,7 +1088,7 @@ static int tegra_cpu_init(struct cpufreq_policy *policy)
 	target_cpu_speed[policy->cpu] = policy->cur;
 
 	/* FIXME: what's the actual transition time? */
-	policy->cpuinfo.transition_latency = 300 * 1000;
+	policy->cpuinfo.transition_latency = 30 * 1000;
 
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	cpumask_copy(policy->related_cpus, cpu_possible_mask);
@@ -1142,6 +1168,23 @@ static int __init tegra_cpufreq_init(void)
 	freq_table = table_data->freq_table;
 	tegra_cpu_edp_init(false);
 
+#if 0
+	INIT_WORK(&htc_suspend_resume_work, htc_suspend_resume_worker);
+#endif
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	pm_qos_add_request(&boost_cpu_freq_req, PM_QOS_CPU_FREQ_MIN, (s32)PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE);
+	pm_qos_add_request(&cap_cpu_freq_req, PM_QOS_CPU_FREQ_MAX, (s32)PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
+	pm_qos_add_request(&cap_cpu_num_req, PM_QOS_MAX_ONLINE_CPUS, (s32)PM_QOS_MAX_ONLINE_CPUS_DEFAULT_VALUE);
+	
+	// will cap frequency and num cpus on screen off
+	tegra_cpufreq_early_suspender.suspend = tegra_cpufreq_early_suspend;
+	tegra_cpufreq_early_suspender.resume = tegra_cpufreq_late_resume;
+	tegra_cpufreq_early_suspender.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 100;
+	register_early_suspend(&tegra_cpufreq_early_suspender);
+#endif
+
+
 	ret = cpufreq_register_notifier(
 		&tegra_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
 	if (ret)
@@ -1155,6 +1198,14 @@ static void __exit tegra_cpufreq_exit(void)
 	tegra_throttle_exit();
 	tegra_cpu_edp_exit();
 	tegra_auto_hotplug_exit();
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	pm_qos_remove_request(&boost_cpu_freq_req);
+	pm_qos_remove_request(&cap_cpu_freq_req);
+	pm_qos_remove_request(&cap_cpu_num_req);
+		
+	unregister_early_suspend(&tegra_cpufreq_early_suspender);
+#endif
 	cpufreq_unregister_driver(&tegra_cpufreq_driver);
 	cpufreq_unregister_notifier(
 		&tegra_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);

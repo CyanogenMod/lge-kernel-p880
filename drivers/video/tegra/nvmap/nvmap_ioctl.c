@@ -550,12 +550,12 @@ static void heap_page_cache_maint(struct nvmap_client *client,
 	}
 }
 
+#if defined(CONFIG_NVMAP_OUTER_CACHE_MAINT_BY_SET_WAYS)
 static bool fast_cache_maint_outer(unsigned long start,
 		unsigned long end, unsigned int op)
 {
 	bool result = false;
-#if defined(CONFIG_NVMAP_OUTER_CACHE_MAINT_BY_SET_WAYS)
-	if (end - start >= FLUSH_CLEAN_BY_SET_WAY_THRESHOLD_OUTER) {
+	if (end - start >= cache_maint_outer_threshold) {
 		if (op == NVMAP_CACHE_OP_WB_INV) {
 			outer_flush_all();
 			result = true;
@@ -565,22 +565,28 @@ static bool fast_cache_maint_outer(unsigned long start,
 			result = true;
 		}
 	}
-#endif
+
 	return result;
 }
+#else
+static inline bool fast_cache_maint_outer(unsigned long start,
+	unsigned long end, unsigned int op)
+{
+	return false;
+}
+#endif
 
+#if defined(CONFIG_NVMAP_CACHE_MAINT_BY_SET_WAYS)
 static bool fast_cache_maint(struct nvmap_client *client, struct nvmap_handle *h,
 	unsigned long start, unsigned long end, unsigned int op)
 {
-	int ret = false;
-#if defined(CONFIG_NVMAP_CACHE_MAINT_BY_SET_WAYS)
 	if ((op == NVMAP_CACHE_OP_INV) ||
-		((end - start) < FLUSH_CLEAN_BY_SET_WAY_THRESHOLD_INNER))
-		goto out;
+		((end - start) < cache_maint_inner_threshold))
+		return false;
 
 	if (op == NVMAP_CACHE_OP_WB_INV)
 		inner_flush_cache_all();
-	else if (op == NVMAP_CACHE_OP_WB)
+		else if (op == NVMAP_CACHE_OP_WB)
 		inner_clean_cache_all();
 
 	/* outer maintenance */
@@ -588,20 +594,26 @@ static bool fast_cache_maint(struct nvmap_client *client, struct nvmap_handle *h
 		if(!fast_cache_maint_outer(start, end, op))
 		{
 			if (h->heap_pgalloc) {
-				heap_page_cache_maint(client, h, start,
-					end, op, false, true, NULL, 0, 0);
-			} else  {
-				start += h->carveout->base;
-				end += h->carveout->base;
-				outer_cache_maint(op, start, end - start);
+					heap_page_cache_maint(client, h, start,
+							end, op, false, true, NULL, 0, 0);
+			} else {
+					start += h->carveout->base;
+					end += h->carveout->base;
+					outer_cache_maint(op, start, end - start);
 			}
 		}
 	}
-	ret = true;
-out:
-#endif
-	return ret;
+	return true;
 }
+#else
+static inline bool fast_cache_maint(struct nvmap_client *client,
+									struct nvmap_handle *h,
+									unsigned long start, unsigned long end,
+									unsigned int op)
+{
+	return false;
+}
+#endif
 
 static int cache_maint(struct nvmap_client *client, struct nvmap_handle *h,
 		       unsigned long start, unsigned long end, unsigned int op)
@@ -647,7 +659,8 @@ static int cache_maint(struct nvmap_client *client, struct nvmap_handle *h,
 
 	if (start > h->size || end > h->size) {
 		nvmap_warn(client, "cache maintenance outside handle\n");
-		return -EINVAL;
+		err = -EINVAL;
+		goto out; 
 	}
 
 	/* lock carveout from relocation by mapcount */

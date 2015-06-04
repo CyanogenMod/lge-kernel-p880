@@ -29,7 +29,6 @@
 #define cpa_debug(x, ...)
 #endif
 
-#define FLUSH_CLEAN_BY_SET_WAY_PAGE_THRESHOLD 8
 extern void v7_flush_kern_cache_all(void *);
 extern void __flush_dcache_page(struct address_space *, struct page *);
 
@@ -157,11 +156,13 @@ static void cpa_flush_array(unsigned long *start, int numpages, int cache,
 
 	BUG_ON(irqs_disabled());
 
-	if (numpages >= FLUSH_CLEAN_BY_SET_WAY_PAGE_THRESHOLD &&
+	#if defined(CONFIG_NVMAP_CACHE_MAINT_BY_SET_WAYS)
+		if (numpages >= (cache_maint_inner_threshold >> PAGE_SHIFT) &&
 		cache && in_flags & CPA_PAGES_ARRAY) {
 		inner_flush_cache_all();
 		flush_inner = false;
 	}
+#endif
 
 	for (i = 0; i < numpages; i++) {
 		unsigned long addr;
@@ -1070,10 +1071,12 @@ static void flush_cache(struct page **pages, int numpages)
 	bool flush_inner = true;
 	unsigned long base;
 
-	if (numpages >= FLUSH_CLEAN_BY_SET_WAY_PAGE_THRESHOLD) {
+	#if defined(CONFIG_NVMAP_CACHE_MAINT_BY_SET_WAYS)
+		if (numpages >= (cache_maint_inner_threshold >> PAGE_SHIFT)) {
 		inner_flush_cache_all();
 		flush_inner = false;
 	}
+#endif
 
 	for (i = 0; i < numpages; i++) {
 		if (flush_inner)

@@ -99,11 +99,8 @@ static int x3_reboot_notify(struct notifier_block *nb,
                 /* USB power rail must be enabled during boot */
             if (data) {
                 printk("x3_reboot_notify : cmd = %s\n", (char *)data);
-                if (!strcmp((char *)data, "bootloader")) {
-                    printk("x3_reboot_notify : bootloader mode\n");
-		          max77663_set_ScratchRegister(MAX77663_SCRATCH_REG_BOOTLOADER);
-                }
-                else if (!strcmp((char *)data, "oem-unlock")) {
+                if (!strcmp((char *)data, "bootloader")
+                    || !strcmp((char *)data, "oem-unlock")) {
                     printk("x3_reboot_notify : oem-unlock mode\n");
                     max77663_set_ScratchRegister(MAX77663_SCRATCH_REG_BL_UNLOCK);
                 }                

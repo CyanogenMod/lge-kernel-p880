@@ -136,6 +136,7 @@ int cpuquiet_register_driver(struct cpuquiet_driver *drv)
 {
 	int err = -EBUSY;
 	unsigned int cpu;
+	struct cpuquiet_governor *governor;
 	struct sys_device *sys_dev;
 	u64 cur_jiffies;
 
@@ -163,7 +164,16 @@ int cpuquiet_register_driver(struct cpuquiet_driver *drv)
 	if (!cpuquiet_curr_driver) {
 		err = 0;
 		cpuquiet_curr_driver = drv;
-		cpuquiet_switch_governor(cpuquiet_get_first_governor());
+#ifdef CONFIG_CPUQUIET_DEFAULT_GOV_BALANCED
+        governor = cpuquiet_find_governor("balanced");
+#endif
+#ifdef CONFIG_CPUQUIET_DEFAULT_GOV_RUNNABLE
+        governor = cpuquiet_find_governor("runnable");
+#endif
+        if (governor == NULL)
+            governor = cpuquiet_get_first_governor();
+		
+		cpuquiet_switch_governor(governor); 
 	}
 	mutex_unlock(&cpuquiet_lock);
 

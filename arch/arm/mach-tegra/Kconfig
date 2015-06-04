@@ -413,6 +413,15 @@ config TEGRA_CLUSTER_CONTROL
 	depends on ARCH_TEGRA_HAS_DUAL_CPU_CLUSTERS
 	default y if PM_SLEEP
 
+config TEGRA_MPDECISION
+        bool "Enable better automatic CPU hot-plugging"
+	depends on HOTPLUG_CPU && CPU_FREQ && !ARCH_CPU_PROBE_RELEASE && !ARCH_TEGRA_2x_SOC
+	default y
+	help
+	  This option enables turning CPUs off/on and switching tegra
+	  high/low power CPU clusters automatically, corresponding to
+	  CPU frequency load.
+
 config TEGRA_AUTO_HOTPLUG
 	bool "Enable automatic CPU hot-plugging"
 	depends on HOTPLUG_CPU && CPU_FREQ && !ARCH_CPU_PROBE_RELEASE && !ARCH_TEGRA_2x_SOC
@@ -455,6 +464,7 @@ config TEGRA_EMC_TO_DDR_CLOCK
 	default "2" if ARCH_TEGRA_2x_SOC
 	default "1"
 
+
 config TEGRA_SE_ON_CBUS
 	bool "To Drive SE clock from cbus"
 	default y
@@ -471,6 +481,13 @@ config TEGRA_CONVSERVATIVE_GOV_ON_EARLYSUPSEND
 	default n
 	help
 	 Also will restore to original cpu frequency governor when device is resumed
+
+config TEGRA_LEGACY_AUDIO
+	bool "Enable Tegra Legacy Audio APIs"
+	default n
+	help
+	  Say Y if you want to add support legacy (non-ALSA) audio APIs on
+	  Tegra. This will disable ALSA (ASoC) support.
 
 config TEGRA_STAT_MON
         bool "Enable H/W statistics monitor"
@@ -610,3 +627,22 @@ config TEGRA_DC_USE_HW_BPP
 	  Programs platform data to inform DC driver to use current
 	  hardware value for bits per pixel setting.  Useful for
           preserving and displaying framebuffer content from bootloader.
+
+config CPU_OC
+	bool "Allows CPU OC"
+	default y
+	help
+	  If yes, allows CPU OC to 1.6GHz quad core and 1.7GHz single core
+
+config FAST_CHARGE
+	bool "Allows USB to charge as AC"
+	default y
+	help
+	  If yes, USB will be drawn at AC voltage anyway"
+
+config USER_VOLTAGE_CONTROL
+	bool "Allows user voltage control"
+	depends on TEGRA_SILICON_PLATFORM
+	default y
+	help
+	  Enable user voltage control interface

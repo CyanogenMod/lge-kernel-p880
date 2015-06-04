@@ -412,16 +412,14 @@ static int util_ascii_to_hex(char* keystr, unsigned int keystrlen, char* dst)
 static bool check_nvmac_is_valid(char* nvmac)
 {
 	bool ret = true;
-	const char init_val[3][ETHER_ADDR_LEN] = {
+	const char init_val[2][ETHER_ADDR_LEN] = {
 		{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-		{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
 		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 	};
 
 	if (!nvmac
 		|| !memcmp(nvmac, init_val[0], ETHER_ADDR_LEN)
-		|| !memcmp(nvmac, init_val[1], ETHER_ADDR_LEN)
-		|| !memcmp(nvmac, init_val[2], ETHER_ADDR_LEN)) {
+		|| !memcmp(nvmac, init_val[1], ETHER_ADDR_LEN)) {
 		ret = false;
 	}
 	return ret;

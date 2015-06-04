@@ -535,6 +535,8 @@ void tegra_dc_blank(struct tegra_dc *dc);
 
 void tegra_dc_enable(struct tegra_dc *dc);
 void tegra_dc_disable(struct tegra_dc *dc);
+int tegra_dc_set_default_videomode(struct tegra_dc *dc);
+
 
 u32 tegra_dc_get_syncpt_id(const struct tegra_dc *dc, int i);
 u32 tegra_dc_incr_syncpt_max(struct tegra_dc *dc, int i);
@@ -604,12 +606,15 @@ void tegra_dc_set_out_pin_polars(struct tegra_dc *dc,
 #define GAMMA_NV_SEND 5
 #define GAMMA_NV_SAVED 6
 #define GAMMA_NV_RETURNED 7
+#define GAMMA_NV_LUT 8
 int dc_set_gamma_rgb(int window_n, int red,int green,int blue);
+void dc_set_gamma_lut(void);
 struct lcd_gamma_rgb {
 	unsigned char red;
 	unsigned char green;
 	unsigned char blue;
 	unsigned char table_type;
+	struct tegra_dc_lut lut;
 };
 extern struct lcd_gamma_rgb cmdlineRGBvalue;
 /*                                 */

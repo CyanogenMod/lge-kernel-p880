@@ -121,7 +121,7 @@ temp_show(struct device *dev, struct device_attribute *attr, char *buf)
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%ld\n", temperature);
+	return sprintf(buf, "%ld\n", temperature/1000);
 }
 
 static ssize_t

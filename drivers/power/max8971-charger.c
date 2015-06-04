@@ -175,6 +175,8 @@ struct max8971_chip {
 	int				chg_cable_type;
 	int				chg_status;
 	bool				chg_enable;
+	int				chgcc_forced;
+	int				dcilmt_forced;
 };
 
 static struct max8971_chip	*max8971_chg;
@@ -228,11 +230,19 @@ out:
 	return ret;
 }
 
+#define POWER_SUPPLY_TYPE_FORCED 9001
+
 extern unsigned char chg_flag_muic;
 extern unsigned char chg_700_flag;
 static int max8971_set_reg(struct max8971_chip *chip, int enable)
 {
 	u8 reg_val= 0;
+	int chg_cable_type = chip->chg_cable_type;
+
+	if (chip->chgcc_forced >= 5
+			&& chip->chgcc_forced <= 31) {
+		chg_cable_type = POWER_SUPPLY_TYPE_FORCED;
+	}
 
 	// unlock charger protection
 	reg_val = chip->pdata->chg_proctection  << MAX8971_CHGPROT_SHIFT;
@@ -244,7 +254,7 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 		dev_dbg(&chip->client->dev, "Charing enable..\n");
 
 		// Set fast charge current and timer
-		switch(chip->chg_cable_type) {
+		switch(chg_cable_type) {
 			case POWER_SUPPLY_TYPE_USB:
 				//                                                      
 				if( charging_mode != CHARGING_MHL ) {
@@ -266,6 +276,12 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 							(chip->pdata->fchgtime<<MAX8971_FCHGTIME_SHIFT));
 				}
 				break;
+
+			case POWER_SUPPLY_TYPE_FORCED:
+				reg_val = (chip->chgcc_forced << MAX8971_CHGCC_SHIFT) |
+						(chip->pdata->fchgtime << MAX8971_FCHGTIME_SHIFT);
+				break;
+
 			case POWER_SUPPLY_TYPE_MAINS:
 //                                                                          
 //                    
@@ -286,6 +302,7 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 				reg_val = ((chip->pdata->chgcc_factory << MAX8971_CHGCC_SHIFT) |
 						(chip->pdata->fchgtime<<MAX8971_FCHGTIME_SHIFT));
 				break;
+
 			default :
 				dev_dbg(&chip->client->dev, "Unknown charger cabel type!!!\n");
 				reg_val = ((chip->pdata->chgcc_usb500 << MAX8971_CHGCC_SHIFT) |
@@ -305,7 +322,7 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 		dev_dbg(&chip->client->dev, "MAX8971_REG_FCHGCRNT(0x%x) = 0x%x\n", MAX8971_REG_FCHGCRNT, reg_val);
 		
 		// Set input current limit and charger restart threshold
-		switch(chip->chg_cable_type) {
+		switch(chg_cable_type) {
 			case POWER_SUPPLY_TYPE_USB:
 				//                                                      
 				if( charging_mode != CHARGING_MHL ) {
@@ -315,6 +332,10 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 					reg_val = ((chip->pdata->chgrstrt << MAX8971_CHGRSTRT_SHIFT) |
 					(chip->pdata->dcilmt_mhl400 << MAX8971_DCILMT_SHIFT));
 				}
+				break;
+			case POWER_SUPPLY_TYPE_FORCED:
+				reg_val = (chip->pdata->chgrstrt << MAX8971_CHGRSTRT_SHIFT) |
+						(chip->dcilmt_forced << MAX8971_DCILMT_SHIFT);
 				break;
 			case POWER_SUPPLY_TYPE_MAINS:
 				if(chg_700_flag == 1){
@@ -346,7 +367,7 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 				(chip->pdata->chgcv << MAX8971_CHGCV_SHIFT) |
 				(chip->pdata->ifst2p8 << MAX8971_IFST2P8_SHIFT));
 #endif
-		switch(chip->chg_cable_type) {
+		switch(chg_cable_type) {
 			case POWER_SUPPLY_TYPE_USB:
 				//                                                      
 				if( charging_mode != CHARGING_MHL ) {
@@ -361,6 +382,7 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 					(chip->pdata->ifst2p8_mhl400 << MAX8971_IFST2P8_SHIFT));
 				}
 				break;
+			case POWER_SUPPLY_TYPE_FORCED:
 			case POWER_SUPPLY_TYPE_MAINS:
 				reg_val = ((chip->pdata->topofftime << MAX8971_TOPOFFTIME_SHIFT) |
 				(chip->pdata->topofftshld << MAX8971_TOPOFFTSHLD_SHIFT) |
@@ -394,7 +416,7 @@ static int max8971_set_reg(struct max8971_chip *chip, int enable)
 		if(chg_flag_muic >= MAX_CHARGER_INT_COUNT)		//                                                                    
 		{
 			//                                                                                           
-			if(chip->chg_cable_type == POWER_SUPPLY_TYPE_USB){
+			if(chg_cable_type == POWER_SUPPLY_TYPE_USB){
 			reg_val = (0x0 << MAX8971_DCMON_DIS_SHIFT)
 				|(chip->pdata->suspend_usb << MAX8971_USB_SUS_SHIFT);
 		}
@@ -981,6 +1003,58 @@ static DEVICE_ATTR(chgcc_ta, S_IRUGO | S_IWUSR | S_IRGRP | S_IWGRP,
 		   max8971_charger_show_chgcc_ta,
 		   max8971_charger_store_chgcc_ta);
 
+static ssize_t max8971_charger_show_chgcc_forced(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct max8971_chip *chip = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n", chip->chgcc_forced);
+}
+
+static ssize_t max8971_charger_store_chgcc_forced(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct max8971_chip *chip = dev_get_drvdata(dev);
+	if (!count) {
+		return -EINVAL;
+	}
+	chip->chgcc_forced = simple_strtoul(buf, NULL, 10);
+	if (chip->chg_enable) {
+		max8971_set_reg(chip, 1);
+	}
+	return count;
+}
+
+DEVICE_ATTR(chgcc_forced, 0660, max8971_charger_show_chgcc_forced,
+		max8971_charger_store_chgcc_forced);
+
+static ssize_t max8971_charger_show_dcilmt_forced(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct max8971_chip *chip = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n", chip->dcilmt_forced);
+}
+
+static ssize_t max8971_charger_store_dcilmt_forced(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct max8971_chip *chip = dev_get_drvdata(dev);
+	if (!count) {
+		return -EINVAL;
+	}
+	int val = simple_strtoul(buf, NULL, 10);
+	if (val < 9 || val > 63) {
+		return -EINVAL;
+	}
+	chip->dcilmt_forced = val;
+	if (chip->chg_enable) {
+		max8971_set_reg(chip, 1);
+	}
+	return count;
+}
+
+DEVICE_ATTR(dcilmt_forced, 0660, max8971_charger_show_dcilmt_forced,
+		max8971_charger_store_dcilmt_forced);
+
 
 static __devinit int max8971_probe(struct i2c_client *client, 
 				   const struct i2c_device_id *id)
@@ -1075,14 +1149,36 @@ static __devinit int max8971_probe(struct i2c_client *client,
 	}
 */
 
- 	ret = device_create_file(&client->dev, &dev_attr_chgcc_ta);
-        if (ret < 0) {
-                printk("device_create_file error!\n");
-                return ret;
+	chip->chgcc_forced = 0;
+	chip->dcilmt_forced = 60;
+
+	ret = device_create_file(&client->dev, &dev_attr_chgcc_ta);
+	if (ret < 0) {
+		printk("device_create_file(chgcc_ta) error!\n");
+		goto err;
 	}
+
+	ret = device_create_file(&client->dev, &dev_attr_chgcc_forced);
+	if (ret < 0) {
+		printk("device_create_file(chgcc_forced) error!\n");
+		goto err_chgcc_forced;
+	}
+
+	ret = device_create_file(&client->dev, &dev_attr_dcilmt_forced);
+	if (ret < 0) {
+		printk("device_create_file(dcilmt_forced) error!\n");
+		goto err_dcilmt_forced;
+	}
+
 	dev_info(&client->dev, "%s finish...\n", __func__);
 
 	return 0;
+
+err_dcilmt_forced:
+	device_remove_file(&client->dev, &dev_attr_chgcc_forced);
+
+err_chgcc_forced:
+	device_remove_file(&client->dev, &dev_attr_chgcc_ta);
 
 err:
 	free_irq(client->irq, chip);
@@ -1107,6 +1203,10 @@ static __devexit int max8971_remove(struct i2c_client *client)
 
 	//kkk_test
 	//cancel_delayed_work(&chip->monitor_work);
+
+	device_remove_file(&client->dev, &dev_attr_dcilmt_forced);
+	device_remove_file(&client->dev, &dev_attr_chgcc_forced);
+	device_remove_file(&client->dev, &dev_attr_chgcc_ta);
 
 	gpio_free(TEGRA_GPIO_PJ2);
 	free_irq(client->irq, chip);
@@ -1186,7 +1286,8 @@ module_exit(max8971_exit);
 
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Clark Kim <clark.kim@maxim-ic.com>");
+MODULE_AUTHOR("Clark Kim <clark.kim@maxim-ic.com>"
+		", Michael Zhou <mzhou@cse.unsw.edu.au>");
 MODULE_DESCRIPTION("Power supply driver for MAX8971");
 MODULE_VERSION("3.3");
 MODULE_ALIAS("platform:max8971-charger");

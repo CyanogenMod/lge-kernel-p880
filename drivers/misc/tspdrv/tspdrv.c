@@ -41,11 +41,11 @@
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 #include <asm/uaccess.h>
-#include <tspdrv.h>
+#include "tspdrv.h"
 #include <linux/tspdrv_i2c.h>	//                               
 #include <linux/delay.h>		//                                      
 
-#include <ImmVibeSPI.c>
+#include "ImmVibeSPI.c"
 #if defined(VIBE_DEBUG) && defined(VIBE_RECORD)
 #include <tspdrvRecorder.c>
 #endif
@@ -162,6 +162,8 @@ MODULE_LICENSE("GPL v2");
 int __init tspdrv_init( void )
 {
     int nRet, i;   /* initialized below */
+
+    create_vibrator_sysfs();
 
     DbgOut((KERN_INFO "tspdrv: init_module. enter\n"));
 

@@ -39,14 +39,10 @@
 #include "clock.h"
 
 #define INITIAL_STATE		TEGRA_HP_DISABLED
-#define UP2G0_DELAY_MS		70
-#define UP2Gn_DELAY_MS		100
+#define UP2G0_DELAY_MS		100
+#define UP2Gn_DELAY_MS		500
 //                    
-#ifdef CONFIG_MACH_X3
 #define DOWN_DELAY_MS		1000
-#else
-#define DOWN_DELAY_MS		2000
-#endif
 
 static struct mutex *tegra3_cpu_lock;
 
@@ -74,11 +70,7 @@ static int mp_overhead = 10;
 module_param(mp_overhead, int, 0644);
 
 //                    
-#ifdef CONFIG_MACH_X3
-static int balance_level = 75;
-#else
-static int balance_level = 60;
-#endif
+static int balance_level = 70;
 
 module_param(balance_level, int, 0644);
 
@@ -210,7 +202,7 @@ static unsigned int rt_profile_sel;
 static unsigned int rt_profile_default[] = {
 /*      1,  2,  3,  4 - on-line cpus target */
 /*                                                                              */
-	10,  11, 12, UINT_MAX
+	10, 11, 12, UINT_MAX
 //	5,  9, 10, UINT_MAX
 };
 
