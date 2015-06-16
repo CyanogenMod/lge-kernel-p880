@@ -4983,7 +4983,7 @@ mem_cgroup_create(struct cgroup_subsys *ss, struct cgroup *cont)
 		root_mem_cgroup = memcg;
 		if (mem_cgroup_soft_limit_tree_init())
 			goto free_out;
-		root_mem_cgroup = mem;
+		root_mem_cgroup = memcg;
 		for_each_possible_cpu(cpu) {
 			struct memcg_stock_pcp *stock =
 						&per_cpu(memcg_stock, cpu);
